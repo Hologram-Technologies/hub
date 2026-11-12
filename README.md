@@ -77,8 +77,8 @@ bucket, command and the whole Hugging Face dialect table come from
    shows the count in the header.
 
 `app/tools/site_spec.py` is the authoring input for the site; the generator
-writes it into `Site.lex.tex`. `web/` holds the renderer (`app.mjs`), the
-stylesheet, the full brand fonts (SIL OFL, from hologram-brand-kit at
+writes it into `Site.lex.tex`. `web/` holds the renderer (`hub.mjs`), the stylesheet (`hub.css`), a `sw.js` that retires the worker the proof page left at the root, the
+full brand fonts (SIL OFL, from hologram-brand-kit at
 `caa064a`) and the Alpine wallpaper from gethologram.ai.
 
 # Template reference
