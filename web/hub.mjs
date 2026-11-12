@@ -6,6 +6,7 @@
 
 import { load } from "./app/vendor/prism-code/src/browser.mjs";
 import { blake3Hex } from "./app/vendor/prism-code/src/blake3.mjs";
+import { verifyBundle } from "./sigstore.mjs";
 
 const root = new URL(".", import.meta.url);
 const $ = (s, el = document) => el.querySelector(s);
@@ -300,7 +301,11 @@ function card(m, s) {
 async function drawModel(main, id) {
   const s = screens.model;
   const list = await models();
-  const m = list.find((x) => x.id.toLowerCase() === id.toLowerCase());
+  // The catalog holds the 500 trending models; any other indexed model is found
+  // through the hub's search.
+  const same = (x) => x.id.toLowerCase() === id.toLowerCase();
+  const m = list.find(same) ?? await fetch(`${chrome.api}/api/models?search=${encodeURIComponent(id.split("/")[1] ?? id)}&limit=50`)
+    .then((r) => (r.ok ? r.json() : [])).then((found) => found.find(same)).catch(() => undefined);
   if (!m) {
     main.innerHTML = `<a class="back" data-in href="${href("models/")}">${ICON.back} ${esc(s.back)}</a><section class="panel note">${esc(s.missing)}</section>`;
     return;
@@ -332,12 +337,13 @@ async function drawModel(main, id) {
         <dt>${esc(s.held)}</dt><dd class="pills">${sources(m).map((x) => `<span class="pill">${esc(x)}</span>`).join("")}</dd>
         <dt>${esc(s.get)}</dt><dd><div class="tabs small" role="tablist">${tools}</div>
           <button type="button" class="command wide" id="cmd" data-copy="${esc(command(0))}"><span>$ ${esc(command(0))}</span>${ICON.copy}</button></dd>
+        <dt>${esc(s.trust.row)}</dt><dd id="signed" class="dim">…</dd>
       </dl>
     </section>
     <div class="split">
       <aside class="panel facts"><dl>${s.facts.map(([k, l]) => `<dt>${esc(l)}</dt><dd>${typeof facts[k] === "string" && facts[k].startsWith("<") ? facts[k] : esc(facts[k] || "—")}</dd>`).join("")}</dl></aside>
       <section class="panel body">
-        <div class="tabs" role="tablist">${s.tabs.map((t, i) => `<button type="button" role="tab" class="${i ? "" : "on"}" data-tab="${i}">${esc(t)}</button>`).join("")}</div>
+        <div class="tabs" role="tablist">${s.tabs.map((t, i) => `<button type="button" role="tab" class="${i ? "" : "on"}" data-tab="${i}">${esc(t)}</button>`).join("")}<button type="button" role="tab" data-tab="2" id="tensors-tab" hidden>${esc(s.trust.tensorsTab)}</button></div>
         <div id="tab"></div>
       </section>
     </div>`;
@@ -366,9 +372,20 @@ async function drawModel(main, id) {
       ${files.map((f) => `<tr><td>${esc(f.path)}</td><td>${esc(bytes(f.size ?? 0))}</td><td><code>${esc(((f.lfs?.oid ?? f.oid) || "").slice(0, 16))}</code></td></tr>`).join("")}
       </tbody></table></div>`;
   };
+  const signed = signature(m, s.trust);
+  signed.then(({ manifest }) => { if (manifest) $("#tensors-tab").hidden = false; });
+  const tensorsTab = async () => {
+    const { manifest } = await signed;
+    if (!manifest) return "";
+    return `<p class="dim">${esc(fill(s.trust.tensorsNote, { n: manifest.tensors.length }))}</p>
+      <div class="scroll"><table><thead><tr>${s.trust.tensorColumns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>
+      ${manifest.tensors.map((t) => `<tr><td>${esc(t.name)}</td><td>${esc(t.dtype)}</td><td>${esc(`[${t.shape.join(", ")}]`)}</td><td><code>${esc(t.blake3.slice(0, 23))}…</code></td></tr>`).join("")}
+      </tbody></table></div>`;
+  };
   const show = async (i) => {
     $("#tab").innerHTML = i ? `<p class="dim">…</p>` : overview;
-    if (i) $("#tab").innerHTML = await filesTab();
+    if (i === 1) $("#tab").innerHTML = await filesTab();
+    if (i === 2) $("#tab").innerHTML = await tensorsTab();
   };
   main.querySelector(".body .tabs").addEventListener("click", (e) => {
     const t = e.target.closest("[data-tab]");
@@ -553,6 +570,45 @@ function drawBuckets(main) {
     box.className = `verdict ${code === 20 ? "v1" : code === 21 ? "v2" : ""}`;
     box.innerHTML = `<p><strong>${esc(fill(s.verdicts[code] ?? s.verdicts[0], { size: bytes(size) }))}</strong></p>`;
   });
+}
+
+// ---------------------------------------------------------------- signature
+// The page fetches the model's manifest and the witness's Sigstore bundle,
+// checks the bundle against the trust roots the model pins (sigstore.mjs), and
+// the kernel's trust rule (HK-14) decides the label from those checks.
+const CHECKS = ["chain", "time", "log", "signature", "identity", "subject", "predicate"];
+let manifestIndex, witnessBundle;
+async function signature(m, t) {
+  const cell = $("#signed");
+  manifestIndex ??= fetch(new URL("data/manifests/index.json", root)).then((r) => (r.ok ? r.json() : { manifests: [] })).catch(() => ({ manifests: [] }));
+  const entry = (await manifestIndex).manifests.find((x) => x.repo.toLowerCase() === m.id.toLowerCase());
+  let facts = null;
+  let manifest = null;
+  if (entry) {
+    witnessBundle ??= fetch(new URL("data/manifests/witness.sigstore.json", root)).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const [bytes, bundle] = await Promise.all([
+      fetch(new URL(`data/manifests/${entry.repo}.json`, root)).then((r) => r.arrayBuffer()).then((b) => new Uint8Array(b)),
+      witnessBundle,
+    ]);
+    manifest = JSON.parse(new TextDecoder().decode(bytes));
+    facts = bundle ? await verifyBundle(bundle, bytes, t.policy) : null;
+  }
+  const request = new Uint8Array(11);
+  request[0] = 5;
+  // A manifest that claims a witness but has no bundle counts as signed and
+  // failing, so the kernel says it does not check out rather than unsigned.
+  request[1] = entry ? 1 : 0;
+  CHECKS.forEach((c, i) => { request[2 + i] = facts?.[c] ? 1 : 0; });
+  request[9] = 1;
+  request[10] = 0;
+  const label = (await kernel.dispatch(request))[0];
+  const when = facts?.signedAt ? new Date(facts.signedAt * 1000).toISOString().slice(0, 16).replace("T", " ") + " UTC" : "";
+  cell.className = `signed s${label}`;
+  cell.innerHTML = `<strong>${esc(fill(t.labels[label] ?? t.labels[3], { owner: m.id.split("/")[0] }))}</strong>${
+    entry ? `<p class="dim">${esc(t.witness)} ${when ? esc(fill(t.logged, { when })) : ""}</p>
+      <ul class="checks">${CHECKS.map((c) => `<li class="${facts?.[c] ? "ok" : "no"}">${facts?.[c] ? ICON.check : "×"} ${esc(t.checks[c])}</li>`).join("")}</ul>
+      <p class="dim"><code>${esc(t.manifest)} sha256:${esc(entry.sha256.slice(0, 16))}…</code> · ${esc(String(entry.files))} files (${esc(String(manifest.files.filter((f) => f.witnessed).length))} ${esc(t.witnessed)}) · ${esc(String(entry.tensors))} tensors</p>` : ""}`;
+  return { manifest, label };
 }
 
 // ---------------------------------------------------------------- verify

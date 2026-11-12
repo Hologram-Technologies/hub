@@ -12,12 +12,12 @@ This repository's `just vv` instantiates the universal verification policy in
 | `just lint` | Clippy at `-D warnings`, every target, every optional feature | --- |
 | `just test` | the workspace suite, including the R3 meta-gate | `CM-02`, `CM-03` |
 | `just deny` | R6 over the dependency graph | --- |
-| `just app` | the Prism application: LexLean format and lock, then `prismpm verify`, which builds the holo and checks it | `HK-01` to `HK-13` |
+| `just app` | the Prism application: LexLean format and lock, then `prismpm verify`, which builds the holo and checks it | `HK-01` to `HK-14` |
 
 Each check runs once per `just vv`. `just bdd` runs only the meta-gate while a
 scenario is being written; `just test` already includes it.
 
-The register holds thirteen claims, `HK-01` to `HK-13`, so the meta-gate
+The register holds fourteen claims, `HK-01` to `HK-14`, so the meta-gate
 checks real rows, real scenarios and real tests. It becomes an error as soon as an ID, scenario,
 or test is added without the other two.
 
@@ -28,7 +28,7 @@ or test is added without the other two.
 | `check-model` | `CONFORMANCE.md` disagrees with the register | rejected |
 | `audit-deferral` | a deferral marker in a crate and in the gate's own source | both rejected |
 | honesty meta-gate | an ID with no test | rejected |
-| `kernel_hk_01` to `kernel_hk_10` | `breaksPrivacy` drops its `delivers` disjunct; `dispatch` delivers on a digest mismatch; `soundHolds` declares an extra axiom; `Proofs/Sound.lex.tex` is removed from the entrypoints; one acceptance vector's response is edited; `breaksNav` drops its screen check; `breaksDialect` moves its threshold to 500; `dispatch` stops serving screens from `Site`; `breaksVerdict` tests a verdict code that never occurs; `dispatch` reads the verdict's first result from the wrong byte | all ten rejected |
+| `kernel_hk_01` to `kernel_hk_10` | `breaksPrivacy` drops its `delivers` disjunct; `dispatch` delivers on a digest mismatch; `soundHolds` declares an extra axiom; `Proofs/Sound.lex.tex` is removed from the entrypoints; one acceptance vector's response is edited; `breaksNav` drops its screen check; `breaksDialect` moves its threshold to 500; `dispatch` stops serving screens from `Site`; `breaksVerdict` tests a verdict code that never occurs; `dispatch` reads the verdict's first result from the wrong byte; `breaksTrust` stops testing a witness shown as a publisher; `dispatch` shifts the trust facts by one byte | all twelve rejected |
 | `prismpm verify` | an acceptance vector set without the exact guest-allocation boundary | rejected (PP2009) |
 | `audit-bootstrap` | a floating/copied action, mutable SDK tag, changed universal file, narrowed boundary, shallow/credential-retaining checkout, copied project renderer, omitted standards lock, acceptance bypass, deploy-job signing privilege, incomplete release lifecycle, or a bootstrap that drops a native architecture from main or tags, cancels or replaces a main run, or skips runs by path, condition or matrix exclusion | all rejected |
 | `audit-bootstrap` (`proof_reuse_is_confined`) | proof reuse widened to `push` or to any event, a recipe that stops proving, a cache key without the `Justfile` or without `app/**`, the event line removed from the gate, a second use of the event in the recipe, and the `merge_group` trigger dropped | all rejected |
@@ -367,6 +367,32 @@ copies them at each deploy, keeping only the fields the screens read (1.3 MB,
 `Access-Control-Allow-Origin: *`, so Buckets checks an object in the browser:
 the catalog object `blake3:5d1685…` (544,627 bytes) is fetched, hashed with the
 vendored BLAKE3 and judged by `accept`.
+
+## Signed manifests
+
+`trust` (request `05` plus ten bytes: whether a bundle exists, seven checks,
+the signature kind and namespace ownership) answers 0 not signed, 1 witnessed,
+2 published or 3 does not check out. `trustHolds` (`HK-14`) states that 1 and
+2 need every check, that 2 needs a publisher's signature from the namespace
+owner, and that a witness (kind 1) never gets 2. Lean proved it in 2 seconds
+with `Classical.choice`, `Quot.sound` and `propext`; eight trust requests are
+acceptance vectors.
+
+`web/sigstore.mjs` was tested on 2026-11-12 against the real bundle GitHub
+holds for the deployed holo (`sha256:ba7cecaa…`, signed by `pages.yml`): every
+check passed; one flipped byte in the holo failed only the subject check; a
+different workflow identity failed only the identity check; an edited
+statement failed the log, signature and statement-type checks. The pinned
+roots are the public-good Fulcio intermediate (valid from 2022-04-13) and the
+Rekor key `c0d23d6a…` from Sigstore's trusted root.
+
+`tools/manifest.mjs` was run on `BAAI/bge-small-en-v1.5`: 14 files, 12
+re-hashed and matching Hugging Face's addresses, 200 tensors; the 133 MB
+safetensors file took 66 s from this machine. The first full run stalled on
+the network for 15 minutes on `openai-community/gpt2`, so the tool now prints a
+line per file. The bundle a deploy signs is only produced in CI, where the
+workflow has an OIDC identity; locally the page shows the manifest as not
+checking out, as it should without a signature.
 
 ## Prism accounts: the remembered passkey
 

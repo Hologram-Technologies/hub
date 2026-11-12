@@ -25,6 +25,11 @@ try {
 } catch (error) {
   console.warn(`web-routes: no model pages (${error.message}); deep links to models use 404.html`);
 }
+// Witnessed models get a page too, whether or not the catalog lists them.
+try {
+  const { manifests } = JSON.parse(await readFile(join(site, "data", "manifests", "index.json"), "utf8"));
+  for (const { repo } of manifests) if (!routes.includes(`models/${repo}`)) routes.push(`models/${repo}`);
+} catch {}
 for (const route of routes) {
   await mkdir(join(site, route), { recursive: true });
   await writeFile(join(site, route, "index.html"), shell);

@@ -141,7 +141,30 @@ def ref_dispatch(b):
         return gen_site.screen_json(site_spec.ROUTES[b[1]])
     if len(b) == 5 and b[0] == 4:
         return bytes([ref_verdict(list(b[1:]))])
+    if len(b) == 11 and b[0] == 5:
+        return bytes([ref_trust(*b[1:])])
     return bytes([0, 4, 0])
+
+
+# Operation 5 (trust), exactly 11 bytes: `05 present chain time log signature
+# identity subject predicate kind owner`. The eight checks are 0 or 1, as the
+# page's Sigstore check measured them; kind is 1 witness or 2 publisher; owner
+# is 1 when the signer owns the model's namespace. The answer is one byte:
+# 0 not signed, 1 witnessed, 2 published, 3 does not check out.
+TRUST_CHECKS = 7
+TRUST_NAMES = ["present", "chain", "time", "log", "signature", "identity", "subject", "predicate", "kind", "owner"]
+
+
+def ref_trust(present, *rest):
+    checks, kind, owner = rest[:TRUST_CHECKS], rest[TRUST_CHECKS], rest[TRUST_CHECKS + 1]
+    if present == 0:
+        return 0
+    if present == 1 and all(c == 1 for c in checks):
+        if kind == 2 and owner == 1:
+            return 2
+        if kind == 1:
+            return 1
+    return 3
 
 
 # Operation 4 (verdict), exactly 5 bytes: `04 r0 r1 r2 r3`, one byte per source
@@ -224,6 +247,14 @@ VECTORS = [
     bytes([4, 0, 0, 0, 0]),
     bytes([4, 20, 7, 0, 0]),
     bytes([4, 20, 20, 20]),
+    bytes([5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]),
+    bytes([5, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1]),
+    bytes([5, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0]),
+    bytes([5, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0]),
+    bytes([5, 1, 1, 1, 1, 1, 0, 1, 1, 2, 1]),
+    bytes([5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+    bytes([5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
+    bytes([5, 2, 1, 1, 1, 1, 1, 1, 1, 1, 0]),
 ]
 assert len(set(VECTORS)) == len(VECTORS), "requests must be unique"
 assert max(len(v) for v in VECTORS) == 128, "one request is exactly guestAllocationMaximum bytes"
@@ -266,9 +297,17 @@ def nest(op, xs):
     return out
 
 
+def parameters(params):
+    # `lexlean fmt` puts one parameter per line when the list passes 100 columns.
+    line = "  parameters: [%s]," % params
+    if len(line) <= 100:
+        return line
+    return "  parameters: [\n%s\n  ]," % ",\n".join("    " + p.strip() for p in params.split(","))
+
+
 def defn(name, params, result, body, axioms=None, rec=None):
-    s = "definition{\n  name: %s,\n  parameters: [%s],\n  result: %s,\n  body: %s" % (
-        name, params, result, body)
+    s = "definition{\n  name: %s,\n%s\n  result: %s,\n  body: %s" % (
+        name, parameters(params), result, body)
     if axioms:
         s += ",\n  axioms: [%s]" % ", ".join(axioms)
     if rec:
@@ -400,6 +439,17 @@ def kernel_module():
             (nest("||", ["(%s =? 20)" % r for r in rs]), "1"),
         ], "3")),
     ], "0")))
+    # The label a page shows for a model's signature. The checks are facts the
+    # page measured; the kernel decides what they add up to.
+    tparams = ", ".join("%s : Nat" % n for n in TRUST_NAMES)
+    k.append(defn("trustChecks", tparams, "Bool", nest("&&", ["(%s =? 1)" % n for n in TRUST_NAMES[:8]])))
+    k.append(defn("trust", tparams, "Nat", chain([
+        ("(present =? 0)", "0"),
+        ("(trustChecks %s)" % " ".join(TRUST_NAMES), chain([
+            ("((kind =? 2) && (owner =? 1))", "2"),
+            ("(kind =? 1)", "1"),
+        ], "3")),
+    ], "3")))
     k.append(defn("encodeVerdict", "code : Nat", "Bytes", chain(
         [("(code =? %d)" % i, hx(bytes([i]))) for i in (1, 2, 3)], "0x00")))
     # A source and an ETag are named only when the file is delivered, so every
@@ -415,7 +465,9 @@ def kernel_module():
                   "else (if (((Foundation.Bytes::byteLength value) =? 2) && ((byteNat value 0) =? 3)) then "
                   "(Site::screen (byteNat value 1)) else (if (((Foundation.Bytes::byteLength value) =? 5) && "
                   "((byteNat value 0) =? 4)) then (encodeVerdict (verdict (byteNat value 1) (byteNat value 2) "
-                  "(byteNat value 3) (byteNat value 4))) else 0x000400))))", AX))
+                  "(byteNat value 3) (byteNat value 4))) else (if (((Foundation.Bytes::byteLength value) =? 11) && "
+                  "((byteNat value 0) =? 5)) then (encodeVerdict (trust %s)) else 0x000400)))))"
+                  % " ".join("(byteNat value %d)" % i for i in range(1, 11)), AX))
     vec = "(nil %sAcceptanceVector)" % T
     for r, e in reversed(list(zip(VECTORS, EXPECTED))):
         vec = "(cons (record %sAcceptanceVector {request := %s, response := %s}) %s)" % (T, hx(r), hx(e), vec)
@@ -514,6 +566,15 @@ INVARIANTS = [
      "((((r0 =? 21) || (r1 =? 21)) || ((r2 =? 21) || (r3 =? 21))) && "
      "(not (((Kernel::verdict r0 r1 r2 r3) =? 2) || ((Kernel::verdict r0 r1 r2 r3) =? 0)))))",
      [q("verdict"), q("resultValid")]),
+    # A label of witnessed or published needs every check to pass; published
+    # needs a publisher's signature from the namespace owner; a witness's
+    # signature is never shown as a publisher's.
+    ("Trust", "breaksTrust", "trustHolds", ", ".join("%s : Nat" % n for n in TRUST_NAMES), " ".join(TRUST_NAMES),
+     "((((((Kernel::trust %s) =? 1) || ((Kernel::trust %s) =? 2)) && (not %s)) || "
+     "(((Kernel::trust %s) =? 2) && (not ((kind =? 2) && (owner =? 1))))) || "
+     "((kind =? 1) && ((Kernel::trust %s) =? 2)))"
+     % ((" ".join(TRUST_NAMES),) * 2 + (nest("&&", ["(%s =? 1)" % n for n in TRUST_NAMES[:8]]),) + (" ".join(TRUST_NAMES),) * 2),
+     [q("trust"), q("trustChecks")]),
 ]
 
 
@@ -531,8 +592,8 @@ def theorem(name, params, statement, form, defs, axioms):
     if len(proof) > 100:
         rows = ",\n".join("      " + d for d in ordered)
         proof = "  proof: %s{\n    definitions: [\n%s\n    ]\n  }," % (form, rows)
-    return ("theorem{\n  name: %s,\n  parameters: [%s],\n  statement: %s,\n%s\n"
-            "  axioms: [%s]\n}\n" % (name, params, statement, proof, ", ".join(axioms)))
+    return ("theorem{\n  name: %s,\n%s\n  statement: %s,\n%s\n"
+            "  axioms: [%s]\n}\n" % (name, parameters(params), statement, proof, ", ".join(axioms)))
 
 
 def proof_module(name, declarations, imports="Kernel"):
@@ -544,7 +605,7 @@ def proof_module(name, declarations, imports="Kernel"):
 # The axioms Lean observes for each proof (`#print axioms`, measured): `omega`
 # reaches `Classical.choice` when a split leaves an `if` over a disjunction.
 # LexLean refuses a proof whose declared set differs (LLV7005).
-CLASSICAL = {"Delivery", "Etag", "Healthy", "Sound"}
+CLASSICAL = {"Delivery", "Etag", "Healthy", "Sound", "Trust"}
 
 
 def proof_modules():

@@ -151,7 +151,30 @@ jobs:
           name: screens
           path: screens
           if-no-files-found: ignore
+      - name: Keep witnessed manifests between runs
+        # A manifest is reused while its model's revision is unchanged, so an
+        # unchanged release is never downloaded and hashed again.
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/manifests
+          key: manifests-${{ hashFiles('manifests/models.txt', 'tools/manifest.mjs') }}-${{ github.run_id }}
+          restore-keys: manifests-${{ hashFiles('manifests/models.txt', 'tools/manifest.mjs') }}-
+      - name: Witness the listed models
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/manifest.mjs manifests/models.txt "$RUNNER_TEMP/manifests"
+      - name: Sign the manifests as this repository's workflow
+        id: witness
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/manifests/**/*.json
+          predicate-type: https://hologram.foundation/hub/witness/v1
+          predicate: '{"witness":"https://huggingface.co","tool":"tools/manifest.mjs"}'
+          show-summary: false
       - name: Put the hub at the root and the proof page under app/
+        env:
+          WITNESS_BUNDLE: ${{ steps.witness.outputs.bundle-path }}
         # The hub's interface (web/) is drawn from screens the verified holo
         # serves, so it reads the holo, the runtime, the brand tokens and the
         # fonts from the proof page beside it; nothing is copied twice.
@@ -164,8 +187,17 @@ jobs:
           cp -r site "$RUNNER_TEMP/pages/app"
           test -f "$RUNNER_TEMP/pages/app/app.holo"
           test -f "$RUNNER_TEMP/pages/app/vendor/prism-code/src/browser.mjs"
+          mkdir -p "$RUNNER_TEMP/pages/data"
+          cp -r "$RUNNER_TEMP/manifests" "$RUNNER_TEMP/pages/data/manifests"
           node tools/web-routes.mjs "$RUNNER_TEMP/pages" https://gethologram.ai
           node tools/web-data.mjs "$RUNNER_TEMP/pages" https://gethologram.ai
+          node -e '
+            const { readFileSync, writeFileSync } = require("node:fs");
+            const text = readFileSync(process.argv[1], "utf8").trim();
+            let bundle;
+            try { bundle = JSON.parse(text); } catch { bundle = JSON.parse(text.split("\n")[0]); }
+            writeFileSync(process.argv[2], JSON.stringify(bundle));
+          ' "$WITNESS_BUNDLE" "$RUNNER_TEMP/pages/data/manifests/witness.sigstore.json"
       - name: Configure Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
       - name: Upload the page

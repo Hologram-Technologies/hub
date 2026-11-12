@@ -28,6 +28,8 @@ const pages = [
   ["registry/", ".card.entry"],
   ["apps/", ".card.app"],
   ["buckets/", "#check"],
+  // A witnessed model: its signature, made by this deploy, must check out.
+  ["models/BAAI/bge-small-en-v1.5/", "#signed.s1"],
 ];
 const browser = await playwright.chromium.launch();
 const failures = [];

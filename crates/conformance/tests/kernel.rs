@@ -296,6 +296,20 @@ fn kernel_hk_13() {
     dispatch_decides_by("(encodeVerdict (verdict (byteNat value 1)");
 }
 
+/// `HK-14`: A model page says Witnessed or Published only when every signature check passed, says Published only for a publisher's signature from the namespace owner, and never shows a witness's signature as a publisher's
+#[test]
+fn kernel_hk_14() {
+    pinned(
+        "Trust",
+        "breaksTrust",
+        "((((((Kernel::trust present chain time log signature identity subject predicate kind owner) =? 1) || ((Kernel::trust present chain time log signature identity subject predicate kind owner) =? 2)) && (not ((present =? 1) && ((chain =? 1) && ((time =? 1) && ((log =? 1) && ((signature =? 1) && ((identity =? 1) && ((subject =? 1) && (predicate =? 1)))))))))) || (((Kernel::trust present chain time log signature identity subject predicate kind owner) =? 2) && (not ((kind =? 2) && (owner =? 1))))) || ((kind =? 1) && ((Kernel::trust present chain time log signature identity subject predicate kind owner) =? 2)))",
+        "trustHolds",
+        "present chain time log signature identity subject predicate kind owner",
+        "Classical.choice, Quot.sound, propext",
+    );
+    dispatch_decides_by("(encodeVerdict (trust (byteNat value 1)");
+}
+
 /// `HK-10`: Received bytes are delivered exactly when their digest and size equal the expected digest and size
 #[test]
 fn kernel_hk_10() {

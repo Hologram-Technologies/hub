@@ -99,3 +99,9 @@ id = "HK-13"
 level = "build"
 suite = "kernel"
 statement = "The page says Verified only when at least one source delivered and none sent other bytes, and any source that sent other bytes makes the verdict a mismatch"
+
+[[id]]
+id = "HK-14"
+level = "build"
+suite = "kernel"
+statement = "A model page says Witnessed or Published only when every signature check passed, says Published only for a publisher's signature from the namespace owner, and never shows a witness's signature as a publisher's"

@@ -83,6 +83,12 @@ Feature: kernel
     When the Lean kernel checks verdictHolds in app/src/Proofs/Verdict.lex.tex during prismpm verify
     Then no input meets breaksVerdict
 
+  @HK-14 @build
+  Scenario: A model page says Witnessed or Published only when every signature check passed, says Published only for a publisher's signature from the namespace owner, and never shows a witness's signature as a publisher's
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks trustHolds in app/src/Proofs/Trust.lex.tex during prismpm verify
+    Then no input meets breaksTrust
+
   @HK-10 @build
   Scenario: Received bytes are delivered exactly when their digest and size equal the expected digest and size
     Given the kernel model in app/src/Kernel.lex.tex

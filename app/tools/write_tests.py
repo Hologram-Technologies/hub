@@ -44,6 +44,9 @@ CASES = [
     ("HK-13", "The page says Verified only when at least one source delivered and none sent other bytes, and any source that sent other bytes makes the verdict a mismatch",
      [("Verdict", "breaksVerdict", "verdictHolds", "r0 r1 r2 r3")],
      "(encodeVerdict (verdict (byteNat value 1)"),
+    ("HK-14", "A model page says Witnessed or Published only when every signature check passed, says Published only for a publisher's signature from the namespace owner, and never shows a witness's signature as a publisher's",
+     [("Trust", "breaksTrust", "trustHolds", "present chain time log signature identity subject predicate kind owner")],
+     "(encodeVerdict (trust (byteNat value 1)"),
 ]
 HK10 = "Received bytes are delivered exactly when their digest and size equal the expected digest and size"
 

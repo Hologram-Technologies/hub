@@ -35,6 +35,7 @@ model does not sanction.
 | `HK-11` | `build` | Every header item and every link that stays in the hub opens a screen the kernel renders |
 | `HK-12` | `build` | A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code |
 | `HK-13` | `build` | The page says Verified only when at least one source delivered and none sent other bytes, and any source that sent other bytes makes the verdict a mismatch |
+| `HK-14` | `build` | A model page says Witnessed or Published only when every signature check passed, says Published only for a publisher's signature from the namespace owner, and never shows a witness's signature as a publisher's |
 
 ## Cited authorities
 

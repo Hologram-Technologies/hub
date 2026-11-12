@@ -217,3 +217,14 @@ td { font-family: var(--mono); }
 .check .search { height: 44px; }
 .check .button { height: 44px; }
 .buckets #object { max-width: 760px; }
+
+/* signatures */
+.signed strong { font-weight: 500; }
+.signed.s1 strong, .signed.s2 strong { color: var(--success); }
+.signed.s3 strong { color: var(--destructive); }
+.signed .checks { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; }
+.signed .checks li { display: inline-flex; align-items: center; gap: 4px; }
+.signed .checks li.ok { color: var(--success); }
+.signed .checks li.no { color: var(--destructive); }
+.signed .checks .i { width: 14px; height: 14px; }
+.signed p { margin: 4px 0 0; }
