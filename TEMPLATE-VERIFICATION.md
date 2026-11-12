@@ -339,6 +339,22 @@ Hugging Face, ModelScope and IPFS (Filebase) each serve the file to another
 origin, and each copy hashes to the address in the hub's index,
 `0daed7749b4f…`.
 
+## Holo size and the proof page's budget
+
+The first push of `Verify` (commit `0b8beeb`) failed two gates in CI, and both
+are fixed in the next commit:
+
+- `audit-bootstrap` refused `pages.yml` because the new `smoke` job checked out
+  without `fetch-depth: 0` ("omits complete history or retains checkout
+  credentials"). The job now fetches complete history.
+- Lighthouse on the proof page measured total blocking time 118 ms against the
+  100 ms budget (performance 0.99). The holo had grown to 201 KB because each
+  screen was written as hundreds of short text pieces, which compiled to a
+  152 KB guest. Each screen is now one string literal (LexLean takes printable
+  ASCII with `\"` for a quote; other characters are hex), `Site.lex.tex` went
+  from 37 KB to 11 KB, and `gen_site.py` refuses a screen that holds a
+  backslash, which a LexLean string cannot.
+
 ## Prism accounts: the remembered passkey
 
 The sign-in page (`identity/id.mjs`) remembers which passkey this device last

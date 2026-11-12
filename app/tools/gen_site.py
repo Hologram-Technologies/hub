@@ -13,7 +13,11 @@ import re
 import site_spec as S
 
 AX = ["Quot.sound", "propext"]
-SAFE = re.compile(r"[A-Za-z0-9 .\-_/'()?!+=;&]+")
+# Printable ASCII but the backslash: LexLean source strings take these as they
+# are, with `"` written `\"`. Anything else is written as hex. One screen is
+# then a few long strings, not hundreds of pieces (the guest grew to 152 KB
+# with a piece per word, and the proof page's Lighthouse budget failed).
+SAFE = re.compile(r"[\x20-\x5b\x5d-\x7e]+")
 
 
 def defn(name, params, result, body, axioms=None):
@@ -42,7 +46,9 @@ def nest(op, xs):
 
 
 def screen_json(name):
-    return json.dumps(S.SCREENS[name], separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    text = json.dumps(S.SCREENS[name], separators=(",", ":"), ensure_ascii=False)
+    assert "\\" not in text, "a screen may not contain a backslash: LexLean strings cannot hold one"
+    return text.encode("utf-8")
 
 
 def pieces(data):
@@ -52,7 +58,7 @@ def pieces(data):
     for m in SAFE.finditer(text):
         if m.start() > i:
             out.append("0x" + text[i:m.start()].encode("utf-8").hex())
-        out.append('(prim utf8_encode "%s" : Bytes)' % m.group(0))
+        out.append('(prim utf8_encode "%s" : Bytes)' % m.group(0).replace('"', '\\"'))
         i = m.end()
     if i < len(text):
         out.append("0x" + text[i:].encode("utf-8").hex())

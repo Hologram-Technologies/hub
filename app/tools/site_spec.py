@@ -182,7 +182,7 @@ SCREENS = {
              "body": ["Point the tools you already use at the hub. Nothing else changes: the cache layout, revisions and errors are the ones Hugging Face tools expect."],
              "commands": ["export HF_ENDPOINT=https://gethologram.ai",
                           "hf download openai-community/gpt2",
-                          "python -c \"from transformers import AutoConfig; AutoConfig.from_pretrained('openai-community/gpt2')\"",
+                          "vllm serve openai-community/gpt2",
                           "MODEL_ENDPOINT=https://gethologram.ai/ llama-cli -hf bartowski/MiniCPM5-2B-GGUF:IQ2_M"]},
             {"id": "verification", "title": "Verification",
              "body": ["Every file has an address: the SHA-256 of its bytes. Verify on a model page fetches one file from each source that holds it, hashes each copy in your browser and asks the hub's kernel two questions: does this copy match its address, and what is the verdict across all copies.",
