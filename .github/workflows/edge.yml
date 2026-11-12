@@ -1,0 +1,54 @@
+name: edge
+
+# The edge runner must look exactly like huggingface.co to a Hugging Face
+# client. This runs the client (huggingface_hub, pinned) against
+# huggingface.co, against the edge, and against the edge with every file
+# pinned to IPFS (the only way to test the edge's own headers: a client follows
+# a redirect to Hugging Face and then reads Hugging Face's), and fails on any
+# difference. The edge runs the kernel holo this repository's Pages site
+# publishes.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  conformance:
+    name: a Hugging Face client sees no difference
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out the exact event revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Install the Hugging Face client
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/hf"
+          "$RUNNER_TEMP/hf/bin/pip" install --quiet huggingface_hub==2.4.0 hf_xet==1.8.0
+      - name: The edge answers as huggingface.co does
+        shell: bash
+        run: |
+          set -euo pipefail
+          node edge/serve.mjs 8787 > "$RUNNER_TEMP/edge.log" 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8787/health > /dev/null && break; sleep 1; done
+          cat "$RUNNER_TEMP/edge.log"
+          py="$RUNNER_TEMP/hf/bin/python"
+          "$py" tests/edge/observe.py "$RUNNER_TEMP/ref" > "$RUNNER_TEMP/ref.json"
+          HF_ENDPOINT=http://127.0.0.1:8787 "$py" tests/edge/observe.py "$RUNNER_TEMP/edge" > "$RUNNER_TEMP/edge.json"
+          PINNED=1 HF_ENDPOINT=http://127.0.0.1:8787/via/ipfs "$py" tests/edge/observe.py "$RUNNER_TEMP/pinned" > "$RUNNER_TEMP/pinned.json"
+          echo "== through the edge"
+          "$py" tests/edge/compare.py "$RUNNER_TEMP/ref.json" "$RUNNER_TEMP/edge.json"
+          echo "== through the edge, every file from IPFS"
+          "$py" tests/edge/compare.py "$RUNNER_TEMP/ref.json" "$RUNNER_TEMP/pinned.json"

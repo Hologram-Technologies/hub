@@ -394,6 +394,29 @@ line per file. The bundle a deploy signs is only produced in CI, where the
 workflow has an OIDC identity; locally the page shows the manifest as not
 checking out, as it should without a signature.
 
+## The edge runner
+
+Measured on 2026-11-12 with `huggingface_hub` 2.4.0 and `hf_xet` 1.8.0 on
+Windows, the edge on Node 22 with the published kernel (59 examples replayed at
+start). `tests/edge/observe.py` records fourteen things a client sees (two
+file hashes, file metadata for a small and a large file, a commit-prefix
+revision, the model's commit, the file list, a filtered snapshot, an LFS
+download, cache blob names, a search, and the exception class for a missing
+repository, file and revision and a gated repository); all fourteen equal
+huggingface.co's through the edge, and all thirteen that apply equal them with
+every file pinned to IPFS. On Windows without symlinks the cache blob names
+are empty on both sides; on Linux (CI) they are the ETags.
+
+Found while testing: `huggingface_hub` follows a redirect to a Hugging Face
+host during its HEAD and then reads that host's headers, including
+`X-Xet-Hash`, so a file the kernel sends to Hugging Face is downloaded through
+Xet with a read token from the edge's endpoint. The edge first refused that
+token request and the download failed; it now passes it through. The same
+behaviour meant a planted defect (the git blob hash sent as a large file's
+ETag) passed the comparison through Hugging Face; the comparison pinned to
+IPFS failed on it (`large file metadata`), and that comparison is part of the
+gate.
+
 ## Prism accounts: the remembered passkey
 
 The sign-in page (`identity/id.mjs`) remembers which passkey this device last

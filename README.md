@@ -104,6 +104,35 @@ digest and the statement type), and the kernel's trust rule (`HK-14`, request
 `05` and ten facts) decides the label. The Tensors tab lists every tensor's
 address.
 
+## The edge runner
+
+`edge/edge.mjs` answers the Hugging Face Hub's read surface, so
+`HF_ENDPOINT=<its origin>` works for `huggingface_hub`, `hf`, transformers and
+the rest. It is a stateless fetch handler; `node edge/serve.mjs [port]` runs it
+on Node 22. At start it loads the kernel holo the Pages site publishes, checks
+its identities and replays its examples.
+
+- A file request (`/{repo}/resolve/{revision}/{path}`, optionally
+  `/via/<source>/...`) is decided by the kernel: the edge gathers the facts
+  (the release and file from Hugging Face's API, which sources hold the file
+  from the hub's index, each source's health) and sends the kernel's resolve
+  request; the answer becomes HTTP through the kernel's own dialect table. It
+  only ever redirects, and only to vetted sources (`HK-03`, `HK-04`).
+- Metadata routes (`/api/models...`, tree, paths-info, refs) are Hugging Face's
+  own answers, with next-page links pointing at the edge and the Xet fields
+  removed from listings, so a client always asks the edge which source to use.
+  A Xet read token is passed through: a client asks for one only after its HEAD
+  followed the kernel's redirect to Hugging Face, so the bytes still come from
+  the source the kernel chose.
+- `tests/edge/` runs the Hugging Face client against huggingface.co, against
+  the edge, and against the edge with every file pinned to IPFS, and requires
+  the same results; `.github/workflows/edge.yml` runs it on every push.
+
+It is not deployed yet: where it runs is a choice of account. Cloudflare Workers
+does not fit, because it does not let a worker compile WebAssembly from bytes at
+run time, which loading a holo needs (Cloudflare's documented restriction, not
+tested here); any host that runs Node 22 does.
+
 `pages.yml` gives every route its own page (`tools/web-routes.mjs`: catalog,
 docs, registry, apps, buckets and each model the catalog lists when the site is
 built), so deep links answer 200. After each deploy a `smoke` job opens every screen in Chromium (`tools/smoke.mjs`) and fails unless each draws its screen
