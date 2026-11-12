@@ -1,0 +1,41 @@
+\begin{lexlean}{Proofs.Delivery}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksDelivery,
+  parameters: [facts : Kernel::Facts],
+  result: Bool,
+  body: ((((Kernel::answer facts) =? (Kernel::answerRedirect)) || ((Kernel::answer facts) =? (Kernel::answerServe))) && (not ((((project facts repo) =? 0) && ((project facts revision) =? 1)) && (((project facts entry) =? 1) || ((project facts entry) =? 2)))))
+}
+
+theorem{
+  name: deliveryHolds,
+  parameters: [facts : Kernel::Facts],
+  statement: ((breaksDelivery facts) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Kernel::answer,
+      Kernel::answerDeliver,
+      Kernel::answerDisabledRepo,
+      Kernel::answerEntryNotFound,
+      Kernel::answerGatedRepo,
+      Kernel::answerInvalid,
+      Kernel::answerNoSource,
+      Kernel::answerQuarantine,
+      Kernel::answerRedirect,
+      Kernel::answerRepoNotFound,
+      Kernel::answerRevisionNotFound,
+      Kernel::answerServe,
+      Kernel::answerSourceLacksFile,
+      Kernel::answerUnknownSource,
+      breaksDelivery
+    ]
+  },
+  axioms: [Classical.choice, Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

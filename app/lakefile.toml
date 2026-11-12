@@ -1,6 +1,6 @@
-name = "PrismTemplateContract"
+name = "HologramHubKernel"
 version = "0.1.0"
-defaultTargets = ["PrismTemplateContract"]
+defaultTargets = ["HologramHubKernel"]
 
 [[lean_lib]]
-name = "PrismTemplateContract"
+name = "HologramHubKernel"

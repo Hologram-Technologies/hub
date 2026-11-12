@@ -15,14 +15,69 @@
 # state: a capability that is not built does not get a row, and every row in this
 # file is built.
 #
-# The first row is the template's own Prism application in `app/` (TC-01).
+# The rows below are the hub kernel in `app/` (HK-01 to HK-10): each names one
+# theorem Lean proves in `app/src/Proofs/`.
 # A capability starts with a row here; `just new-capability` writes the row,
 # its scenario and its failing test in the order `AGENTS.md` sets out.
 
 spec = "template/1"
 
 [[id]]
-id = "TC-01"
+id = "HK-01"
 level = "build"
-suite = "contract"
-statement = "The checker answers conformant exactly when every universal policy file's observed digest equals its locked digest"
+suite = "kernel"
+statement = "A missing repository and a private repository get the same answer: repository not found, with no source and no ETag"
+
+[[id]]
+id = "HK-02"
+level = "build"
+suite = "kernel"
+statement = "The kernel delivers a file only for a public repository at a resolved revision whose entry exists, and names a source and an ETag exactly when it delivers"
+
+[[id]]
+id = "HK-03"
+level = "build"
+suite = "kernel"
+statement = "The edge runner only ever redirects and the local runner only ever serves"
+
+[[id]]
+id = "HK-04"
+level = "build"
+suite = "kernel"
+statement = "The edge runner never redirects to a source that is not vetted"
+
+[[id]]
+id = "HK-05"
+level = "build"
+suite = "kernel"
+statement = "A delivered file always has a source, and the kernel never chooses a source that does not hold the file or that failed verification for it"
+
+[[id]]
+id = "HK-06"
+level = "build"
+suite = "kernel"
+statement = "A pinned source is the only source the kernel may choose"
+
+[[id]]
+id = "HK-07"
+level = "build"
+suite = "kernel"
+statement = "Without a pin, the kernel chooses a healthy source whenever a usable one exists"
+
+[[id]]
+id = "HK-08"
+level = "build"
+suite = "kernel"
+statement = "A delivered small file carries the git blob ETag and a delivered large file carries the SHA-256 ETag"
+
+[[id]]
+id = "HK-09"
+level = "build"
+suite = "kernel"
+statement = "A commit prefix resolves only when it is 7 to 40 characters long and matches the release's commit"
+
+[[id]]
+id = "HK-10"
+level = "build"
+suite = "kernel"
+statement = "Received bytes are delivered exactly when their digest and size equal the expected digest and size"

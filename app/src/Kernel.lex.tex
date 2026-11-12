@@ -1,0 +1,336 @@
+\begin{lexlean}{Kernel}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Foundation.Bytes}
+\importmodule{Foundation.View.Text.V1.Model}
+\title{Text application model}
+\begin{semanticmodule}
+definition{name: answerInvalid, parameters: [], result: Nat, body: 0}
+
+definition{name: answerRedirect, parameters: [], result: Nat, body: 1}
+
+definition{name: answerServe, parameters: [], result: Nat, body: 2}
+
+definition{name: answerRepoNotFound, parameters: [], result: Nat, body: 10}
+
+definition{name: answerRevisionNotFound, parameters: [], result: Nat, body: 11}
+
+definition{name: answerEntryNotFound, parameters: [], result: Nat, body: 12}
+
+definition{name: answerGatedRepo, parameters: [], result: Nat, body: 13}
+
+definition{name: answerDisabledRepo, parameters: [], result: Nat, body: 14}
+
+definition{name: answerUnknownSource, parameters: [], result: Nat, body: 15}
+
+definition{name: answerSourceLacksFile, parameters: [], result: Nat, body: 16}
+
+definition{name: answerNoSource, parameters: [], result: Nat, body: 17}
+
+definition{name: answerDeliver, parameters: [], result: Nat, body: 20}
+
+definition{name: answerQuarantine, parameters: [], result: Nat, body: 21}
+
+structure{
+  name: Facts,
+  type_parameters: [],
+  parameters: [],
+  fields: [
+    {name: runner, type: Nat},
+    {name: repo, type: Nat},
+    {name: revision, type: Nat},
+    {name: entry, type: Nat},
+    {name: pin, type: Nat},
+    {name: holds0, type: Nat},
+    {name: healthy0, type: Nat},
+    {name: vetted0, type: Nat},
+    {name: failed0, type: Nat},
+    {name: holds1, type: Nat},
+    {name: healthy1, type: Nat},
+    {name: vetted1, type: Nat},
+    {name: failed1, type: Nat},
+    {name: holds2, type: Nat},
+    {name: healthy2, type: Nat},
+    {name: vetted2, type: Nat},
+    {name: failed2, type: Nat},
+    {name: holds3, type: Nat},
+    {name: healthy3, type: Nat},
+    {name: vetted3, type: Nat},
+    {name: failed3, type: Nat}
+  ]
+}
+
+structure{
+  name: Digest,
+  type_parameters: [],
+  parameters: [],
+  fields: [
+    {name: w0, type: Nat},
+    {name: w1, type: Nat},
+    {name: w2, type: Nat},
+    {name: w3, type: Nat}
+  ]
+}
+
+structure{
+  name: Check,
+  type_parameters: [],
+  parameters: [],
+  fields: [
+    {name: expected, type: Digest},
+    {name: observed, type: Digest},
+    {name: expectedSize, type: Nat},
+    {name: observedSize, type: Nat}
+  ]
+}
+
+definition{
+  name: eligible,
+  parameters: [runner : Nat, holds : Nat, vetted : Nat, failed : Nat],
+  result: Bool,
+  body: (((holds =? 1) && (failed =? 0)) && ((runner =? 1) || (vetted =? 1)))
+}
+
+definition{
+  name: eligible0,
+  parameters: [facts : Facts],
+  result: Bool,
+  body: (eligible (project facts runner) (project facts holds0) (project facts vetted0) (project facts failed0))
+}
+
+definition{
+  name: eligible1,
+  parameters: [facts : Facts],
+  result: Bool,
+  body: (eligible (project facts runner) (project facts holds1) (project facts vetted1) (project facts failed1))
+}
+
+definition{
+  name: eligible2,
+  parameters: [facts : Facts],
+  result: Bool,
+  body: (eligible (project facts runner) (project facts holds2) (project facts vetted2) (project facts failed2))
+}
+
+definition{
+  name: eligible3,
+  parameters: [facts : Facts],
+  result: Bool,
+  body: (eligible (project facts runner) (project facts holds3) (project facts vetted3) (project facts failed3))
+}
+
+definition{
+  name: usable0,
+  parameters: [facts : Facts],
+  result: Bool,
+  body: ((eligible0 facts) && ((project facts healthy0) =? 1))
+}
+
+definition{
+  name: usable1,
+  parameters: [facts : Facts],
+  result: Bool,
+  body: ((eligible1 facts) && ((project facts healthy1) =? 1))
+}
+
+definition{
+  name: usable2,
+  parameters: [facts : Facts],
+  result: Bool,
+  body: ((eligible2 facts) && ((project facts healthy2) =? 1))
+}
+
+definition{
+  name: usable3,
+  parameters: [facts : Facts],
+  result: Bool,
+  body: ((eligible3 facts) && ((project facts healthy3) =? 1))
+}
+
+definition{
+  name: selectFree,
+  parameters: [facts : Facts],
+  result: Nat,
+  body: (if (usable0 facts) then 0 else (if (usable1 facts) then 1 else (if (usable2 facts) then 2 else (if (usable3 facts) then 3 else (if (eligible0 facts) then 0 else (if (eligible1 facts) then 1 else (if (eligible2 facts) then 2 else (if (eligible3 facts) then 3 else 4))))))))
+}
+
+definition{
+  name: selectPinned,
+  parameters: [facts : Facts],
+  result: Nat,
+  body: (if ((project facts pin) =? 1) then (if (eligible0 facts) then 0 else 4) else (if ((project facts pin) =? 2) then (if (eligible1 facts) then 1 else 4) else (if ((project facts pin) =? 3) then (if (eligible2 facts) then 2 else 4) else (if ((project facts pin) =? 4) then (if (eligible3 facts) then 3 else 4) else 4))))
+}
+
+definition{
+  name: select,
+  parameters: [facts : Facts],
+  result: Nat,
+  body: (if ((project facts pin) =? 0) then (selectFree facts) else (selectPinned facts))
+}
+
+definition{
+  name: pinnedHolds,
+  parameters: [facts : Facts],
+  result: Bool,
+  body: ((((project facts pin) =? 1) && ((project facts holds0) =? 1)) || ((((project facts pin) =? 2) && ((project facts holds1) =? 1)) || ((((project facts pin) =? 3) && ((project facts holds2) =? 1)) || (((project facts pin) =? 4) && ((project facts holds3) =? 1)))))
+}
+
+definition{
+  name: answer,
+  parameters: [facts : Facts],
+  result: Nat,
+  body: (if (((project facts repo) =? 1) || ((project facts repo) =? 2)) then (answerRepoNotFound) else (if ((project facts repo) =? 3) then (answerGatedRepo) else (if ((project facts repo) =? 4) then (answerDisabledRepo) else (if ((project facts repo) =? 0) then (if ((project facts revision) =? 1) then (if ((project facts entry) =? 0) then (answerEntryNotFound) else (if (((project facts entry) =? 1) || ((project facts entry) =? 2)) then (if (4 <? (project facts pin)) then (answerUnknownSource) else (if ((project facts pin) =? 0) then (if ((select facts) =? 4) then (answerNoSource) else (if ((project facts runner) =? 1) then (answerServe) else (answerRedirect))) else (if (pinnedHolds facts) then (if ((select facts) =? 4) then (answerNoSource) else (if ((project facts runner) =? 1) then (answerServe) else (answerRedirect))) else (answerSourceLacksFile)))) else (answerInvalid))) else (answerRevisionNotFound)) else (answerInvalid)))))
+}
+
+definition{
+  name: delivers,
+  parameters: [facts : Facts],
+  result: Bool,
+  body: (((answer facts) =? (answerRedirect)) || ((answer facts) =? (answerServe)))
+}
+
+definition{
+  name: etagKind,
+  parameters: [facts : Facts],
+  result: Nat,
+  body: (if ((project facts entry) =? 1) then 1 else 2)
+}
+
+definition{
+  name: revisionDecision,
+  parameters: [kind : Nat, refFound : Nat, length : Nat, matched : Nat],
+  result: Nat,
+  body: (if (kind =? 0) then (if (refFound =? 1) then 1 else 0) else (if (kind =? 1) then (if (length <? 7) then 0 else (if (40 <? length) then 0 else (if (matched =? 1) then 1 else 0))) else 0))
+}
+
+definition{
+  name: sameDigest,
+  parameters: [left : Digest, right : Digest],
+  result: Bool,
+  body: (((project left w0) =? (project right w0)) && (((project left w1) =? (project right w1)) && (((project left w2) =? (project right w2)) && ((project left w3) =? (project right w3)))))
+}
+
+definition{
+  name: SameDigest,
+  parameters: [left : Digest, right : Digest],
+  result: Prop,
+  body: (((project left w0) = (project right w0)) /\ (((project left w1) = (project right w1)) /\ (((project left w2) = (project right w2)) /\ ((project left w3) = (project right w3)))))
+}
+
+definition{
+  name: accepts,
+  parameters: [check : Check],
+  result: Bool,
+  body: ((sameDigest (project check expected) (project check observed)) && ((project check expectedSize) =? (project check observedSize)))
+}
+
+definition{
+  name: Accepts,
+  parameters: [check : Check],
+  result: Prop,
+  body: ((SameDigest (project check expected) (project check observed)) /\ ((project check expectedSize) = (project check observedSize)))
+}
+
+definition{
+  name: byteNat,
+  parameters: [value : Bytes, offset : Nat],
+  result: Nat,
+  body: (match (Foundation.Bytes::byteAt value offset)
+    | Option.none => 255
+    | Option.some byte => (prim to_nat byte : Nat)),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: natFrom,
+  parameters: [value : Bytes, offset : Nat, remaining : Nat, accumulated : Nat],
+  result: Nat,
+  body: (match remaining
+    | Nat.zero => accumulated
+    | Nat.succ rest => (match (Foundation.Bytes::byteAt value offset)
+      | Option.none => accumulated
+      | Option.some byte => (natFrom value (offset + 1) rest ((prim multiply accumulated 256 : Nat) + (prim to_nat byte : Nat))))),
+  axioms: [Quot.sound, propext],
+  recursive_argument: remaining
+}
+
+definition{
+  name: prefixEqual,
+  parameters: [value : Bytes, left : Nat, right : Nat, remaining : Nat],
+  result: Nat,
+  body: (match remaining
+    | Nat.zero => 1
+    | Nat.succ rest => (if ((byteNat value left) =? (byteNat value right)) then (prefixEqual value (left + 1) (right + 1) rest) else 0)),
+  axioms: [Quot.sound, propext],
+  recursive_argument: remaining
+}
+
+definition{
+  name: digestAt,
+  parameters: [value : Bytes, offset : Nat],
+  result: Digest,
+  body: (record Digest {w0 := (natFrom value offset 8 0), w1 := (natFrom value (offset + 8) 8 0), w2 := (natFrom value (offset + 16) 8 0), w3 := (natFrom value (offset + 24) 8 0)}),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: observeCheck,
+  parameters: [value : Bytes],
+  result: Check,
+  body: (record Check {expected := (digestAt value 1), observed := (digestAt value 33), expectedSize := (natFrom value 65 8 0), observedSize := (natFrom value 73 8 0)}),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: observeFacts,
+  parameters: [value : Bytes],
+  result: Facts,
+  body: (record Facts {runner := (byteNat value 1), repo := (byteNat value 2), revision := (revisionDecision (byteNat value 3) (byteNat value 4) (byteNat value 5) (prefixEqual value 24 64 (byteNat value 5))), entry := (byteNat value 6), pin := (byteNat value 7), holds0 := (byteNat value 8), healthy0 := (byteNat value 9), vetted0 := (byteNat value 10), failed0 := (byteNat value 11), holds1 := (byteNat value 12), healthy1 := (byteNat value 13), vetted1 := (byteNat value 14), failed1 := (byteNat value 15), holds2 := (byteNat value 16), healthy2 := (byteNat value 17), vetted2 := (byteNat value 18), failed2 := (byteNat value 19), holds3 := (byteNat value 20), healthy3 := (byteNat value 21), vetted3 := (byteNat value 22), failed3 := (byteNat value 23)}),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: encodeAnswer,
+  parameters: [code : Nat],
+  result: Bytes,
+  body: (if (code =? (answerRedirect)) then 0x01 else (if (code =? (answerServe)) then 0x02 else (if (code =? (answerRepoNotFound)) then 0x0a else (if (code =? (answerRevisionNotFound)) then 0x0b else (if (code =? (answerEntryNotFound)) then 0x0c else (if (code =? (answerGatedRepo)) then 0x0d else (if (code =? (answerDisabledRepo)) then 0x0e else (if (code =? (answerUnknownSource)) then 0x0f else (if (code =? (answerSourceLacksFile)) then 0x10 else (if (code =? (answerNoSource)) then 0x11 else (if (code =? (answerDeliver)) then 0x14 else (if (code =? (answerQuarantine)) then 0x15 else 0x00))))))))))))
+}
+
+definition{
+  name: encodeSlot,
+  parameters: [index : Nat],
+  result: Bytes,
+  body: (if (index =? 0) then 0x00 else (if (index =? 1) then 0x01 else (if (index =? 2) then 0x02 else (if (index =? 3) then 0x03 else 0x04))))
+}
+
+definition{
+  name: encodeEtag,
+  parameters: [kind : Nat],
+  result: Bytes,
+  body: (if (kind =? 1) then 0x01 else (if (kind =? 2) then 0x02 else 0x00))
+}
+
+definition{
+  name: plan,
+  parameters: [facts : Facts],
+  result: Bytes,
+  body: (if (delivers facts) then (prim append (encodeAnswer (answer facts)) (prim append (encodeSlot (select facts)) (encodeEtag (etagKind facts)) : Bytes) : Bytes) else (prim append (encodeAnswer (answer facts)) 0x0400 : Bytes))
+}
+
+definition{
+  name: dispatch,
+  parameters: [value : Bytes],
+  result: Bytes,
+  body: (if (((Foundation.Bytes::byteLength value) =? 104) && ((byteNat value 0) =? 1)) then (plan (observeFacts value)) else (if (((Foundation.Bytes::byteLength value) =? 81) && ((byteNat value 0) =? 2)) then (if (accepts (observeCheck value)) then 0x140400 else 0x150400) else 0x000400)),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: application,
+  parameters: [],
+  result: Foundation.View.Text.V1.Model::TextApplication,
+  body: (record Foundation.View.Text.V1.Model::TextApplication {profile := "prismpm/text-application/1", name := "Hub kernel", cargoName := "hologram-hub-kernel", cargoVersion := "0.1.0", cargoDescription := "Decides how a model hub answers one file request and whether received bytes may be delivered.", cargoRepository := "https://github.com/Hologram-Technologies/hub", cargoHomepage := "https://github.com/Hologram-Technologies/hub", libraryRoots := (cons "HologramHubKernel.Kernel.dispatch" (nil String)), acceptanceVectors := (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000001000100010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x010001}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000001000200010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x010002}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0101000001000200010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x020002}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000001000200010100000101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x010102}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000001000200010101010100010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x010102}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000001000200010001000000000001010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x010202}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100010001000200010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x0a0400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100020001000200010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x0a0400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100030001000200010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x0d0400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100040001000200010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x0e0400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000000000200010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x0b0400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000100070200010101000000000000000000000000003630376133306400000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x010002}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000100060200010101000000000000000000000000003630376133300000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x0b0400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000100280200010101000000000000000000000000003630376133306437383364666136363363616633396530363633333732316338643463666364376636303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x0b0400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000100280200010101000000000000000000000000003630376133306437383364666136363363616633396530363633333732316338643463666364376536303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x010002}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000001000000010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x0c0400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000001000202010101000101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x010102}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000001000202010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x100400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000001000205010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x0f0400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000001000201010101010101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x110400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000001000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x110400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000001000200010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x110400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100090001000200010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x000400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0100000001000300010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x000400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x02248dfc3911869ec493c76e65bf2fcf7f615828b0254c12b473182f0f81d3a707248dfc3911869ec493c76e65bf2fcf7f615828b0254c12b473182f0f81d3a7070000000020ab6bd30000000020ab6bd3, response := 0x140400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x02248dfc3911869ec493c76e65bf2fcf7f615828b0254c12b473182f0f81d3a707248dfc3911869ec493c76e65bf2fcf7f615828b0254c12b473182f0f81d3a7060000000020ab6bd30000000020ab6bd3, response := 0x150400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x02248dfc3911869ec493c76e65bf2fcf7f615828b0254c12b473182f0f81d3a707248dfc3911869ec493c76e65bf2fcf7f615828b0254c12b473182f0f81d3a7070000000020ab6bd30000000020ab6bd2, response := 0x150400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x01000000010002000101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000363037613330643738336466613636336361663339653036363333373231633864346366636437, response := 0x000400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x010000000100020001010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003630376133306437383364666136363363616633396530363633333732316338643463666364376500, response := 0x000400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x, response := 0x000400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0300000001000200010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000036303761333064373833646661363633636166333965303636333337323163386434636663643765, response := 0x000400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x01248dfc3911869ec493c76e65bf2fcf7f615828b0254c12b473182f0f81d3a707248dfc3911869ec493c76e65bf2fcf7f615828b0254c12b473182f0f81d3a70700000000000000010000000000000001, response := 0x000400}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, response := 0x000400}) (nil Foundation.View.Text.V1.Model::AcceptanceVector)))))))))))))))))))))))))))))))))), entryRoot := "HologramHubKernel.Kernel.dispatch", coreContract := "hologram:guest/core-wasm@1", requestMaximum := (104 : UInt32), responseMaximum := (16 : UInt32), guestAllocationMaximum := (128 : UInt32), capabilitiesEmpty := true, fatArchive := true, primaryLayer := (0 : UInt8), viewLayer := (1 : UInt8), view := (record Foundation.View.Text.V1.Model::TextView {title := "Hub kernel", heading := "Hub kernel", inputLabel := "Request facts", submitLabel := "Decide", outputLabel := "Plan", inputError := "Invalid request", responseError := "Invalid response"})})
+}
+\end{semanticmodule}
+\end{lexlean}

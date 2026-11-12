@@ -1,0 +1,39 @@
+\begin{lexlean}{Proofs.Pin}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksPin,
+  parameters: [facts : Kernel::Facts],
+  result: Bool,
+  body: (((0 <? (project facts pin)) && ((Kernel::select facts) <? 4)) && (not (((Kernel::select facts) + 1) =? (project facts pin))))
+}
+
+theorem{
+  name: pinHolds,
+  parameters: [facts : Kernel::Facts],
+  statement: ((breaksPin facts) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Kernel::eligible,
+      Kernel::eligible0,
+      Kernel::eligible1,
+      Kernel::eligible2,
+      Kernel::eligible3,
+      Kernel::select,
+      Kernel::selectFree,
+      Kernel::selectPinned,
+      Kernel::usable0,
+      Kernel::usable1,
+      Kernel::usable2,
+      Kernel::usable3,
+      breaksPin
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

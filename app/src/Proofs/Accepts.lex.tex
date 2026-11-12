@@ -1,0 +1,25 @@
+\begin{lexlean}{Proofs.Accepts}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+theorem{
+  name: acceptsDecides,
+  parameters: [check : Kernel::Check],
+  statement: (((Kernel::accepts check) = true) <-> (Kernel::Accepts check)),
+  proof: simplify{
+    definitions: [
+      Bool.and_eq_true,
+      Nat.beq_eq,
+      Kernel::Accepts,
+      Kernel::SameDigest,
+      Kernel::accepts,
+      Kernel::sameDigest
+    ]
+  },
+  axioms: [propext]
+}
+\end{semanticmodule}
+\end{lexlean}

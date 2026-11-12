@@ -1,9 +1,9 @@
 spec = "lexlean/project/1"
-name = "prism-template-contract"
+name = "hologram-hub-kernel"
 language = "1.2"
-module_prefix = "PrismTemplateContract"
+module_prefix = "HologramHubKernel"
 source_roots = ["src"]
-entrypoints = ["src/Contract.lex.tex"]
+entrypoints = ["src/Kernel.lex.tex", "src/Proofs/Accepts.lex.tex", "src/Proofs/Delivery.lex.tex", "src/Proofs/Etag.lex.tex", "src/Proofs/Healthy.lex.tex", "src/Proofs/Pin.lex.tex", "src/Proofs/Privacy.lex.tex", "src/Proofs/Revision.lex.tex", "src/Proofs/Runner.lex.tex", "src/Proofs/Sound.lex.tex", "src/Proofs/Sourced.lex.tex", "src/Proofs/Vetted.lex.tex"]
 build_root = ".lexlean"
 lockfile = "lexlean.lock"
 lean_workspace = "."

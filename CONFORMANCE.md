@@ -18,11 +18,20 @@ The three honesty levels (R2):
 `cargo xtask audit-limits` fails if any code path returns an error the
 model does not sanction.
 
-## contract
+## kernel
 
 | ID | Level | Statement |
 | --- | --- | --- |
-| `TC-01` | `build` | The checker answers conformant exactly when every universal policy file's observed digest equals its locked digest |
+| `HK-01` | `build` | A missing repository and a private repository get the same answer: repository not found, with no source and no ETag |
+| `HK-02` | `build` | The kernel delivers a file only for a public repository at a resolved revision whose entry exists, and names a source and an ETag exactly when it delivers |
+| `HK-03` | `build` | The edge runner only ever redirects and the local runner only ever serves |
+| `HK-04` | `build` | The edge runner never redirects to a source that is not vetted |
+| `HK-05` | `build` | A delivered file always has a source, and the kernel never chooses a source that does not hold the file or that failed verification for it |
+| `HK-06` | `build` | A pinned source is the only source the kernel may choose |
+| `HK-07` | `build` | Without a pin, the kernel chooses a healthy source whenever a usable one exists |
+| `HK-08` | `build` | A delivered small file carries the git blob ETag and a delivered large file carries the SHA-256 ETag |
+| `HK-09` | `build` | A commit prefix resolves only when it is 7 to 40 characters long and matches the release's commit |
+| `HK-10` | `build` | Received bytes are delivered exactly when their digest and size equal the expected digest and size |
 
 ## Cited authorities
 

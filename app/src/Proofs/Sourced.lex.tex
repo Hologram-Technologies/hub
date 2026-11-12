@@ -1,0 +1,42 @@
+\begin{lexlean}{Proofs.Sourced}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksSourced,
+  parameters: [facts : Kernel::Facts],
+  result: Bool,
+  body: ((Kernel::delivers facts) && ((Kernel::select facts) =? 4))
+}
+
+theorem{
+  name: sourcedHolds,
+  parameters: [facts : Kernel::Facts],
+  statement: ((breaksSourced facts) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Kernel::answer,
+      Kernel::answerDeliver,
+      Kernel::answerDisabledRepo,
+      Kernel::answerEntryNotFound,
+      Kernel::answerGatedRepo,
+      Kernel::answerInvalid,
+      Kernel::answerNoSource,
+      Kernel::answerQuarantine,
+      Kernel::answerRedirect,
+      Kernel::answerRepoNotFound,
+      Kernel::answerRevisionNotFound,
+      Kernel::answerServe,
+      Kernel::answerSourceLacksFile,
+      Kernel::answerUnknownSource,
+      Kernel::delivers,
+      breaksSourced
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

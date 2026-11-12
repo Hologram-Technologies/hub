@@ -1,0 +1,41 @@
+\begin{lexlean}{Proofs.Runner}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksRunner,
+  parameters: [facts : Kernel::Facts],
+  result: Bool,
+  body: (((not ((project facts runner) =? 1)) && ((Kernel::answer facts) =? (Kernel::answerServe))) || (((project facts runner) =? 1) && ((Kernel::answer facts) =? (Kernel::answerRedirect))))
+}
+
+theorem{
+  name: runnerHolds,
+  parameters: [facts : Kernel::Facts],
+  statement: ((breaksRunner facts) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Kernel::answer,
+      Kernel::answerDeliver,
+      Kernel::answerDisabledRepo,
+      Kernel::answerEntryNotFound,
+      Kernel::answerGatedRepo,
+      Kernel::answerInvalid,
+      Kernel::answerNoSource,
+      Kernel::answerQuarantine,
+      Kernel::answerRedirect,
+      Kernel::answerRepoNotFound,
+      Kernel::answerRevisionNotFound,
+      Kernel::answerServe,
+      Kernel::answerSourceLacksFile,
+      Kernel::answerUnknownSource,
+      breaksRunner
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

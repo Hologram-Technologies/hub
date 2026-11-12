@@ -1,0 +1,125 @@
+<work>\venv\Lib\site-packages\huggingface_hub\file_download.py:149: UserWarning: `huggingface_hub` cache-system uses symlinks by default to efficiently store duplicated files but your machine does not support them in <work>\hf_home\hub\models--acme--tiny. Caching files will still work but in a degraded version that might require more space on your disk. This warning can be disabled by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For more details, see https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations.
+To support symlinks on Windows, you either need to activate Developer Mode or to run Python as an administrator. In order to activate developer mode, see this article: https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development
+  warnings.warn(message)
+Error while downloading from http://127.0.0.1:59283/blob/drop.bin: peer closed connection without sending complete message body (received 30000 bytes, expected 65536)
+Trying to resume download...
+Error while downloading from http://127.0.0.1:59283/blob/dropflip.bin: peer closed connection without sending complete message body (received 30000 bytes, expected 65536)
+Trying to resume download...
+huggingface_hub 2.4.0 | xet available: True
+endpoint http://127.0.0.1:59282 | blob host port 59283 | tls port 59284
+true sha256 7daca2095d0438260fa849183dfc67faa459fdf4936e1bc91eec6b281b27e4c2 size 65536
+
+=== A correct bytes: model.bin
+  RESULT: success -> hub/models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/model.bin
+  size=65536 sha256=7daca2095d043826... MATCHES true sha256
+    [hub] HEAD /acme/tiny/resolve/main/model.bin auth=YES
+    [blob] GET /blob/model.bin auth=no
+  new cache entries: ['models--acme--tiny/refs/main (file, 40B)', 'models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/model.bin (file, 65536B)']
+
+=== B one byte flipped, same length: flip.bin
+  RESULT: success -> hub/models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/flip.bin
+  size=65536 sha256=facd7e2a2775d7a3... DIFFERS from true sha256
+    [hub] HEAD /acme/tiny/resolve/main/flip.bin auth=YES
+    [blob] GET /blob/flip.bin auth=no
+  new cache entries: ['models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/flip.bin (file, 65536B)']
+
+=== C1 truncated (honest Content-Length 60000, X-Linked-Size 65536): trunc.bin
+  RESULT: builtins.OSError: Consistency check failed: file should be of size 65536 but has size 60000 (http://127.0.0.1:59283/blob/trunc.bin).
+This is usually due to network issues while downloading the file. Please retry with `force_download=True`.
+    [hub] HEAD /acme/tiny/resolve/main/trunc.bin auth=YES
+    [blob] GET /blob/trunc.bin auth=no
+  new cache entries: none
+
+=== C2 longer (+5 bytes): long.bin
+  RESULT: builtins.OSError: Consistency check failed: file should be of size 65536 but has size 65541 (http://127.0.0.1:59283/blob/long.bin).
+This is usually due to network issues while downloading the file. Please retry with `force_download=True`.
+    [hub] HEAD /acme/tiny/resolve/main/long.bin auth=YES
+    [blob] GET /blob/long.bin auth=no
+  new cache entries: none
+
+=== C3 truncated AND Hub sends no X-Linked-Size: nosize.bin
+  RESULT: success -> hub/models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/nosize.bin
+  size=60000 sha256=e2e7dd02eb388720... DIFFERS from true sha256
+    [hub] HEAD /acme/tiny/resolve/main/nosize.bin auth=YES
+    [blob] GET /blob/nosize.bin auth=no
+  new cache entries: ['models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/nosize.bin (file, 60000B)']
+
+=== D connection cut mid-body, correct bytes (Range resume?): drop.bin
+  RESULT: success -> hub/models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/drop.bin
+  size=65536 sha256=7daca2095d043826... MATCHES true sha256
+    [hub] HEAD /acme/tiny/resolve/main/drop.bin auth=YES
+    [blob] GET /blob/drop.bin auth=no
+    [blob] GET /blob/drop.bin auth=no
+  new cache entries: ['models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/drop.bin (file, 65536B)']
+
+=== D2 connection cut mid-body, flipped byte: dropflip.bin
+  RESULT: success -> hub/models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/dropflip.bin
+  size=65536 sha256=facd7e2a2775d7a3... DIFFERS from true sha256
+    [hub] HEAD /acme/tiny/resolve/main/dropflip.bin auth=YES
+    [blob] GET /blob/dropflip.bin auth=no
+    [blob] GET /blob/dropflip.bin auth=no
+  new cache entries: ['models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/dropflip.bin (file, 65536B)']
+
+=== E HEAD lacks X-Repo-Commit: nocommit.bin
+  RESULT: huggingface_hub.errors.LocalEntryNotFoundError: Response from http://127.0.0.1:59282/acme/tiny/resolve/main/nocommit.bin is missing the 'X-Repo-Commit' header, so it does not seem to be served by a Hugging Face Hub endpoint. If HF_ENDPOINT is set, check that it points to a Hub-compatible endpoint. Otherwise <- FileMetadataError: Response from http://127.0.0.1:59282/acme/tiny/resolve/main/nocommit.bin is missing the 'X-Repo-Commit' header, so it does not seem to be served by a Hugging Fa
+    [hub] HEAD /acme/tiny/resolve/main/nocommit.bin auth=YES
+  new cache entries: none
+
+=== F HEAD lacks ETag and X-Linked-Etag: noetag.bin
+  RESULT: huggingface_hub.errors.LocalEntryNotFoundError: Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility. We also cannot find the requested files in the local cache. <- FileMetadataError: Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility.
+    [hub] HEAD /acme/tiny/resolve/main/noetag.bin auth=YES
+  new cache entries: none
+
+=== G small file: 200 + ETag, no X-Linked-*: small.json
+  RESULT: success -> hub/models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/small.json
+  size=19 sha256=44aff4ab2d7c3250... DIFFERS from true sha256
+    [hub] HEAD /acme/tiny/resolve/main/small.json auth=YES
+    [hub] GET /acme/tiny/resolve/main/small.json auth=YES
+  new cache entries: ['models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/small.json (file, 19B)']
+
+=== G2 small file: body differs from ETag (git sha1 of other content): smallbad.json
+  RESULT: success -> hub/models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/smallbad.json
+  size=19 sha256=b30e3f680182743b... DIFFERS from true sha256
+    [hub] HEAD /acme/tiny/resolve/main/smallbad.json auth=YES
+    [hub] GET /acme/tiny/resolve/main/smallbad.json auth=YES
+  new cache entries: ['models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/smallbad.json (file, 19B)']
+
+=== H 307 to relative /api/resolve-cache, body corrupted: rel.bin
+  RESULT: success -> hub/models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/rel.bin
+  size=65536 sha256=facd7e2a2775d7a3... DIFFERS from true sha256
+    [hub] HEAD /acme/tiny/resolve/main/rel.bin auth=YES
+    [hub] HEAD /api/resolve-cache/models/acme/tiny/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/rel.bin auth=YES
+    [hub] GET /api/resolve-cache/models/acme/tiny/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/rel.bin auth=YES
+  new cache entries: ['models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/rel.bin (file, 65536B)']
+
+=== I redirect to https://127.0.0.1 (self-signed cert trusted via SSL_CERT_FILE), flipped: https.bin
+  RESULT: success -> hub/models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/https.bin
+  size=65536 sha256=facd7e2a2775d7a3... DIFFERS from true sha256
+    [hub] HEAD /acme/tiny/resolve/main/https.bin auth=YES
+    [blob] GET /blob/https.bin auth=no
+  new cache entries: ['models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/https.bin (file, 65536B)']
+
+=== J same blob requested again (cache hit, corrupted flip.bin): flip.bin
+  RESULT: success -> hub/models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/flip.bin
+  size=65536 sha256=facd7e2a2775d7a3... DIFFERS from true sha256
+    [hub] HEAD /acme/tiny/resolve/main/flip.bin auth=YES
+  new cache entries: none
+
+=== snapshot_download acme/tiny (small.json, model.bin, flip.bin; tree API advertises lfs.oid = true sha256)
+  RESULT: success -> hub/models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+   flip.bin: size=65536 sha256=facd7e2a2775d7a3... CORRUPTED, accepted
+   model.bin: size=65536 sha256=7daca2095d043826... ok
+   small.json: size=19 sha256=44aff4ab2d7c3250... ok
+    [hub] GET /api/models/acme/tiny/revision/main auth=YES
+    [hub] GET /api/models/acme/tiny/tree/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?recursive=true&expand=false auth=YES
+    [hub] HEAD /acme/tiny/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/small.json auth=YES
+    [hub] GET /acme/tiny/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/small.json auth=YES
+    [hub] HEAD /acme/tiny/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/flip.bin auth=YES
+    [hub] HEAD /acme/tiny/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/model.bin auth=YES
+    [blob] GET /blob/flip.bin auth=no
+    [blob] GET /blob/model.bin auth=no
+  cache: ['models--acme--tiny/refs/main (file, 40B)', 'models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/flip.bin (file, 65536B)', 'models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/model.bin (file, 65536B)', 'models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/small.json (file, 19B)', 'models--acme--tiny/trees/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.json (file, 561B)']
+
+=== opt-in verification: HfApi().verify_repo_checksums / `hf cache verify`
+   FolderVerification(revision='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', checked_count=3, mismatches=[{'path': 'flip.bin', 'expected': '7daca2095d0438260fa849183dfc67faa459fdf4936e1bc91eec6b281b27e4c2', 'actual': 'facd7e2a2775d7a3db4b4824364e9b70415ddfa46a50863f7a7cf812c291f5d7', 'algorithm': 'sha256'}], missing_paths=[], extra_paths=[], verified_path=WindowsPath('<work>/hf_home/hub/models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'))
+    [hub] GET /api/models/acme/tiny/tree/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?recursive=true&expand=false auth=YES

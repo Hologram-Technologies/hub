@@ -1,0 +1,43 @@
+\begin{lexlean}{Proofs.Etag}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksEtag,
+  parameters: [facts : Kernel::Facts],
+  result: Bool,
+  body: ((Kernel::delivers facts) && (not ((((project facts entry) =? 1) && ((Kernel::etagKind facts) =? 1)) || (((project facts entry) =? 2) && ((Kernel::etagKind facts) =? 2)))))
+}
+
+theorem{
+  name: etagHolds,
+  parameters: [facts : Kernel::Facts],
+  statement: ((breaksEtag facts) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Kernel::answer,
+      Kernel::answerDeliver,
+      Kernel::answerDisabledRepo,
+      Kernel::answerEntryNotFound,
+      Kernel::answerGatedRepo,
+      Kernel::answerInvalid,
+      Kernel::answerNoSource,
+      Kernel::answerQuarantine,
+      Kernel::answerRedirect,
+      Kernel::answerRepoNotFound,
+      Kernel::answerRevisionNotFound,
+      Kernel::answerServe,
+      Kernel::answerSourceLacksFile,
+      Kernel::answerUnknownSource,
+      Kernel::delivers,
+      Kernel::etagKind,
+      breaksEtag
+    ]
+  },
+  axioms: [Classical.choice, Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

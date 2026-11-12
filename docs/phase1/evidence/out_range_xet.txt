@@ -1,0 +1,21 @@
+Error while downloading from http://127.0.0.1:54697/blob/model.bin: timed out
+Trying to resume download...
+mode range | huggingface_hub 2.4.0 | xet available: True
+RESULT: success size 12582912 sha256 DIFFERS
+  [hub] HEAD /acme/tiny/resolve/main/model.bin auth=Bearer hf_FAKE_not_a_rea range=None ua=unknown/None; hf_hub/2.4.0; python/3.13.
+  [blob] GET /blob/model.bin auth=no range=None ua=unknown/None; hf_hub/2.4.0; python/3.13.
+  [blob] GET /blob/model.bin auth=no range=bytes=10485760- ua=unknown/None; hf_hub/2.4.0; python/3.13.
+--- exit 0
+mode xet_disabled | huggingface_hub 2.4.0 | xet available: False
+RESULT: success size 65536 sha256 MATCHES
+  [hub] HEAD /acme/tiny/resolve/main/xet.bin auth=Bearer hf_FAKE_not_a_rea range=None ua=unknown/None; hf_hub/2.4.0; python/3.13.
+  [hub] GET /acme/tiny/resolve/main/xet.bin auth=Bearer hf_FAKE_not_a_rea range=None ua=unknown/None; hf_hub/2.4.0; python/3.13.
+  [blob] GET /blob/xet.bin auth=no range=None ua=unknown/None; hf_hub/2.4.0; python/3.13.
+--- exit 0
+mode xet | huggingface_hub 2.4.0 | xet available: True
+RESULT: builtins.RuntimeError: Task error: File reconstruction error: CAS Client Error: Request error: HTTP status client error (404 Not Found), domain: http://127.0.0.1:62932/fakecas/v1/reconstructions/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+  [hub] HEAD /acme/tiny/resolve/main/xet.bin auth=Bearer hf_FAKE_not_a_rea range=None ua=unknown/None; hf_hub/2.4.0; python/3.13.
+  [hub] GET /api/models/acme/tiny/xet-read-token/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa auth=Bearer hf_FAKE_not_a_rea range=None ua=unknown/None; hf_hub/2.4.0; python/3.13.
+  [hub] GET /fakecas/v2/reconstructions/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc auth=Bearer fake-xet-token range=bytes=0-65535 ua=unknown/None; hf_hub/2.4.0; python/3.13.
+  [hub] GET /fakecas/v1/reconstructions/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc auth=Bearer fake-xet-token range=bytes=0-65535 ua=unknown/None; hf_hub/2.4.0; python/3.13.
+--- exit 0

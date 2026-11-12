@@ -1,44 +1,106 @@
 {
-  "name": "Template contract",
-  "shortName": "Contract",
-  "live": "https://uor-foundation.github.io/template/",
-  "purpose": "Checks each universal policy file of a UOR template repository against its locked digest. Send the six expected and observed digests; it answers conformant, or names every file that drifted, and invalid request for anything else.",
-  "inputLabel": "Expected and observed digests",
-  "placeholder": "hex: followed by 384 bytes",
-  "submitLabel": "Check",
-  "outputLabel": "Verdict",
+  "name": "Hub kernel",
+  "shortName": "Hub",
+  "live": "https://hologram-technologies.github.io/hub/",
+  "purpose": "Decides how a decentralized model hub answers one file request, and whether bytes a source sent may be delivered. Send the 104-byte facts of a resolve request or the 81-byte expected and observed digest and size; it answers three bytes: the answer code, the source slot (4 for none) and the ETag kind.",
+  "inputLabel": "Request facts",
+  "placeholder": "hex: followed by 104 or 81 bytes",
+  "submitLabel": "Decide",
+  "outputLabel": "Plan",
   "answers": {
     "positive": [
-      "conformant"
+      "\u0001*",
+      "\u0002*",
+      "\u0014*"
     ],
     "negative": [
-      "drift:*"
+      "\u0015*"
     ],
-    "refusal": "invalid request"
+    "refusal": "\u0000\u0004\u0000"
   },
   "promise": {
-    "headline": "Says conformant exactly when every policy file matches its lock.",
-    "detail": "Each of the six universal policy files is compared with the digest the lock records, and any file that drifted is named."
+    "headline": "Never hands a tool bytes that do not match, and never tells a missing repository from a private one.",
+    "detail": "Every answer the hub gives a file request comes from this kernel, and Lean proves its ten rules for every possible request."
   },
-  "claim": "TC-01: the checker answers conformant exactly when every universal policy file's observed digest equals its locked digest.",
+  "claim": "HK-01 to HK-10: the hub kernel's ten rules, each a theorem Lean proves for every input.",
   "proposition": {
-    "name": "Conformant",
-    "text": "Conformant observation :=\n  SameDigest devcontainer.expected devcontainer.observed\n  /\\ SameDigest bootstrap.expected bootstrap.observed\n  /\\ SameDigest agents.expected agents.observed\n  /\\ SameDigest verification.expected verification.observed\n  /\\ SameDigest prismpmLock.expected prismpmLock.observed\n  /\\ SameDigest templateContract.expected templateContract.observed\n\nSameDigest left right :=\n  left.w0 = right.w0 /\\ left.w1 = right.w1 /\\ left.w2 = right.w2 /\\ left.w3 = right.w3",
-    "plain": "Every one of the six universal policy files has the digest the lock says it has."
+    "name": "Accepts",
+    "text": "Accepts check :=\n  SameDigest check.expected check.observed\n  /\\ check.expectedSize = check.observedSize",
+    "plain": "Received bytes are delivered exactly when their digest and their size are the ones expected."
   },
   "theorems": [
     {
-      "name": "conformant_decides",
-      "statement": "conformant observation = true ↔ Conformant observation, for every observation",
-      "how": "Proved by simplification over the record fields, checked by the Lean kernel by prismpm verify in CI",
-      "where": "app/src/Contract.lex.tex"
+      "name": "privacyHolds",
+      "statement": "HK-01: a missing and a private repository get the same answer, and nothing is delivered",
+      "how": "Proved by Lean with linear_arithmetic (simplify for acceptsDecides), checked by the Lean kernel and leanchecker in prismpm verify",
+      "where": "app/src/Proofs/Privacy.lex.tex"
+    },
+    {
+      "name": "deliveryHolds",
+      "statement": "HK-02: a file is delivered only for a public repository at a resolved revision whose entry exists",
+      "how": "Proved by Lean with linear_arithmetic (simplify for acceptsDecides), checked by the Lean kernel and leanchecker in prismpm verify",
+      "where": "app/src/Proofs/Delivery.lex.tex"
+    },
+    {
+      "name": "runnerHolds",
+      "statement": "HK-03: the edge runner only redirects and the local runner only serves",
+      "how": "Proved by Lean with linear_arithmetic (simplify for acceptsDecides), checked by the Lean kernel and leanchecker in prismpm verify",
+      "where": "app/src/Proofs/Runner.lex.tex"
+    },
+    {
+      "name": "vettedHolds",
+      "statement": "HK-04: the edge runner never redirects to a source that is not vetted",
+      "how": "Proved by Lean with linear_arithmetic (simplify for acceptsDecides), checked by the Lean kernel and leanchecker in prismpm verify",
+      "where": "app/src/Proofs/Vetted.lex.tex"
+    },
+    {
+      "name": "sourcedHolds",
+      "statement": "HK-05: a delivered file always has a source",
+      "how": "Proved by Lean with linear_arithmetic (simplify for acceptsDecides), checked by the Lean kernel and leanchecker in prismpm verify",
+      "where": "app/src/Proofs/Sourced.lex.tex"
+    },
+    {
+      "name": "soundHolds",
+      "statement": "HK-05: the chosen source holds the file and has not failed verification for it",
+      "how": "Proved by Lean with linear_arithmetic (simplify for acceptsDecides), checked by the Lean kernel and leanchecker in prismpm verify",
+      "where": "app/src/Proofs/Sound.lex.tex"
+    },
+    {
+      "name": "pinHolds",
+      "statement": "HK-06: a pinned source is the only source the kernel may choose",
+      "how": "Proved by Lean with linear_arithmetic (simplify for acceptsDecides), checked by the Lean kernel and leanchecker in prismpm verify",
+      "where": "app/src/Proofs/Pin.lex.tex"
+    },
+    {
+      "name": "healthyHolds",
+      "statement": "HK-07: without a pin, a healthy source is chosen whenever a usable one exists",
+      "how": "Proved by Lean with linear_arithmetic (simplify for acceptsDecides), checked by the Lean kernel and leanchecker in prismpm verify",
+      "where": "app/src/Proofs/Healthy.lex.tex"
+    },
+    {
+      "name": "etagHolds",
+      "statement": "HK-08: small files carry the git blob ETag, large files the SHA-256 ETag",
+      "how": "Proved by Lean with linear_arithmetic (simplify for acceptsDecides), checked by the Lean kernel and leanchecker in prismpm verify",
+      "where": "app/src/Proofs/Etag.lex.tex"
+    },
+    {
+      "name": "revisionHolds",
+      "statement": "HK-09: a commit prefix resolves only at 7 to 40 characters and only if it matches",
+      "how": "Proved by Lean with linear_arithmetic (simplify for acceptsDecides), checked by the Lean kernel and leanchecker in prismpm verify",
+      "where": "app/src/Proofs/Revision.lex.tex"
+    },
+    {
+      "name": "acceptsDecides",
+      "statement": "HK-10: accepts check = true exactly when Accepts check, for every check",
+      "how": "Proved by Lean with linear_arithmetic (simplify for acceptsDecides), checked by the Lean kernel and leanchecker in prismpm verify",
+      "where": "app/src/Proofs/Accepts.lex.tex"
     }
   ],
   "pinned": [
     {
-      "name": "contract_tc_01",
-      "what": "The theorem's statement and axioms, the six files the proposition names against template-contract.json, that a drifted file is named in the verdict, and that the verdict is decided by conformant. A string-matching test, not a theorem: a planted defect fails it.",
-      "where": "crates/conformance/tests/contract.rs"
+      "name": "kernel_hk_01 to kernel_hk_10",
+      "what": "Each theorem's exact condition, statement and axioms, that it is a build entrypoint, and that dispatch answers through the functions the theorems are about. A string-matching test, not a theorem: a planted defect fails it.",
+      "where": "crates/conformance/tests/kernel.rs"
     }
   ],
   "trusted": [
@@ -65,14 +127,14 @@
   ],
   "attestations": {
     "proof": {
-      "id": "not recorded for the template's own app; an instance records the UOR MCP server's attestation here",
-      "url": "https://github.com/UOR-Foundation/template/actions/workflows/bootstrap.yml"
+      "id": "printed by prismpm verify in every bootstrap run",
+      "url": "https://github.com/Hologram-Technologies/hub/actions/workflows/bootstrap.yml"
     },
     "build": {
-      "id": "printed by prismpm verify in every pages run; an instance records it here",
-      "url": "https://github.com/UOR-Foundation/template/actions/workflows/pages.yml"
+      "id": "printed by prismpm verify in every pages run",
+      "url": "https://github.com/Hologram-Technologies/hub/actions/workflows/pages.yml"
     }
   },
-  "repository": "https://github.com/UOR-Foundation/template",
-  "report": "https://github.com/UOR-Foundation/template/blob/main/TEMPLATE-VERIFICATION.md"
+  "repository": "https://github.com/Hologram-Technologies/hub",
+  "report": "https://github.com/Hologram-Technologies/hub/blob/main/TEMPLATE-VERIFICATION.md"
 }

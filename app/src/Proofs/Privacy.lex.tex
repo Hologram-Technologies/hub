@@ -1,0 +1,42 @@
+\begin{lexlean}{Proofs.Privacy}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksPrivacy,
+  parameters: [facts : Kernel::Facts],
+  result: Bool,
+  body: ((((project facts repo) =? 1) || ((project facts repo) =? 2)) && ((not ((Kernel::answer facts) =? (Kernel::answerRepoNotFound))) || (Kernel::delivers facts)))
+}
+
+theorem{
+  name: privacyHolds,
+  parameters: [facts : Kernel::Facts],
+  statement: ((breaksPrivacy facts) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Kernel::answer,
+      Kernel::answerDeliver,
+      Kernel::answerDisabledRepo,
+      Kernel::answerEntryNotFound,
+      Kernel::answerGatedRepo,
+      Kernel::answerInvalid,
+      Kernel::answerNoSource,
+      Kernel::answerQuarantine,
+      Kernel::answerRedirect,
+      Kernel::answerRepoNotFound,
+      Kernel::answerRevisionNotFound,
+      Kernel::answerServe,
+      Kernel::answerSourceLacksFile,
+      Kernel::answerUnknownSource,
+      Kernel::delivers,
+      breaksPrivacy
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

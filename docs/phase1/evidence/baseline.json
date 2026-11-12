@@ -1,0 +1,122 @@
+[
+ {
+  "host": "hf",
+  "case": "HEAD resolve config.json",
+  "codes": [
+   "307"
+  ],
+  "cold_ms": 381.5,
+  "p50": 109.8,
+  "p90": 121.8,
+  "p99": 128.8,
+  "bytes": "0"
+ },
+ {
+  "host": "hf",
+  "case": "HEAD resolve model.safetensors",
+  "codes": [
+   "302"
+  ],
+  "cold_ms": 195.7,
+  "p50": 104.9,
+  "p90": 115.7,
+  "p99": 178.2,
+  "bytes": "0"
+ },
+ {
+  "host": "hf",
+  "case": "GET api/models/{repo}",
+  "codes": [
+   "200"
+  ],
+  "cold_ms": 193.4,
+  "p50": 107.7,
+  "p90": 112.8,
+  "p99": 130.0,
+  "bytes": "4880"
+ },
+ {
+  "host": "hf",
+  "case": "GET api tree main",
+  "codes": [
+   "200"
+  ],
+  "cold_ms": 189.4,
+  "p50": 106.0,
+  "p90": 118.9,
+  "p99": 134.9,
+  "bytes": "3298"
+ },
+ {
+  "host": "hf",
+  "case": "GET api/models?search",
+  "codes": [
+   "200"
+  ],
+  "cold_ms": 189.3,
+  "p50": 109.0,
+  "p90": 117.5,
+  "p99": 135.8,
+  "bytes": "2418"
+ },
+ {
+  "host": "holo",
+  "case": "HEAD resolve config.json",
+  "codes": [
+   "302"
+  ],
+  "cold_ms": 727.6,
+  "p50": 90.9,
+  "p90": 98.0,
+  "p99": 104.3,
+  "bytes": "0"
+ },
+ {
+  "host": "holo",
+  "case": "HEAD resolve model.safetensors",
+  "codes": [
+   "302"
+  ],
+  "cold_ms": 316.8,
+  "p50": 92.7,
+  "p90": 113.3,
+  "p99": 122.3,
+  "bytes": "0"
+ },
+ {
+  "host": "holo",
+  "case": "GET api/models/{repo}",
+  "codes": [
+   "200"
+  ],
+  "cold_ms": 332.4,
+  "p50": 96.3,
+  "p90": 233.5,
+  "p99": 421.2,
+  "bytes": "1403"
+ },
+ {
+  "host": "holo",
+  "case": "GET api tree main",
+  "codes": [
+   "200"
+  ],
+  "cold_ms": 309.7,
+  "p50": 93.3,
+  "p90": 101.3,
+  "p99": 124.2,
+  "bytes": "6298"
+ },
+ {
+  "host": "holo",
+  "case": "GET api/models?search",
+  "codes": [
+   "200"
+  ],
+  "cold_ms": 330.6,
+  "p50": 89.4,
+  "p90": 96.7,
+  "p99": 103.5,
+  "bytes": "681"
+ }
+]

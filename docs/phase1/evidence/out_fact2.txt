@@ -1,0 +1,38 @@
+mode=good api=v2 huggingface_hub=2.4.0 hf_xet=1.8.0
+RESULT: success size=65536 sha256 MATCHES X-Linked-Etag
+   [hub] HEAD /acme/tiny/resolve/main/model.bin auth=Bearer hf_FAKE_not_a_r range=None
+   [hub] GET /api/models/acme/tiny/xet-read-token/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa auth=Bearer hf_FAKE_not_a_r range=None
+   [hub] GET /cas/v2/reconstructions/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc auth=Bearer fake-xet-token range=bytes=0-65535
+   [untrusted] GET /xorb/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd auth=no range=bytes=0-65543
+   cache: ['CACHEDIR.TAG', 'models--acme--tiny/refs/main', 'models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/model.bin']
+--- exit 0
+mode=flip api=v2 huggingface_hub=2.4.0 hf_xet=1.8.0
+RESULT: success size=65536 sha256 DIFFERS from X-Linked-Etag
+   [hub] HEAD /acme/tiny/resolve/main/model.bin auth=Bearer hf_FAKE_not_a_r range=None
+   [hub] GET /api/models/acme/tiny/xet-read-token/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa auth=Bearer hf_FAKE_not_a_r range=None
+   [hub] GET /cas/v2/reconstructions/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc auth=Bearer fake-xet-token range=bytes=0-65535
+   [untrusted] GET /xorb/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd auth=no range=bytes=0-65543
+   cache: ['CACHEDIR.TAG', 'models--acme--tiny/refs/main', 'models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/model.bin']
+--- exit 0
+mode=short api=v2 huggingface_hub=2.4.0 hf_xet=1.8.0
+RESULT: builtins.RuntimeError: Task error: File reconstruction error: CAS Client Error: get_file_term_data: expected 65536 uncompressed bytes, got 60000
+   [hub] HEAD /acme/tiny/resolve/main/model.bin auth=Bearer hf_FAKE_not_a_r range=None
+   [hub] GET /api/models/acme/tiny/xet-read-token/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa auth=Bearer hf_FAKE_not_a_r range=None
+   [hub] GET /cas/v2/reconstructions/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc auth=Bearer fake-xet-token range=bytes=0-65535
+   [untrusted] GET /xorb/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd auth=no range=bytes=0-60007
+   [untrusted] GET /xorb/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd auth=no range=bytes=0-60007
+   [untrusted] GET /xorb/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd auth=no range=bytes=0-60007
+   [untrusted] GET /xorb/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd auth=no range=bytes=0-60007
+   [untrusted] GET /xorb/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd auth=no range=bytes=0-60007
+   [untrusted] GET /xorb/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd auth=no range=bytes=0-60007
+   cache: ['CACHEDIR.TAG', 'models--acme--tiny/refs/main']
+--- exit 0
+mode=flip api=v1 huggingface_hub=2.4.0 hf_xet=1.8.0
+RESULT: success size=65536 sha256 DIFFERS from X-Linked-Etag
+   [hub] HEAD /acme/tiny/resolve/main/model.bin auth=Bearer hf_FAKE_not_a_r range=None
+   [hub] GET /api/models/acme/tiny/xet-read-token/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa auth=Bearer hf_FAKE_not_a_r range=None
+   [hub] GET /cas/v2/reconstructions/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc auth=Bearer fake-xet-token range=bytes=0-65535
+   [hub] GET /cas/v1/reconstructions/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc auth=Bearer fake-xet-token range=bytes=0-65535
+   [untrusted] GET /xorb/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd auth=no range=bytes=0-65543
+   cache: ['CACHEDIR.TAG', 'models--acme--tiny/refs/main', 'models--acme--tiny/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/model.bin']
+--- exit 0
