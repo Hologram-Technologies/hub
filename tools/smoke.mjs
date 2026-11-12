@@ -25,6 +25,9 @@ const pages = [
   ["models/", ".card"],
   ["models/openai-community/gpt2/", ".head h1"],
   ["docs/", "#answers table"],
+  ["registry/", ".card.entry"],
+  ["apps/", ".card.app"],
+  ["buckets/", "#check"],
 ];
 const browser = await playwright.chromium.launch();
 const failures = [];

@@ -81,10 +81,17 @@ bucket, command and the whole Hugging Face dialect table come from
    kernel's accept rule (`HK-10`) judges each copy and its verdict rule
    (`HK-13`, request `04 r0 r1 r2 r3`) decides what the page says.
 
-`pages.yml` gives every route its own page (`tools/web-routes.mjs`: the catalog,
-the docs and each model the catalog lists when the site is built), so deep links
-answer 200. After each deploy a `smoke` job opens home, catalog, a model page
-and docs in Chromium (`tools/smoke.mjs`) and fails unless each draws its screen
+Registry, Apps and Buckets are screens of the kernel too. The registry and apps
+lists are copies of the live hub's, taken at each deploy by `tools/web-data.mjs`
+because the live hub does not let another origin read them; each page shows
+the copy's source, date and SHA-256. Buckets explains account storage, which
+stays on gethologram.ai, and checks any object by its address: the page
+fetches it from the hub's object store, hashes it with the address's own hash
+(BLAKE3 or SHA-256) and asks the kernel's accept rule.
+
+`pages.yml` gives every route its own page (`tools/web-routes.mjs`: catalog,
+docs, registry, apps, buckets and each model the catalog lists when the site is
+built), so deep links answer 200. After each deploy a `smoke` job opens every screen in Chromium (`tools/smoke.mjs`) and fails unless each draws its screen
 and replays every example.
 
 `app/tools/site_spec.py` is the authoring input for the site; the generator

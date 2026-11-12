@@ -11,16 +11,16 @@ HOST = "gethologram.ai"
 API = "https://gethologram.ai"
 
 # Routes the guest renders, by number. Request `03 nn` asks for route nn.
-ROUTES = ["chrome", "home", "models", "model", "docs"]
+ROUTES = ["chrome", "home", "models", "model", "docs", "registry", "apps", "buckets"]
 ROUTE = {name: i for i, name in enumerate(ROUTES)}
 
 # The header. `route` is internal (the renderer asks the guest for that
 # screen); `href` leaves the hub for a page milestone 1 does not rebuild.
 NAV = [
     {"label": "Models", "icon": "grid", "route": "models"},
-    {"label": "Registry", "icon": "box", "href": "https://gethologram.ai/registry/"},
-    {"label": "Apps", "icon": "cpu", "href": "https://gethologram.ai/spaces/"},
-    {"label": "Buckets", "icon": "bucket", "href": "https://gethologram.ai/buckets/"},
+    {"label": "Registry", "icon": "box", "route": "registry"},
+    {"label": "Apps", "icon": "cpu", "route": "apps"},
+    {"label": "Buckets", "icon": "bucket", "route": "buckets"},
     {"label": "Docs", "icon": "file", "route": "docs"},
 ]
 
@@ -31,6 +31,7 @@ LINKS = [
     ("models", "card", "model"),
     ("model", "back", "models"),
     ("docs", "models", "models"),
+    ("buckets", "docs", "docs"),
 ]
 
 # Kernel answer code -> (HTTP status, X-Error-Code index, message). Index 0 is
@@ -68,6 +69,62 @@ ENDPOINTS = [
 ]
 
 SCREENS = {
+    "registry": {
+        "title": "Registry",
+        "lead": "Every image and artifact the hub can name: models, runtimes and indexes from Docker Hub, GitHub, Quay and the hub itself, each pinned by its digest.",
+        "search": "Search the registry",
+        "facets": [["registry", "Registry"], ["kind", "Kind"], ["sizeBucket", "Size"], ["updatedBucket", "Updated"], ["license", "License"]],
+        "sorts": [["pulls", "Most pulled"], ["stars", "Most starred"], ["name", "Name"]],
+        "pageSize": 42,
+        "empty": "Nothing matches those filters.",
+        "clear": "Clear filters",
+        "reset": "Reset",
+        "more": "+{n} more",
+        "less": "Show less",
+        "previous": "Previous",
+        "next": "Next",
+        "pulls": "pulls",
+        "stars": "stars",
+        "digest": "Digest",
+        "open": "Open on source",
+        # Each command names the registry it applies to; "*" is any entry with a digest.
+        "commands": [["Docker Hub", "docker pull {ref}:{tag}"], ["*", "crane manifest {ref}@{digest}"]],
+        "snapshot": "Copied from {source} on {date}. sha256 {hash}",
+    },
+    "apps": {
+        "title": "Apps",
+        "lead": "Apps that run entirely in your browser, every file and every model weight named by its hash.",
+        "sorts": [["featured", "Featured"], ["name", "Name"], ["smallest", "Smallest model"], ["largest", "Largest model"]],
+        "open": "Open",
+        "source": "View the source",
+        "copy": "Copy its address",
+        "requires": "Needs",
+        "files": "{n} files",
+        "model": "Model",
+        "openBase": "https://gethologram.ai/spaces/",
+        "snapshot": "Copied from {source} on {date}. sha256 {hash}",
+    },
+    "buckets": {
+        "title": "Buckets",
+        "lead": "A bucket is a named place for your own objects, each stored and fetched by its address. Writing to a bucket needs an account on gethologram.ai; reading and checking any object needs nothing.",
+        "manage": "Open buckets on gethologram.ai",
+        "manageHref": "https://gethologram.ai/buckets/",
+        "command": "buckets create <owner>/<name>",
+        "checkTitle": "Check an object",
+        "checkLead": "Paste an address. The page fetches the object, hashes it here with the address's own hash, and asks the kernel whether these are the addressed bytes.",
+        "placeholder": "blake3:... or sha256:...",
+        "example": "blake3:5d168520ffb44368dc65fd00adc4543e57e7aebfa2d048192d152f46f86e18fc",
+        "exampleLabel": "Try the hub's catalog",
+        "check": "Check",
+        "verdicts": {
+            "20": "These {size} are exactly the addressed object.",
+            "21": "The bytes received do not match the address. Do not use them.",
+            "0": "The object could not be fetched.",
+            "invalid": "An address is blake3: or sha256: followed by 64 hexadecimal digits.",
+        },
+        "docs": "How addresses work",
+        "docsRoute": ROUTE["docs"],
+    },
     "chrome": {
         "brand": "HOLOGRAM",
         "host": HOST,

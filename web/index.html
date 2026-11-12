@@ -11,7 +11,7 @@
       // fallback for deep links, so every relative URL needs one base: the
       // path up to the first route segment the hub owns.
       (function () {
-        var p = location.pathname, m = p.match(/^(.*?\/)(models|docs)(\/|$)/);
+        var p = location.pathname, m = p.match(/^(.*?\/)(models|docs|registry|apps|buckets)(\/|$)/);
         var base = document.createElement("base");
         base.href = m ? m[1] : p.replace(/[^/]*$/, "");
         document.head.appendChild(base);

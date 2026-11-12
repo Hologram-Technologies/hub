@@ -15,7 +15,7 @@ if (!site || !api) {
   process.exit(64);
 }
 const shell = await readFile(join(site, "index.html"));
-const routes = ["models", "docs"];
+const routes = ["models", "docs", "registry", "apps", "buckets"];
 try {
   const response = await fetch(`${api}/api/models?limit=500`, { signal: AbortSignal.timeout(30000) });
   if (!response.ok) throw new Error(`the hub answered ${response.status}`);

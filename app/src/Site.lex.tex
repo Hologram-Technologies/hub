@@ -4,11 +4,11 @@
 \useglossary{prism.arch@1.0.0}
 \title{Text application model}
 \begin{semanticmodule}
-definition{name: routeCount, parameters: [], result: Nat, body: 5}
+definition{name: routeCount, parameters: [], result: Nat, body: 8}
 
 definition{name: navCount, parameters: [], result: Nat, body: 5}
 
-definition{name: linkCount, parameters: [], result: Nat, body: 5}
+definition{name: linkCount, parameters: [], result: Nat, body: 6}
 
 definition{name: routeChrome, parameters: [], result: Nat, body: 0}
 
@@ -20,27 +20,33 @@ definition{name: routeModel, parameters: [], result: Nat, body: 3}
 
 definition{name: routeDocs, parameters: [], result: Nat, body: 4}
 
+definition{name: routeRegistry, parameters: [], result: Nat, body: 5}
+
+definition{name: routeApps, parameters: [], result: Nat, body: 6}
+
+definition{name: routeBuckets, parameters: [], result: Nat, body: 7}
+
 definition{name: hasScreen, parameters: [route : Nat], result: Bool, body: (route <? (routeCount))}
 
 definition{
   name: navInternal,
   parameters: [item : Nat],
   result: Bool,
-  body: ((item =? 0) || (item =? 4))
+  body: ((item =? 0) || ((item =? 1) || ((item =? 2) || ((item =? 3) || (item =? 4)))))
 }
 
 definition{
   name: navRoute,
   parameters: [item : Nat],
   result: Nat,
-  body: (if (item =? 0) then (routeModels) else (if (item =? 4) then (routeDocs) else (routeCount)))
+  body: (if (item =? 0) then (routeModels) else (if (item =? 1) then (routeRegistry) else (if (item =? 2) then (routeApps) else (if (item =? 3) then (routeBuckets) else (if (item =? 4) then (routeDocs) else (routeCount))))))
 }
 
 definition{
   name: linkRoute,
   parameters: [link : Nat],
   result: Nat,
-  body: (if (link =? 0) then (routeModels) else (if (link =? 1) then (routeModels) else (if (link =? 2) then (routeModel) else (if (link =? 3) then (routeModels) else (if (link =? 4) then (routeModels) else (routeCount))))))
+  body: (if (link =? 0) then (routeModels) else (if (link =? 1) then (routeModels) else (if (link =? 2) then (routeModel) else (if (link =? 3) then (routeModels) else (if (link =? 4) then (routeModels) else (if (link =? 5) then (routeDocs) else (routeCount)))))))
 }
 
 definition{
@@ -61,7 +67,7 @@ definition{
   name: screenChrome,
   parameters: [],
   result: Bytes,
-  body: (prim utf8_encode "{\"brand\":\"HOLOGRAM\",\"host\":\"gethologram.ai\",\"api\":\"https://gethologram.ai\",\"nav\":[{\"label\":\"Models\",\"icon\":\"grid\",\"route\":2},{\"label\":\"Registry\",\"icon\":\"box\",\"href\":\"https://gethologram.ai/registry/\"},{\"label\":\"Apps\",\"icon\":\"cpu\",\"href\":\"https://gethologram.ai/spaces/\"},{\"label\":\"Buckets\",\"icon\":\"bucket\",\"href\":\"https://gethologram.ai/buckets/\"},{\"label\":\"Docs\",\"icon\":\"file\",\"route\":4}],\"themes\":[\"Immersive\",\"Dark\",\"Light\"],\"signIn\":\"Sign in\",\"signInHref\":\"https://gethologram.ai/\",\"proof\":\"Proved by Lean\",\"proofHref\":\"app/\"}" : Bytes)
+  body: (prim utf8_encode "{\"brand\":\"HOLOGRAM\",\"host\":\"gethologram.ai\",\"api\":\"https://gethologram.ai\",\"nav\":[{\"label\":\"Models\",\"icon\":\"grid\",\"route\":2},{\"label\":\"Registry\",\"icon\":\"box\",\"route\":5},{\"label\":\"Apps\",\"icon\":\"cpu\",\"route\":6},{\"label\":\"Buckets\",\"icon\":\"bucket\",\"route\":7},{\"label\":\"Docs\",\"icon\":\"file\",\"route\":4}],\"themes\":[\"Immersive\",\"Dark\",\"Light\"],\"signIn\":\"Sign in\",\"signInHref\":\"https://gethologram.ai/\",\"proof\":\"Proved by Lean\",\"proofHref\":\"app/\"}" : Bytes)
 }
 
 definition{
@@ -93,10 +99,31 @@ definition{
 }
 
 definition{
+  name: screenRegistry,
+  parameters: [],
+  result: Bytes,
+  body: (prim utf8_encode "{\"title\":\"Registry\",\"lead\":\"Every image and artifact the hub can name: models, runtimes and indexes from Docker Hub, GitHub, Quay and the hub itself, each pinned by its digest.\",\"search\":\"Search the registry\",\"facets\":[[\"registry\",\"Registry\"],[\"kind\",\"Kind\"],[\"sizeBucket\",\"Size\"],[\"updatedBucket\",\"Updated\"],[\"license\",\"License\"]],\"sorts\":[[\"pulls\",\"Most pulled\"],[\"stars\",\"Most starred\"],[\"name\",\"Name\"]],\"pageSize\":42,\"empty\":\"Nothing matches those filters.\",\"clear\":\"Clear filters\",\"reset\":\"Reset\",\"more\":\"+{n} more\",\"less\":\"Show less\",\"previous\":\"Previous\",\"next\":\"Next\",\"pulls\":\"pulls\",\"stars\":\"stars\",\"digest\":\"Digest\",\"open\":\"Open on source\",\"commands\":[[\"Docker Hub\",\"docker pull {ref}:{tag}\"],[\"*\",\"crane manifest {ref}@{digest}\"]],\"snapshot\":\"Copied from {source} on {date}. sha256 {hash}\"}" : Bytes)
+}
+
+definition{
+  name: screenApps,
+  parameters: [],
+  result: Bytes,
+  body: (prim utf8_encode "{\"title\":\"Apps\",\"lead\":\"Apps that run entirely in your browser, every file and every model weight named by its hash.\",\"sorts\":[[\"featured\",\"Featured\"],[\"name\",\"Name\"],[\"smallest\",\"Smallest model\"],[\"largest\",\"Largest model\"]],\"open\":\"Open\",\"source\":\"View the source\",\"copy\":\"Copy its address\",\"requires\":\"Needs\",\"files\":\"{n} files\",\"model\":\"Model\",\"openBase\":\"https://gethologram.ai/spaces/\",\"snapshot\":\"Copied from {source} on {date}. sha256 {hash}\"}" : Bytes)
+}
+
+definition{
+  name: screenBuckets,
+  parameters: [],
+  result: Bytes,
+  body: (prim utf8_encode "{\"title\":\"Buckets\",\"lead\":\"A bucket is a named place for your own objects, each stored and fetched by its address. Writing to a bucket needs an account on gethologram.ai; reading and checking any object needs nothing.\",\"manage\":\"Open buckets on gethologram.ai\",\"manageHref\":\"https://gethologram.ai/buckets/\",\"command\":\"buckets create <owner>/<name>\",\"checkTitle\":\"Check an object\",\"checkLead\":\"Paste an address. The page fetches the object, hashes it here with the address's own hash, and asks the kernel whether these are the addressed bytes.\",\"placeholder\":\"blake3:... or sha256:...\",\"example\":\"blake3:5d168520ffb44368dc65fd00adc4543e57e7aebfa2d048192d152f46f86e18fc\",\"exampleLabel\":\"Try the hub's catalog\",\"check\":\"Check\",\"verdicts\":{\"20\":\"These {size} are exactly the addressed object.\",\"21\":\"The bytes received do not match the address. Do not use them.\",\"0\":\"The object could not be fetched.\",\"invalid\":\"An address is blake3: or sha256: followed by 64 hexadecimal digits.\"},\"docs\":\"How addresses work\",\"docsRoute\":4}" : Bytes)
+}
+
+definition{
   name: screen,
   parameters: [route : Nat],
   result: Bytes,
-  body: (if (route =? (routeChrome)) then (screenChrome) else (if (route =? (routeHome)) then (screenHome) else (if (route =? (routeModels)) then (screenModels) else (if (route =? (routeModel)) then (screenModel) else (if (route =? (routeDocs)) then (screenDocs) else 0x000400)))))
+  body: (if (route =? (routeChrome)) then (screenChrome) else (if (route =? (routeHome)) then (screenHome) else (if (route =? (routeModels)) then (screenModels) else (if (route =? (routeModel)) then (screenModel) else (if (route =? (routeDocs)) then (screenDocs) else (if (route =? (routeRegistry)) then (screenRegistry) else (if (route =? (routeApps)) then (screenApps) else (if (route =? (routeBuckets)) then (screenBuckets) else 0x000400))))))))
 }
 \end{semanticmodule}
 \end{lexlean}

@@ -355,6 +355,19 @@ are fixed in the next commit:
   from 37 KB to 11 KB, and `gen_site.py` refuses a screen that holds a
   backslash, which a LexLean string cannot.
 
+## Registry, Apps and Buckets
+
+The three remaining header items are now routes the kernel renders (routes 5
+to 7), so `navHolds` and `linksHold` (`HK-11`) cover every header item; both
+were proved again (3 s and 2 s, `propext` and `Quot.sound`). The live hub's
+`/registry/data/images.json` (3.1 MB, 2,149 entries) and `/spaces/spaces.json`
+(12 apps) send no CORS header, measured on 2026-11-12, so `tools/web-data.mjs`
+copies them at each deploy, keeping only the fields the screens read (1.3 MB,
+237 KB compressed). The object store `/api/v1/objects/{id}` sends
+`Access-Control-Allow-Origin: *`, so Buckets checks an object in the browser:
+the catalog object `blake3:5d1685…` (544,627 bytes) is fetched, hashed with the
+vendored BLAKE3 and judged by `accept`.
+
 ## Prism accounts: the remembered passkey
 
 The sign-in page (`identity/id.mjs`) remembers which passkey this device last

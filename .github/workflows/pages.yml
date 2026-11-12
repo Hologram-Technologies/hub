@@ -165,6 +165,7 @@ jobs:
           test -f "$RUNNER_TEMP/pages/app/app.holo"
           test -f "$RUNNER_TEMP/pages/app/vendor/prism-code/src/browser.mjs"
           node tools/web-routes.mjs "$RUNNER_TEMP/pages" https://gethologram.ai
+          node tools/web-data.mjs "$RUNNER_TEMP/pages" https://gethologram.ai
       - name: Configure Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
       - name: Upload the page

@@ -5,6 +5,7 @@
 // hub's own Hugging Face API, and draws.
 
 import { load } from "./app/vendor/prism-code/src/browser.mjs";
+import { blake3Hex } from "./app/vendor/prism-code/src/blake3.mjs";
 
 const root = new URL(".", import.meta.url);
 const $ = (s, el = document) => el.querySelector(s);
@@ -37,7 +38,7 @@ const decoder = new TextDecoder();
 async function boot() {
   kernel = await load(new URL("app/app.holo", root).href);
   if (!kernel.identities.verified) throw new Error("the kernel's holo failed its identity check");
-  const routes = ["chrome", "home", "models", "model", "docs"];
+  const routes = ["chrome", "home", "models", "model", "docs", "registry", "apps", "buckets"];
   for (const [i, name] of routes.entries()) {
     const bytes = await kernel.dispatch(new Uint8Array([3, i]));
     screens[name] = JSON.parse(decoder.decode(bytes));
@@ -134,6 +135,9 @@ async function route() {
     else if (parts[0] === "models" && parts.length === 1) { section = "models"; await drawModels(main); }
     else if (parts[0] === "models" && parts.length >= 3) { section = "models"; await drawModel(main, `${parts[1]}/${parts[2]}`); }
     else if (parts[0] === "docs") { section = "docs"; drawDocs(main); }
+    else if (parts[0] === "registry") { section = "registry"; await drawRegistry(main); }
+    else if (parts[0] === "apps") { section = "apps"; await drawApps(main); }
+    else if (parts[0] === "buckets") { section = "buckets"; drawBuckets(main); }
     else { section = ""; await drawHome(main); }
   } catch (error) {
     main.innerHTML = `<section class="panel note">${esc(error.message)}</section>`;
@@ -143,7 +147,7 @@ async function route() {
 }
 
 // ---------------------------------------------------------------- chrome
-const ROUTE_PATH = { 1: "", 2: "models/", 3: "models/", 4: "docs/" };
+const ROUTE_PATH = { 1: "", 2: "models/", 3: "models/", 4: "docs/", 5: "registry/", 6: "apps/", 7: "buckets/" };
 function drawChrome() {
   const nav = chrome.nav.map((n) => {
     const icon = ICON[n.icon] ?? "";
@@ -373,6 +377,182 @@ async function drawModel(main, id) {
     show(+t.dataset.tab);
   });
   show(0);
+}
+
+// ---------------------------------------------------------------- registry
+// The registry and apps lists are copies of the live hub's, taken when the
+// site was built (tools/web-data.mjs); each page says when, from where, and
+// the SHA-256 of what was copied.
+const copied = (s, from) => `<p class="dim small">${esc(fill(s.snapshot, { source: from.source, date: from.date, hash: from.hash.slice(0, 16) }))}…</p>`;
+let registryData, appsData;
+async function drawRegistry(main) {
+  const s = screens.registry;
+  registryData ??= fetch(new URL("data/registry.json", root)).then((r) => r.json());
+  const { from, images } = await registryData;
+  const q = new URLSearchParams(location.search);
+  const st = { q: q.get("q") ?? "", sort: q.get("sort") ?? "pulls", page: 1, picked: Object.fromEntries(s.facets.map(([k]) => [k, q.getAll(k)])) };
+  main.innerHTML = `
+    <div class="title"><h1>${esc(s.title)}</h1><span class="pill" id="count"></span></div>
+    <p class="lead">${esc(s.lead)}</p>
+    <div class="browse">
+      <aside class="panel filters" id="filters"></aside>
+      <section class="results">
+        <div class="bar">
+          <label class="search">${ICON.search}<input id="q" type="search" placeholder="${esc(s.search)}" autocomplete="off" /></label>
+          <select id="sort" aria-label="Sort">${s.sorts.map(([k, l]) => `<option value="${esc(k)}">${esc(l)}</option>`).join("")}</select>
+        </div>
+        <div class="cards" id="cards"></div>
+        <nav class="pager" id="pager" aria-label="Pages"></nav>
+        ${copied(s, from)}
+      </section>
+    </div>`;
+  $("#q").value = st.q;
+  $("#sort").value = st.sort;
+  const open = {};
+  const value = (row, key) => (row[key] == null ? [] : [String(row[key])]);
+  const match = (row, skip) => {
+    const hay = `${row.id} ${row.description ?? ""}`.toLowerCase();
+    if (st.q && !st.q.toLowerCase().split(/\s+/).every((w) => hay.includes(w))) return false;
+    return s.facets.every(([key]) => key === skip || !st.picked[key].length || st.picked[key].some((v) => value(row, key).includes(v)));
+  };
+  const order = { pulls: (r) => r.pulls ?? -1, stars: (r) => r.stars ?? -1 };
+  const draw = () => {
+    const shown = images.filter((r) => match(r));
+    if (st.sort === "name") shown.sort((a, b) => a.id.localeCompare(b.id));
+    else shown.sort((a, b) => order[st.sort](b) - order[st.sort](a));
+    $("#count").textContent = shown.length;
+    $("#filters").innerHTML = s.facets.map(([key, label]) => {
+      const counts = new Map();
+      for (const r of images) if (match(r, key)) for (const v of value(r, key)) counts.set(v, (counts.get(v) ?? 0) + 1);
+      const rows = [...counts].sort((a, b) => b[1] - a[1]);
+      const limit = open[key] ? rows.length : 8;
+      const chips = rows.slice(0, limit).map(([v, n]) => `<button type="button" class="tag${st.picked[key].includes(v) ? " on" : ""}" data-facet="${esc(key)}" data-value="${esc(v)}">${esc(v)} <span>${n}</span></button>`).join("");
+      const more = rows.length > 8 ? `<button type="button" class="more" data-more="${esc(key)}">${esc(open[key] ? s.less : fill(s.more, { n: rows.length - 8 }))}</button>` : "";
+      const reset = st.picked[key].length ? `<button type="button" class="reset" data-reset="${esc(key)}">${esc(s.reset)}</button>` : "";
+      return rows.length ? `<section class="facet"><header><h2>${esc(label)}</h2>${reset}</header><div class="tags">${chips}</div>${more}</section>` : "";
+    }).join("");
+    const pages = Math.max(1, Math.ceil(shown.length / s.pageSize));
+    st.page = Math.min(st.page, pages);
+    const slice = shown.slice((st.page - 1) * s.pageSize, st.page * s.pageSize);
+    $("#cards").innerHTML = slice.length ? slice.map((r) => {
+      const ref = r.id;
+      const commands = r.digest ? s.commands.filter(([reg]) => reg === "*" || reg === r.registry).map(([, t]) => fill(t, { ref, tag: r.tag ?? "latest", digest: r.digest })) : [];
+      return `<article class="card entry">
+        <span class="tags"><span>${esc(r.registry)}</span><span>${esc(r.kind ?? "")}</span>${r.official ? `<b class="ok">official</b>` : ""}</span>
+        <span class="name">${esc(r.org ? `${r.org}/` : "")}${esc(r.name)}${r.tag ? `:${esc(r.tag)}` : ""}</span>
+        ${r.description ? `<span class="desc">${esc(r.description)}</span>` : ""}
+        <span class="meta">${r.pulls != null ? `${ICON.down} ${short(r.pulls)} ${esc(s.pulls)}` : ""}${r.stars != null ? ` · ${short(r.stars)} ${esc(s.stars)}` : ""}${r.size ? ` · ${esc(bytes(r.size))}` : ""}</span>
+        ${r.digest ? `<span class="meta"><code>${esc(s.digest)} ${esc(r.digest.slice(0, 19))}…</code></span>` : ""}
+        <span class="actions">${commands.map((c) => `<button type="button" class="chip" data-copy="${esc(c)}">$ ${esc(c.length > 46 ? `${c.slice(0, 45)}…` : c)} ${ICON.copy}</button>`).join("")}
+          ${r.home ? `<a class="chip" href="${esc(r.home)}" rel="noopener">${esc(s.open)} ${ICON.next}</a>` : ""}</span>
+      </article>`;
+    }).join("") : `<div class="empty"><p>${esc(s.empty)}</p><button type="button" class="button" data-clear>${esc(s.clear)}</button></div>`;
+    $("#pager").innerHTML = pages > 1 ? `<button type="button" data-page="${st.page - 1}" ${st.page === 1 ? "disabled" : ""}>${esc(s.previous)}</button><span>${st.page} / ${pages}</span><button type="button" data-page="${st.page + 1}" ${st.page === pages ? "disabled" : ""}>${esc(s.next)}</button>` : "";
+    const url = new URLSearchParams();
+    if (st.q) url.set("q", st.q);
+    if (st.sort !== "pulls") url.set("sort", st.sort);
+    for (const [k, vs] of Object.entries(st.picked)) for (const v of vs) url.append(k, v);
+    history.replaceState(null, "", `${href("registry/")}${url.size ? `?${url}` : ""}`);
+  };
+  let timer;
+  $("#q").addEventListener("input", (e) => { clearTimeout(timer); timer = setTimeout(() => { st.q = e.target.value.trim(); st.page = 1; draw(); }, 144); });
+  $("#sort").addEventListener("change", (e) => { st.sort = e.target.value; st.page = 1; draw(); });
+  main.querySelector(".browse").addEventListener("click", (e) => {
+    const t = e.target.closest("button");
+    if (!t || t.dataset.copy !== undefined) return;
+    if (t.dataset.facet) { const vs = st.picked[t.dataset.facet]; const i = vs.indexOf(t.dataset.value); i < 0 ? vs.push(t.dataset.value) : vs.splice(i, 1); st.page = 1; }
+    else if (t.dataset.reset) st.picked[t.dataset.reset] = [];
+    else if (t.dataset.more) open[t.dataset.more] = !open[t.dataset.more];
+    else if (t.dataset.page) st.page = +t.dataset.page;
+    else if ("clear" in t.dataset) { for (const k in st.picked) st.picked[k] = []; st.q = ""; $("#q").value = ""; }
+    else return;
+    draw();
+  });
+  draw();
+}
+
+// ---------------------------------------------------------------- apps
+async function drawApps(main) {
+  const s = screens.apps;
+  appsData ??= fetch(new URL("data/apps.json", root)).then((r) => r.json());
+  const { from, apps } = await appsData;
+  main.innerHTML = `
+    <div class="title"><h1>${esc(s.title)}</h1><span class="pill">${apps.length}</span>
+      <select id="sort" aria-label="Sort" class="sort">${s.sorts.map(([k, l]) => `<option value="${esc(k)}">${esc(l)}</option>`).join("")}</select></div>
+    <p class="lead">${esc(s.lead)}</p>
+    <div class="cards apps" id="cards"></div>
+    ${copied(s, from)}`;
+  const draw = (sort) => {
+    const list = [...apps];
+    if (sort === "name") list.sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === "smallest") list.sort((a, b) => (a.modelBytes ?? 0) - (b.modelBytes ?? 0));
+    if (sort === "largest") list.sort((a, b) => (b.modelBytes ?? 0) - (a.modelBytes ?? 0));
+    $("#cards").innerHTML = list.map((a) => `<article class="card app">
+      <span class="tags"><span>${esc(a.task ?? "")}</span><span>${esc(fill(s.files, { n: a.files ?? 0 }))}</span><span>${esc(bytes(a.bytes ?? 0))}</span></span>
+      <span class="name">${esc(a.name)}</span>
+      <span class="desc">${esc(a.tagline ?? "")}</span>
+      ${(a.models ?? []).length ? `<span class="meta">${esc(s.model)}: ${a.models.map((m) => `<a data-in href="${href(`models/${m}/`)}">${esc(m)}</a>`).join(", ")}${a.modelBytes ? ` · ${esc(bytes(a.modelBytes))}` : ""}</span>` : ""}
+      ${(a.requires ?? []).length ? `<span class="meta">${esc(s.requires)}: ${a.requires.map(esc).join(", ")}</span>` : ""}
+      <span class="actions">
+        <a class="button primary" href="${esc(s.openBase + (a.entry ?? `${a.id}/`))}" rel="noopener">${esc(s.open)} ${ICON.next}</a>
+        ${a.root ? `<button type="button" class="chip" data-copy="${esc(a.root)}">${esc(s.copy)} ${ICON.copy}</button>` : ""}
+        ${a.source ? `<a class="chip" href="${esc(a.source)}" rel="noopener">${esc(s.source)}</a>` : ""}
+      </span>
+    </article>`).join("");
+  };
+  $("#sort").addEventListener("change", (e) => draw(e.target.value));
+  draw("featured");
+}
+
+// ---------------------------------------------------------------- buckets
+// Check an object: the page fetches it from the hub's object store, hashes it
+// with the address's own hash, and the kernel's accept rule (HK-10) says
+// whether these are the addressed bytes.
+function drawBuckets(main) {
+  const s = screens.buckets;
+  main.innerHTML = `
+    <article class="panel doc buckets">
+      <h1>${esc(s.title)}</h1>
+      <p>${esc(s.lead)}</p>
+      <p><a class="button" href="${esc(s.manageHref)}" rel="noopener">${esc(s.manage)} ${ICON.next}</a></p>
+      <button type="button" class="command block" data-copy="${esc(s.command)}"><span>$ ${esc(s.command)}</span>${ICON.copy}</button>
+      <section><h2>${esc(s.checkTitle)}</h2><p>${esc(s.checkLead)}</p>
+        <form class="check" id="check"><label class="search">${ICON.search}<input id="address" spellcheck="false" autocomplete="off" placeholder="${esc(s.placeholder)}" /></label>
+          <button type="submit" class="button primary">${esc(s.check)}</button></form>
+        <button type="button" class="more" id="example">${esc(s.exampleLabel)}</button>
+        <div class="verdict" id="object" hidden></div>
+      </section>
+      <p><a class="button" data-in href="${href(ROUTE_PATH[s.docsRoute])}">${esc(s.docs)} ${ICON.next}</a></p>
+    </article>`;
+  $("#example").addEventListener("click", () => { $("#address").value = s.example; $("#check").requestSubmit(); });
+  $("#check").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const box = $("#object");
+    const address = $("#address").value.trim();
+    const m = address.match(/^(blake3|sha256):([0-9a-f]{64})$/);
+    box.hidden = false;
+    box.className = "verdict";
+    if (!m) { box.innerHTML = `<p>${esc(s.verdicts.invalid)}</p>`; return; }
+    box.innerHTML = "<p>…</p>";
+    let code = 0;
+    let size = 0;
+    try {
+      const r = await fetch(`${chrome.api}/api/v1/objects/${address}`, { signal: AbortSignal.timeout(20000) });
+      if (r.ok) {
+        const body = new Uint8Array(await r.arrayBuffer());
+        size = body.length;
+        const observed = m[1] === "blake3" ? blake3Hex(body) : [...new Uint8Array(await crypto.subtle.digest("SHA-256", body))].map((b) => b.toString(16).padStart(2, "0")).join("");
+        const request = new Uint8Array(81);
+        request.set([2]); request.set(hex(m[2]), 1); request.set(hex(observed), 33);
+        request.set(u64(size), 65); request.set(u64(size), 73);
+        code = (await kernel.dispatch(request))[0];
+      }
+    } catch {
+      code = 0;
+    }
+    box.className = `verdict ${code === 20 ? "v1" : code === 21 ? "v2" : ""}`;
+    box.innerHTML = `<p><strong>${esc(fill(s.verdicts[code] ?? s.verdicts[0], { size: bytes(size) }))}</strong></p>`;
+  });
 }
 
 // ---------------------------------------------------------------- verify
