@@ -5,7 +5,10 @@ Run once with HF_ENDPOINT unset (huggingface.co) and once pointing at the edge;
 with HF_ENDPOINT=<edge>/via/ipfs: a client follows a redirect to Hugging Face
 during its HEAD and then reads Hugging Face's own headers, so only a source it
 does not follow tests the edge's headers. With PINNED=1 the tiny model, which
-the IPFS copy does not hold, is left out. huggingface_hub reads
+the IPFS copy does not hold, is left out. With OFFLINE=1 (an edge that answers
+from its signed index alone, Hugging Face drained) the checks that need a
+model outside the index are left out too: the tiny model, the gated model and
+the search. huggingface_hub reads
 HF_ENDPOINT at import, so each endpoint is its own process. Uses no token.
 
     python tests/edge/observe.py <cache dir> > observation.json
@@ -59,15 +62,20 @@ seen["files"] = sorted(hf.list_repo_files(REPO))
 snap = hf.snapshot_download(REPO, allow_patterns=["*.json"])
 seen["snapshot"] = sorted((os.path.relpath(os.path.join(d, f), snap).replace(os.sep, "/"), sha(os.path.join(d, f)))
                           for d, _, fs in os.walk(snap) for f in fs)
-if os.environ.get("PINNED") != "1":
+LIMITED = os.environ.get("PINNED") == "1" or os.environ.get("OFFLINE") == "1"
+if not LIMITED:
     seen["lfs download"] = sha(hf.hf_hub_download(TINY, "model.safetensors"))
     seen["cache blob names"] = {REPO: blobs(REPO), TINY: blobs(TINY)}
 else:
     seen["cache blob names"] = {REPO: blobs(REPO)}
     seen["pinned"] = True
-seen["search"] = sorted(m.id for m in hf.list_models(search="gpt2", author="openai-community", limit=10))
+if os.environ.get("OFFLINE") != "1":
+    seen["search"] = sorted(m.id for m in hf.list_models(search="gpt2", author="openai-community", limit=10))
 seen["missing repository"] = error_of(lambda: hf.hf_hub_download("nobody-xyz-123/does-not-exist", "config.json"))
 seen["missing file"] = error_of(lambda: hf.hf_hub_download(REPO, "nope.bin"))
 seen["missing revision"] = error_of(lambda: hf.hf_hub_download(REPO, "config.json", revision="not-a-branch"))
-seen["gated repository"] = error_of(lambda: hf.hf_hub_download("meta-llama/Llama-3.1-8B", "config.json"))
+if os.environ.get("OFFLINE") != "1":
+    seen["gated repository"] = error_of(lambda: hf.hf_hub_download("meta-llama/Llama-3.1-8B", "config.json"))
+else:
+    seen["offline"] = True
 json.dump(seen, sys.stdout, indent=1, sort_keys=True)

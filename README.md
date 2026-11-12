@@ -128,6 +128,21 @@ its identities and replays its examples.
   the edge, and against the edge with every file pinned to IPFS, and requires
   the same results; `.github/workflows/edge.yml` runs it on every push.
 
+The edge answers first from the hub's signed index (`tools/index.mjs`, built and
+signed at each deploy): one record per model in the catalog and every
+witnessed model (its release commit, each file's size, git and SHA-256 hashes,
+and which sources hold it), a catalog, and a root naming every record by
+SHA-256. Only the root is signed (Sigstore, keyless, statement type
+`https://hologram.foundation/hub/index/v1`, pinned in the model); the edge
+checks that signature with `web/sigstore.mjs` and each record against the
+root. For an indexed model it answers model info, the file tree, paths-info,
+refs and every file request without calling Hugging Face; only a model the
+index does not hold is asked of Hugging Face. `HF_API=off` turns that off,
+and `DRAIN=huggingface.co` takes Hugging Face out of the sources, so the kernel
+sends files to ModelScope or IPFS. The index is a directory of static files any
+host or IPFS can serve; `INDEX_URL` points an edge at a mirror.
+
+`edge/Dockerfile` (Node 22, pinned by digest) runs it anywhere containers run.
 It is not deployed yet: where it runs is a choice of account. Cloudflare Workers
 does not fit, because it does not let a worker compile WebAssembly from bytes at
 run time, which loading a holo needs (Cloudflare's documented restriction, not

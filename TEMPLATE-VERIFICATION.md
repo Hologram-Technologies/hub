@@ -417,6 +417,22 @@ ETag) passed the comparison through Hugging Face; the comparison pinned to
 IPFS failed on it (`large file metadata`), and that comparison is part of the
 gate.
 
+## The signed index and Hugging Face switched off
+
+Measured on 2026-11-12 with a 14-model index built locally (`tools/index.mjs
+<dir> 12` plus the witnessed models) and the edge started with Hugging Face's
+API off and Hugging Face drained. Because the index's signature is made only in
+CI, this run adopted the unsigned local index through
+`adoptUnsignedIndexForTests`, which the server never calls. The kernel sent
+`openai-community/gpt2`'s `config.json` and `model.safetensors` to ModelScope
+and `.gitattributes`, which ModelScope does not hold, to IPFS; refs and the
+file tree came from the index. `huggingface_hub` 2.4.0 against that edge
+matched huggingface.co on all eleven checks that apply to an indexed model
+(file hashes, file metadata, commit prefix, model commit, file list, snapshot,
+cache blob names, and the errors for a missing repository, file and revision).
+The `offline` job in `pages.yml` repeats this after each deploy against the
+published, signed index.
+
 ## Prism accounts: the remembered passkey
 
 The sign-in page (`identity/id.mjs`) remembers which passkey this device last
