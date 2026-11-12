@@ -172,3 +172,31 @@ td { font-family: var(--mono); }
 .doc h1 { margin: 0 0 12px; font: 500 30px var(--display); letter-spacing: -0.03em; }
 .doc > p { color: var(--muted-foreground); max-width: 760px; }
 .doc td:last-child { white-space: normal; font-family: var(--sans); }
+
+/* verify */
+.who { position: relative; }
+.verify { margin-left: auto; }
+.verify .i { color: var(--success); }
+.verdict { margin-top: 16px; padding: 14px 16px; border-radius: 8px; border: 1px solid var(--hair); background: rgb(0 0 0 / .2); }
+.verdict p { margin: 0; }
+.verdict.v1 { border-color: var(--success-border); }
+.verdict.v1 strong { color: var(--success); }
+.verdict.v2 { border-color: var(--destructive-border); }
+.verdict.v2 strong { color: var(--destructive); }
+.verdict ul { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 4px; font: 14px var(--mono); }
+.verdict li { display: flex; justify-content: space-between; gap: 16px; }
+.verdict li.r20 span:last-child { color: var(--success); }
+.verdict li.r21 span:last-child { color: var(--destructive); }
+.verdict li.r0 span:last-child { color: var(--muted-foreground); }
+
+/* docs */
+.docs { display: grid; grid-template-columns: 240px 1fr; gap: 12px; align-items: start; max-width: 1360px; margin: 32px auto 0; }
+.docs .doc { margin: 0; max-width: none; }
+.toc { position: sticky; top: 88px; padding: 12px; display: grid; gap: 2px; }
+.toc a { padding: 8px 10px; border-radius: 6px; color: var(--muted-foreground); font-size: 14px; }
+.toc a:hover { background: var(--muted); color: var(--foreground); }
+.doc section { margin-top: 28px; scroll-margin-top: 96px; }
+.doc section p { color: var(--muted-foreground); max-width: 760px; }
+.command.block { display: flex; width: 100%; max-width: 760px; justify-content: space-between; background: rgb(0 0 0 / .2); border-color: var(--hair); margin: 8px 0; text-align: left; }
+.command.block span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 860px) { .docs { grid-template-columns: 1fr; } .toc { position: static; display: flex; flex-wrap: wrap; } }

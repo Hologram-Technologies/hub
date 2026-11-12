@@ -282,6 +282,20 @@ fn kernel_hk_12() {
     dispatch_decides_by("(Site::screen (byteNat value 1))");
 }
 
+/// `HK-13`: The page says Verified only when at least one source delivered and none sent other bytes, and any source that sent other bytes makes the verdict a mismatch
+#[test]
+fn kernel_hk_13() {
+    pinned(
+        "Verdict",
+        "breaksVerdict",
+        "((((Kernel::verdict r0 r1 r2 r3) =? 1) && ((((r0 =? 21) || (r1 =? 21)) || ((r2 =? 21) || (r3 =? 21))) || (not (((r0 =? 20) || (r1 =? 20)) || ((r2 =? 20) || (r3 =? 20)))))) || ((((r0 =? 21) || (r1 =? 21)) || ((r2 =? 21) || (r3 =? 21))) && (not (((Kernel::verdict r0 r1 r2 r3) =? 2) || ((Kernel::verdict r0 r1 r2 r3) =? 0)))))",
+        "verdictHolds",
+        "r0 r1 r2 r3",
+        "Quot.sound, propext",
+    );
+    dispatch_decides_by("(encodeVerdict (verdict (byteNat value 1)");
+}
+
 /// `HK-10`: Received bytes are delivered exactly when their digest and size equal the expected digest and size
 #[test]
 fn kernel_hk_10() {

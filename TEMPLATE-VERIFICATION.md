@@ -12,13 +12,13 @@ This repository's `just vv` instantiates the universal verification policy in
 | `just lint` | Clippy at `-D warnings`, every target, every optional feature | --- |
 | `just test` | the workspace suite, including the R3 meta-gate | `CM-02`, `CM-03` |
 | `just deny` | R6 over the dependency graph | --- |
-| `just app` | the Prism application: LexLean format and lock, then `prismpm verify`, which builds the holo and checks it | `HK-01` to `HK-12` |
+| `just app` | the Prism application: LexLean format and lock, then `prismpm verify`, which builds the holo and checks it | `HK-01` to `HK-13` |
 
 Each check runs once per `just vv`. `just bdd` runs only the meta-gate while a
 scenario is being written; `just test` already includes it.
 
-The register holds twelve claims, `HK-01` to `HK-12`, so the meta-gate checks
-real rows, real scenarios and real tests. It becomes an error as soon as an ID, scenario,
+The register holds thirteen claims, `HK-01` to `HK-13`, so the meta-gate
+checks real rows, real scenarios and real tests. It becomes an error as soon as an ID, scenario,
 or test is added without the other two.
 
 ## Planted defects
@@ -28,7 +28,7 @@ or test is added without the other two.
 | `check-model` | `CONFORMANCE.md` disagrees with the register | rejected |
 | `audit-deferral` | a deferral marker in a crate and in the gate's own source | both rejected |
 | honesty meta-gate | an ID with no test | rejected |
-| `kernel_hk_01` to `kernel_hk_10` | `breaksPrivacy` drops its `delivers` disjunct; `dispatch` delivers on a digest mismatch; `soundHolds` declares an extra axiom; `Proofs/Sound.lex.tex` is removed from the entrypoints; one acceptance vector's response is edited; `breaksNav` drops its screen check; `breaksDialect` moves its threshold to 500; `dispatch` stops serving screens from `Site` | all eight rejected |
+| `kernel_hk_01` to `kernel_hk_10` | `breaksPrivacy` drops its `delivers` disjunct; `dispatch` delivers on a digest mismatch; `soundHolds` declares an extra axiom; `Proofs/Sound.lex.tex` is removed from the entrypoints; one acceptance vector's response is edited; `breaksNav` drops its screen check; `breaksDialect` moves its threshold to 500; `dispatch` stops serving screens from `Site`; `breaksVerdict` tests a verdict code that never occurs; `dispatch` reads the verdict's first result from the wrong byte | all ten rejected |
 | `prismpm verify` | an acceptance vector set without the exact guest-allocation boundary | rejected (PP2009) |
 | `audit-bootstrap` | a floating/copied action, mutable SDK tag, changed universal file, narrowed boundary, shallow/credential-retaining checkout, copied project renderer, omitted standards lock, acceptance bypass, deploy-job signing privilege, incomplete release lifecycle, or a bootstrap that drops a native architecture from main or tags, cancels or replaces a main run, or skips runs by path, condition or matrix exclusion | all rejected |
 | `audit-bootstrap` (`proof_reuse_is_confined`) | proof reuse widened to `push` or to any event, a recipe that stops proving, a cache key without the `Justfile` or without `app/**`, the event line removed from the gate, a second use of the event in the recipe, and the `merge_group` trigger dropped | all rejected |
@@ -321,6 +321,23 @@ hosted verifier also verified every module of the previous revision
 `web/` draws only what the guest returns. `pages.yml` publishes it at the
 root of the Pages site and the proof page under `app/`, so the interface
 reads the holo, the runtime and the brand tokens from beside it.
+
+## Verify
+
+`Verify` on a model page is decided by the kernel. The page fetches the
+smallest file whose address is a SHA-256 from each source through the hub's
+`/via/<source>` route and hashes it; each copy goes to `accept` (`HK-10`), and
+the four results go to `verdict`, a five-byte request `04 r0 r1 r2 r3` (0
+unreachable, 20 delivered, 21 quarantined) answered with one byte: 1 verified,
+2 mismatch, 3 unreachable, 0 invalid. `verdictHolds` (`HK-13`) states that 1
+needs a delivered copy and no quarantined one, and that any quarantined copy
+gives 2 (or 0 when another result is invalid). Lean proved it in 5 seconds with
+`propext` and `Quot.sound`; seven verdict requests are acceptance vectors.
+
+Measured on 2026-11-12 for `openai-community/gpt2` `config.json` (665 bytes):
+Hugging Face, ModelScope and IPFS (Filebase) each serve the file to another
+origin, and each copy hashes to the address in the hub's index,
+`0daed7749b4f…`.
 
 ## Prism accounts: the remembered passkey
 

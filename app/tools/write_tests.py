@@ -41,6 +41,9 @@ CASES = [
     ("HK-12", "A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code",
      [("Dialect", "breaksDialect", "dialectHolds", "answer"), ("Errors", "breaksErrors", "errorsHold", "answer")],
      "(Site::screen (byteNat value 1))"),
+    ("HK-13", "The page says Verified only when at least one source delivered and none sent other bytes, and any source that sent other bytes makes the verdict a mismatch",
+     [("Verdict", "breaksVerdict", "verdictHolds", "r0 r1 r2 r3")],
+     "(encodeVerdict (verdict (byteNat value 1)"),
 ]
 HK10 = "Received bytes are delivered exactly when their digest and size equal the expected digest and size"
 

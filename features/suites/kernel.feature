@@ -77,6 +77,12 @@ Feature: kernel
     Then no input meets breaksDialect
     And no input meets breaksErrors
 
+  @HK-13 @build
+  Scenario: The page says Verified only when at least one source delivered and none sent other bytes, and any source that sent other bytes makes the verdict a mismatch
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks verdictHolds in app/src/Proofs/Verdict.lex.tex during prismpm verify
+    Then no input meets breaksVerdict
+
   @HK-10 @build
   Scenario: Received bytes are delivered exactly when their digest and size equal the expected digest and size
     Given the kernel model in app/src/Kernel.lex.tex

@@ -320,7 +320,9 @@ async function drawModel(main, id) {
     <section class="panel head">
       <div class="who"><span class="avatar">${esc(org[0]?.toUpperCase())}</span>
         <div><h1>${esc(name)} <small>${ICON.down} ${short(m.downloads)} · ${ICON.heart} ${short(m.likes)}</small></h1>
-        <p class="dim">${esc(org)}${params(m) ? ` · ${short(params(m))} parameters` : ""}${m.hologram?.weight_bytes ? ` · ${bytes(m.hologram.weight_bytes)}` : ""}${license(m) ? ` · ${esc(license(m))}` : ""}</p></div></div>
+        <p class="dim">${esc(org)}${params(m) ? ` · ${short(params(m))} parameters` : ""}${m.hologram?.weight_bytes ? ` · ${bytes(m.hologram.weight_bytes)}` : ""}${license(m) ? ` · ${esc(license(m))}` : ""}</p></div>
+        ${verified(m) ? `<button type="button" class="button verify" id="verify">${ICON.seal} ${esc(s.verify.label)}</button>` : ""}</div>
+      <div class="verdict" id="verdict" hidden></div>
       <dl class="rows">
         <dt>${esc(s.address)}</dt><dd><code>${esc(host)}/${esc(m.id)}</code>${m.hologram?.manifest ? ` <code class="dim">${esc(m.hologram.manifest.slice(0, 22))}…</code>` : ""}</dd>
         <dt>${esc(s.held)}</dt><dd class="pills">${sources(m).map((x) => `<span class="pill">${esc(x)}</span>`).join("")}</dd>
@@ -345,12 +347,15 @@ async function drawModel(main, id) {
     cmd.querySelector("span").textContent = `$ ${c}`;
   });
   const overview = `<h2>${esc(s.glance)}</h2><dl class="glance">${s.facts.filter(([k]) => facts[k]).map(([k, l]) => `<dt>${esc(l)}</dt><dd>${typeof facts[k] === "string" && facts[k].startsWith("<") ? facts[k] : esc(facts[k])}</dd>`).join("")}</dl>`;
+  let treeRequest;
+  const tree = () => (treeRequest ??= fetch(`${chrome.api}/api/models/${m.id}/tree/${m.sha ?? "main"}?recursive=true`)
+    .then((r) => (r.ok ? r.json() : [])).then((all) => all.filter((f) => f.type === "file")).catch(() => []));
+  $("#verify")?.addEventListener("click", () => verify(m, s.verify, tree));
   const filesTab = async () => {
     if (m.gated) return `<p class="note">${esc(s.gated)}</p>`;
     if (!verified(m)) return `<p class="note">${esc(s.queued)}</p>`;
-    const r = await fetch(`${chrome.api}/api/models/${m.id}/tree/${m.sha ?? "main"}?recursive=true`);
-    if (!r.ok) return `<p class="note">${esc(s.queued)}</p>`;
-    const files = (await r.json()).filter((f) => f.type === "file");
+    const files = await tree();
+    if (!files.length) return `<p class="note">${esc(s.queued)}</p>`;
     const total = files.reduce((a, f) => a + (f.size ?? 0), 0);
     return `<p class="dim">${esc(fill(s.filesNote, { n: files.length, size: bytes(total) }))}</p>
       <div class="scroll"><table><thead><tr>${s.columns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>
@@ -370,20 +375,75 @@ async function drawModel(main, id) {
   show(0);
 }
 
+// ---------------------------------------------------------------- verify
+// The page measures and the kernel judges: for each source the page fetches
+// one addressed file through the hub's /via/<source> route and hashes it; the
+// kernel's accept rule (HK-10) says whether that copy matches its address, and
+// its verdict rule (HK-13) turns the copies' results into what the page says.
+const hex = (s) => Uint8Array.from(s.match(/../g).map((b) => parseInt(b, 16)));
+const u64 = (n) => { const b = new Uint8Array(8); new DataView(b.buffer).setBigUint64(0, BigInt(n)); return b; };
+async function verify(m, v, tree) {
+  const button = $("#verify");
+  const box = $("#verdict");
+  const files = (await tree()).filter((f) => /^[0-9a-f]{64}$/.test(f.lfs?.oid ?? f.oid ?? "") && f.size > 0);
+  const file = files.sort((a, b) => a.size - b.size)[0];
+  const held = new Set(sources(m));
+  const pick = v.sources.filter(([label]) => held.has(label)).slice(0, 4);
+  if (!file || !pick.length) return;
+  const expected = hex(file.lfs?.oid ?? file.oid);
+  button.disabled = true;
+  box.hidden = false;
+  box.className = "verdict";
+  box.innerHTML = `<p>${esc(fill(v.checking, { file: file.path, n: pick.length }))}</p>`;
+  const started = performance.now();
+  const results = await Promise.all(pick.map(async ([label, via]) => {
+    try {
+      const r = await fetch(`${chrome.api}/via/${via}/${m.id}/resolve/${m.sha ?? "main"}/${file.path}`, { signal: AbortSignal.timeout(v.timeoutMs) });
+      if (!r.ok) return [label, 0];
+      const body = new Uint8Array(await r.arrayBuffer());
+      const observed = new Uint8Array(await crypto.subtle.digest("SHA-256", body));
+      const request = new Uint8Array(81);
+      request.set([2]); request.set(expected, 1); request.set(observed, 33);
+      request.set(u64(file.size), 65); request.set(u64(body.length), 73);
+      return [label, (await kernel.dispatch(request))[0]];
+    } catch {
+      return [label, 0];
+    }
+  }));
+  const codes = results.map(([, c]) => c);
+  const verdict = (await kernel.dispatch(new Uint8Array([4, ...codes, 0, 0, 0, 0].slice(0, 5))))[0];
+  const list = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}` : xs[0] ?? "");
+  const named = (code) => list(results.filter(([, c]) => c === code).map(([l]) => l));
+  const text = fill(v.verdicts[verdict] ?? v.verdicts[0], { ms: Math.round(performance.now() - started), sources: named(verdict === 2 ? 21 : 20) });
+  box.className = `verdict v${verdict}`;
+  box.innerHTML = `<p><strong>${esc(text)}</strong></p>
+    <ul>${results.map(([label, c]) => `<li class="r${c}"><span>${esc(label)}</span><span>${esc(v.rows[c] ?? v.rows[0])}</span></li>`).join("")}</ul>
+    <p class="dim">${esc(file.path)} · ${esc(bytes(file.size))} · <code>${esc((file.lfs?.oid ?? file.oid).slice(0, 16))}</code> · ${esc(v.note)}</p>`;
+  button.disabled = false;
+}
+
 // ---------------------------------------------------------------- docs
 function drawDocs(main) {
   const s = screens.docs;
   const table = (cols, rows, code) => `<div class="scroll"><table><thead><tr>${cols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>
     ${rows.map((r) => `<tr>${r.map((v, i) => `<td>${code.includes(i) ? `<code>${esc(v)}</code>` : esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  const cmd = (c) => `<button type="button" class="command block" data-copy="${esc(c)}"><span>$ ${esc(c)}</span>${ICON.copy}</button>`;
+  const sections = s.sections.map((x) => `<section id="${esc(x.id)}"><h2>${esc(x.title)}</h2>
+    ${x.body.map((p) => `<p>${esc(p)}</p>`).join("")}${(x.commands ?? []).map(cmd).join("")}</section>`).join("");
+  const toc = [...s.sections.map((x) => [x.id, x.title]), ["routes", s.endpointsTitle], ["answers", s.answersTitle]];
   main.innerHTML = `
-    <article class="panel doc">
-      <h1>${esc(s.title)}</h1>
-      <p>${esc(s.lead)}</p>
-      <button type="button" class="command" data-copy="${esc(s.command)}"><span>$ ${esc(s.command)}</span>${ICON.copy}</button>
-      <h2>${esc(s.endpointsTitle)}</h2>${table(s.columnsRoutes, s.endpoints, [1])}
-      <h2>${esc(s.answersTitle)}</h2>${table(s.columnsAnswers, s.answers, [2])}
-      <p><a class="button" data-in href="${href(ROUTE_PATH[s.backRoute])}">${esc(s.back)} ${ICON.next}</a></p>
-    </article>`;
+    <div class="docs">
+      <nav class="panel toc" aria-label="On this page">${toc.map(([id, t]) => `<a href="${href("docs/")}#${esc(id)}">${esc(t)}</a>`).join("")}</nav>
+      <article class="panel doc">
+        <h1>${esc(s.title)}</h1>
+        <p>${esc(s.lead)}</p>
+        ${cmd(s.command)}
+        ${sections}
+        <section id="routes"><h2>${esc(s.endpointsTitle)}</h2>${table(s.columnsRoutes, s.endpoints, [1])}</section>
+        <section id="answers"><h2>${esc(s.answersTitle)}</h2>${table(s.columnsAnswers, s.answers, [2])}</section>
+        <p><a class="button" data-in href="${href(ROUTE_PATH[s.backRoute])}">${esc(s.back)} ${ICON.next}</a></p>
+      </article>
+    </div>`;
 }
 
 boot().catch((error) => {
