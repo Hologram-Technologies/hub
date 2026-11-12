@@ -1,0 +1,23 @@
+\begin{lexlean}{Proofs.Dialect}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Site}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksDialect,
+  parameters: [answer : Nat],
+  result: Bool,
+  body: ((((Site::hfStatus answer) <? 400) && (not (((answer =? 1) || (answer =? 2)) || (answer =? 20)))) || ((((answer =? 1) || (answer =? 2)) || (answer =? 20)) && (not ((Site::hfStatus answer) <? 400))))
+}
+
+theorem{
+  name: dialectHolds,
+  parameters: [answer : Nat],
+  statement: ((breaksDialect answer) = false),
+  proof: linear_arithmetic{definitions: [Site::hfStatus, breaksDialect]},
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

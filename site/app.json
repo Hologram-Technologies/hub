@@ -1,7 +1,7 @@
 {
   "name": "Hub kernel",
   "shortName": "Hub",
-  "live": "https://hologram-technologies.github.io/hub/",
+  "live": "https://hologram-technologies.github.io/hub/app/",
   "purpose": "Decides how a decentralized model hub answers one file request, and whether bytes a source sent may be delivered. Send the 104-byte facts of a resolve request or the 81-byte expected and observed digest and size; it answers three bytes: the answer code, the source slot (4 for none) and the ETag kind.",
   "inputLabel": "Request facts",
   "placeholder": "hex: followed by 104 or 81 bytes",

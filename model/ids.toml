@@ -81,3 +81,15 @@ id = "HK-10"
 level = "build"
 suite = "kernel"
 statement = "Received bytes are delivered exactly when their digest and size equal the expected digest and size"
+
+[[id]]
+id = "HK-11"
+level = "build"
+suite = "kernel"
+statement = "Every header item and every link that stays in the hub opens a screen the kernel renders"
+
+[[id]]
+id = "HK-12"
+level = "build"
+suite = "kernel"
+statement = "A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code"

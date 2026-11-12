@@ -12,8 +12,13 @@ Usage: python app/tools/gen_kernel.py
 
 import json
 import os
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+
+import gen_site  # noqa: E402
+import site_spec  # noqa: E402
 SRC = os.path.join(HERE, "..", "src")
 PREFIX = "HologramHubKernel"
 
@@ -132,6 +137,8 @@ def ref_dispatch(b):
     if len(b) == 81 and b[0] == 2:
         ok = b[1:33] == b[33:65] and b[65:73] == b[73:81]
         return bytes([20 if ok else 21, 4, 0])
+    if len(b) == 2 and b[0] == 3 and b[1] < len(site_spec.ROUTES):
+        return gen_site.screen_json(site_spec.ROUTES[b[1]])
     return bytes([0, 4, 0])
 
 
@@ -197,7 +204,11 @@ VECTORS = [
 ]
 assert len(set(VECTORS)) == len(VECTORS), "requests must be unique"
 assert max(len(v) for v in VECTORS) == 128, "one request is exactly guestAllocationMaximum bytes"
+VECTORS += [r for r, _ in gen_site.site_vectors()]
+assert len(set(VECTORS)) == len(VECTORS), "requests must be unique"
 EXPECTED = [ref_dispatch(v) for v in VECTORS]
+assert all(ref_dispatch(r) == e for r, e in gen_site.site_vectors())
+RESPONSE_MAXIMUM = 1 << (gen_site.largest_screen() - 1).bit_length()
 
 
 # -------------------------------------------------------------- model text
@@ -365,7 +376,8 @@ def kernel_module():
                   "(if (((Foundation.Bytes::byteLength value) =? 104) && ((byteNat value 0) =? 1)) then "
                   "(plan (observeFacts value)) else (if (((Foundation.Bytes::byteLength value) =? 81) && "
                   "((byteNat value 0) =? 2)) then (if (accepts (observeCheck value)) then 0x140400 else 0x150400) "
-                  "else 0x000400))", AX))
+                  "else (if (((Foundation.Bytes::byteLength value) =? 2) && ((byteNat value 0) =? 3)) then "
+                  "(Site::screen (byteNat value 1)) else 0x000400)))", AX))
     vec = "(nil %sAcceptanceVector)" % T
     for r, e in reversed(list(zip(VECTORS, EXPECTED))):
         vec = "(cons (record %sAcceptanceVector {request := %s, response := %s}) %s)" % (T, hx(r), hx(e), vec)
@@ -377,14 +389,15 @@ def kernel_module():
         'cargoHomepage := "https://github.com/Hologram-Technologies/hub", '
         'libraryRoots := (cons "%s.Kernel.dispatch" (nil String)), acceptanceVectors := %s, '
         'entryRoot := "%s.Kernel.dispatch", coreContract := "hologram:guest/core-wasm@1", '
-        'requestMaximum := (104 : UInt32), responseMaximum := (16 : UInt32), guestAllocationMaximum := (128 : UInt32), '
+        'requestMaximum := (104 : UInt32), responseMaximum := (%d : UInt32), guestAllocationMaximum := (128 : UInt32), '
         'capabilitiesEmpty := true, fatArchive := true, primaryLayer := (0 : UInt8), viewLayer := (1 : UInt8), '
         'view := (record %sTextView {title := "Hub kernel", heading := "Hub kernel", inputLabel := "Request facts", '
         'submitLabel := "Decide", outputLabel := "Plan", inputError := "Invalid request", '
-        'responseError := "Invalid response"})})' % (T, PREFIX, vec, PREFIX, T))
+        'responseError := "Invalid response"})})' % (T, PREFIX, vec, PREFIX, RESPONSE_MAXIMUM, T))
     k.append(defn("application", "", "%sTextApplication" % T, app))
     return ("\\begin{lexlean}{Kernel}\n" + HEAD
             + "\\importmodule{Foundation.Bytes}\n\\importmodule{Foundation.View.Text.V1.Model}\n"
+            + "\\importmodule{Site}\n"
             + "\\title{Text application model}\n\\begin{semanticmodule}\n"
             + "\n".join(k) + "\\end{semanticmodule}\n\\end{lexlean}\n")
 
@@ -476,8 +489,8 @@ def theorem(name, params, statement, form, defs, axioms):
             "  axioms: [%s]\n}\n" % (name, params, statement, proof, ", ".join(axioms)))
 
 
-def proof_module(name, declarations):
-    return ("\\begin{lexlean}{Proofs.%s}\n" % name + HEAD + "\\importmodule{Kernel}\n"
+def proof_module(name, declarations, imports="Kernel"):
+    return ("\\begin{lexlean}{Proofs.%s}\n" % name + HEAD + "\\importmodule{%s}\n" % imports
             + "\\title{Text application model}\n\\begin{semanticmodule}\n"
             + "\n".join(declarations) + "\\end{semanticmodule}\n\\end{lexlean}\n")
 
@@ -501,10 +514,17 @@ def proof_modules():
         "(((Kernel::accepts check) = true) <-> (Kernel::Accepts check))", "simplify",
         ["Bool.and_eq_true", "Nat.beq_eq", q("Accepts"), q("SameDigest"), q("accepts"), q("sameDigest")],
         ["propext"])])
+    for module, breaks, holds, params, args, body, defs in gen_site.SITE_INVARIANTS:
+        modules[module] = proof_module(module, [
+            defn(breaks, params, "Bool", body),
+            theorem(holds, params, "((%s %s) = false)" % (breaks, args), "linear_arithmetic",
+                    defs + [breaks], AX)], imports="Site")
     return modules
 
 
 def main():
+    with open(os.path.join(SRC, "Site.lex.tex"), "w", newline="\n") as f:
+        f.write(gen_site.site_module(HEAD))
     with open(os.path.join(SRC, "Kernel.lex.tex"), "w", newline="\n") as f:
         f.write(kernel_module())
     stale = os.path.join(SRC, "KernelProofs.lex.tex")
@@ -515,8 +535,9 @@ def main():
     for name, text in modules.items():
         with open(os.path.join(SRC, "Proofs", name + ".lex.tex"), "w", newline="\n") as f:
             f.write(text)
-    print("entrypoints = [%s]" % ", ".join(
-        ['"src/Kernel.lex.tex"'] + ['"src/Proofs/%s.lex.tex"' % n for n in sorted(modules)]))
+    # LexLean requires the entrypoints unique and sorted (LLC0101).
+    print("entrypoints = [%s]" % ", ".join(sorted(
+        ['"src/Kernel.lex.tex"', '"src/Site.lex.tex"'] + ['"src/Proofs/%s.lex.tex"' % n for n in modules])))
     with open(os.path.join(HERE, "vectors.json"), "w", newline="\n") as f:
         json.dump([{"request": r.hex(), "response": e.hex()} for r, e in zip(VECTORS, EXPECTED)], f, indent=1)
         f.write("\n")

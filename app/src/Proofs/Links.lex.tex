@@ -1,0 +1,36 @@
+\begin{lexlean}{Proofs.Links}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Site}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksLinks,
+  parameters: [link : Nat],
+  result: Bool,
+  body: ((link <? (Site::linkCount)) && (not (Site::hasScreen (Site::linkRoute link))))
+}
+
+theorem{
+  name: linksHold,
+  parameters: [link : Nat],
+  statement: ((breaksLinks link) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Site::hasScreen,
+      Site::linkCount,
+      Site::linkRoute,
+      Site::routeChrome,
+      Site::routeCount,
+      Site::routeDocs,
+      Site::routeHome,
+      Site::routeModel,
+      Site::routeModels,
+      breaksLinks
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

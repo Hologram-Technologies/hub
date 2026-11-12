@@ -151,12 +151,25 @@ jobs:
           name: screens
           path: screens
           if-no-files-found: ignore
+      - name: Put the hub at the root and the proof page under app/
+        # The hub's interface (web/) is drawn from screens the verified holo
+        # serves, so it reads the holo, the runtime, the brand tokens and the
+        # fonts from the proof page beside it; nothing is copied twice.
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/pages"
+          mkdir -p "$RUNNER_TEMP/pages"
+          cp -r web/. "$RUNNER_TEMP/pages/"
+          cp -r site "$RUNNER_TEMP/pages/app"
+          test -f "$RUNNER_TEMP/pages/app/app.holo"
+          test -f "$RUNNER_TEMP/pages/app/vendor/prism-code/src/browser.mjs"
       - name: Configure Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
       - name: Upload the page
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
         with:
-          path: site
+          path: ${{ runner.temp }}/pages
 
   deploy:
     name: publish the page

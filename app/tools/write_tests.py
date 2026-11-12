@@ -35,6 +35,12 @@ CASES = [
      [("Etag", "breaksEtag", "etagHolds", "facts")], "(etagKind facts)"),
     ("HK-09", "A commit prefix resolves only when it is 7 to 40 characters long and matches the release's commit",
      [("Revision", "breaksRevision", "revisionHolds", "kind refFound length matched")], None),
+    ("HK-11", "Every header item and every link that stays in the hub opens a screen the kernel renders",
+     [("Nav", "breaksNav", "navHolds", "item"), ("Links", "breaksLinks", "linksHold", "link")],
+     "(Site::screen (byteNat value 1))"),
+    ("HK-12", "A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code",
+     [("Dialect", "breaksDialect", "dialectHolds", "answer"), ("Errors", "breaksErrors", "errorsHold", "answer")],
+     "(Site::screen (byteNat value 1))"),
 ]
 HK10 = "Received bytes are delivered exactly when their digest and size equal the expected digest and size"
 

@@ -238,6 +238,50 @@ fn kernel_hk_09() {
     );
 }
 
+/// `HK-11`: Every header item and every link that stays in the hub opens a screen the kernel renders
+#[test]
+fn kernel_hk_11() {
+    pinned(
+        "Nav",
+        "breaksNav",
+        "(((item <? (Site::navCount)) && (Site::navInternal item)) && (not (Site::hasScreen (Site::navRoute item))))",
+        "navHolds",
+        "item",
+        "Quot.sound, propext",
+    );
+    pinned(
+        "Links",
+        "breaksLinks",
+        "((link <? (Site::linkCount)) && (not (Site::hasScreen (Site::linkRoute link))))",
+        "linksHold",
+        "link",
+        "Quot.sound, propext",
+    );
+    dispatch_decides_by("(Site::screen (byteNat value 1))");
+}
+
+/// `HK-12`: A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code
+#[test]
+fn kernel_hk_12() {
+    pinned(
+        "Dialect",
+        "breaksDialect",
+        "((((Site::hfStatus answer) <? 400) && (not (((answer =? 1) || (answer =? 2)) || (answer =? 20)))) || ((((answer =? 1) || (answer =? 2)) || (answer =? 20)) && (not ((Site::hfStatus answer) <? 400))))",
+        "dialectHolds",
+        "answer",
+        "Quot.sound, propext",
+    );
+    pinned(
+        "Errors",
+        "breaksErrors",
+        "((not (((answer =? 1) || (answer =? 2)) || (answer =? 20))) && ((((Site::hfStatus answer) <? 400) || (599 <? (Site::hfStatus answer))) || ((Site::hfCode answer) =? 0)))",
+        "errorsHold",
+        "answer",
+        "Quot.sound, propext",
+    );
+    dispatch_decides_by("(Site::screen (byteNat value 1))");
+}
+
 /// `HK-10`: Received bytes are delivered exactly when their digest and size equal the expected digest and size
 #[test]
 fn kernel_hk_10() {

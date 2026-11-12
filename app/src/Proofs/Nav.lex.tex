@@ -1,0 +1,37 @@
+\begin{lexlean}{Proofs.Nav}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Site}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksNav,
+  parameters: [item : Nat],
+  result: Bool,
+  body: (((item <? (Site::navCount)) && (Site::navInternal item)) && (not (Site::hasScreen (Site::navRoute item))))
+}
+
+theorem{
+  name: navHolds,
+  parameters: [item : Nat],
+  statement: ((breaksNav item) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Site::hasScreen,
+      Site::navCount,
+      Site::navInternal,
+      Site::navRoute,
+      Site::routeChrome,
+      Site::routeCount,
+      Site::routeDocs,
+      Site::routeHome,
+      Site::routeModel,
+      Site::routeModels,
+      breaksNav
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

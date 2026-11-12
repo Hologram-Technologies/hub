@@ -61,6 +61,22 @@ Feature: kernel
     When the Lean kernel checks revisionHolds in app/src/Proofs/Revision.lex.tex during prismpm verify
     Then no input meets breaksRevision
 
+  @HK-11 @build
+  Scenario: Every header item and every link that stays in the hub opens a screen the kernel renders
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks navHolds in app/src/Proofs/Nav.lex.tex during prismpm verify
+    And the Lean kernel checks linksHold in app/src/Proofs/Links.lex.tex during prismpm verify
+    Then no input meets breaksNav
+    And no input meets breaksLinks
+
+  @HK-12 @build
+  Scenario: A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks dialectHolds in app/src/Proofs/Dialect.lex.tex during prismpm verify
+    And the Lean kernel checks errorsHold in app/src/Proofs/Errors.lex.tex during prismpm verify
+    Then no input meets breaksDialect
+    And no input meets breaksErrors
+
   @HK-10 @build
   Scenario: Received bytes are delivered exactly when their digest and size equal the expected digest and size
     Given the kernel model in app/src/Kernel.lex.tex

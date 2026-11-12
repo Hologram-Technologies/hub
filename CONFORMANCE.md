@@ -32,6 +32,8 @@ model does not sanction.
 | `HK-08` | `build` | A delivered small file carries the git blob ETag and a delivered large file carries the SHA-256 ETag |
 | `HK-09` | `build` | A commit prefix resolves only when it is 7 to 40 characters long and matches the release's commit |
 | `HK-10` | `build` | Received bytes are delivered exactly when their digest and size equal the expected digest and size |
+| `HK-11` | `build` | Every header item and every link that stays in the hub opens a screen the kernel renders |
+| `HK-12` | `build` | A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code |
 
 ## Cited authorities
 

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" class="dark" data-theme="immersive">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Hologram</title>
+    <meta name="description" content="The open platform for sovereign AI: discover, use and share self-verifying models. A drop-in Hugging Face Hub whose every decision is proved in Lean." />
+    <meta name="theme-color" content="#151312" />
+    <script>
+      // The site is served from a sub-path on GitHub Pages and from a 404
+      // fallback for deep links, so every relative URL needs one base: the
+      // path up to the first route segment the hub owns.
+      (function () {
+        var p = location.pathname, m = p.match(/^(.*?\/)(models|docs)(\/|$)/);
+        var base = document.createElement("base");
+        base.href = m ? m[1] : p.replace(/[^/]*$/, "");
+        document.head.appendChild(base);
+        var t = "immersive";
+        try { t = localStorage.getItem("hologram-hub.theme") || t; } catch (e) {}
+        document.documentElement.dataset.theme = t;
+        document.documentElement.className = t === "light" ? "" : "dark";
+      })();
+    </script>
+    <link rel="icon" href="app/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="app/brand/hologram-warm.css" />
+    <link rel="preload" href="fonts/Geist-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="modulepreload" href="app.mjs" />
+  </head>
+  <body>
+    <div class="wall" aria-hidden="true"></div>
+    <header class="top" id="chrome"></header>
+    <main id="main" tabindex="-1"><p class="boot">Loading the proved kernel</p></main>
+    <script type="module" src="app.mjs"></script>
+  </body>
+</html>

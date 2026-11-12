@@ -1,0 +1,23 @@
+\begin{lexlean}{Proofs.Errors}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Site}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksErrors,
+  parameters: [answer : Nat],
+  result: Bool,
+  body: ((not (((answer =? 1) || (answer =? 2)) || (answer =? 20))) && ((((Site::hfStatus answer) <? 400) || (599 <? (Site::hfStatus answer))) || ((Site::hfCode answer) =? 0)))
+}
+
+theorem{
+  name: errorsHold,
+  parameters: [answer : Nat],
+  statement: ((breaksErrors answer) = false),
+  proof: linear_arithmetic{definitions: [Site::hfCode, Site::hfStatus, breaksErrors]},
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}
