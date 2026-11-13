@@ -21,6 +21,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { browseRow, rulesVersion } from "./facets.mjs";
 
 const [out, limitArg] = process.argv.slice(2);
 if (!out) {
@@ -139,7 +140,36 @@ for (const row of rows) {
 
 const catalog = JSON.stringify(rows.filter((r) => records.some((x) => x.repo === r.id)));
 await writeFile(join(out, "catalog.json"), catalog);
-const root = { format: "hologram.hub.index/v1", catalog: sha256(catalog), records };
+
+// The browse shards: what the page lists, derived once from the records by
+// the same rule the page filters by (`tools/facets.mjs`). A shard is named in
+// the root by the hash of its bytes, so a reader checks it before drawing a
+// row of it, and the signature over the root covers the listing as well as
+// the releases.
+const SHARD_ROWS = 500;
+await mkdir(join(out, "browse"), { recursive: true });
+const browse = [];
+const ordered = [];
+for (const [rank, { repo }] of records.entries()) {
+  try {
+    ordered.push(browseRow(JSON.parse(await readFile(join(out, "models", `${repo}.json`), "utf8")), rank + 1));
+  } catch {}
+}
+for (let i = 0; i * SHARD_ROWS < ordered.length; i++) {
+  const page = ordered.slice(i * SHARD_ROWS, (i + 1) * SHARD_ROWS);
+  const bytes = JSON.stringify(page);
+  await writeFile(join(out, "browse", `${i}.json`), bytes);
+  browse.push({ path: `browse/${i}.json`, rows: page.length, sha256: sha256(bytes) });
+}
+
+const root = {
+  format: "hologram.hub.index/v2",
+  catalog: sha256(catalog),
+  // The rule that produced the browse rows, published with them.
+  rules: rulesVersion,
+  browse,
+  records,
+};
 await writeFile(join(out, "root.json"), JSON.stringify(root));
 // The kernel calls a record complete when it holds all ten fields; the build
 // says how many do, because an incomplete record makes the edge ask the
@@ -153,4 +183,4 @@ for (const { repo } of records) {
     if (whole(JSON.parse(await readFile(join(out, "models", `${repo}.json`), "utf8")))) complete += 1;
   } catch {}
 }
-console.log(`index: ${records.length} records (${fetched} fetched, ${records.length - fetched} reused), ${complete} complete`);
+console.log(`index: ${records.length} records (${fetched} fetched, ${records.length - fetched} reused), ${complete} complete, ${browse.length} browse shards holding ${ordered.length} rows`);

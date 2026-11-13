@@ -181,12 +181,16 @@ SCREENS = {
         "filters": "Filters",
         "close": "Close filters",
         # The sort names are Hugging Face's own, so a link carries across.
-        # Hugging Face also offers `modified`; this hub leaves it out rather
-        # than accept it and sort by something else, because the copied
-        # catalog carries no last-changed date. The signed index does, so it
-        # returns when the page reads the index.
         "sorts": [["trending", "Trending"], ["downloads", "Most downloads"], ["likes", "Most likes"],
-                  ["created", "Recently created"]],
+                  ["created", "Recently created"], ["modified", "Recently updated"]],
+        # What the page says about the list it is showing: where the rows came
+        # from, how many shards they were read from, and the rule that derived
+        # them. A reader can tell a signed listing from one that is not.
+        "listing": {
+            "signed": "Signed listing",
+            "unsigned": "Unsigned listing",
+            "detail": "{n} models, {shards} shards, {rules}",
+        },
         "searchParam": "search",
         "pageParam": "p",
         "tabs": [["main", "Main", "sliders"], ["libraries", "Libraries", "box"], ["languages", "Languages", "globe"],

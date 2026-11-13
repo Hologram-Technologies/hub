@@ -90,12 +90,17 @@ holo.
    kernel's accept rule (`HK-10`) judges each copy and its verdict rule
    (`HK-13`, request `04 r0 r1 r2 r3`) decides what the page says.
 
-The catalogue reads the way Hugging Face's does. `tools/web-data.mjs` writes
-one row per model carrying the facets the browse page filters on — task,
-parameter count, family, architecture, languages, format, library, licence,
-source and status — each derived from the row's own fields and tags, and it
-fetches every owner's avatar once from Hugging Face's avatar CDN at the size
-that CDN stores, copied whole rather than scaled or re-encoded. The filters are
+The page and the wire read one index. `tools/index.mjs` writes browse shards
+beside the release records, one row per release, carrying the facets the page
+filters on — task, parameter count, family, architecture, languages, format,
+library, licence, source and status — derived by `tools/facets.mjs`, the one
+place the hub decides what those are. The root names each shard by the hash of
+its bytes and names the rule that derived the rows, so the page checks a shard
+before drawing it, with the kernel's accept rule, and says whether the listing
+it is holding is signed. `tools/web-data.mjs` now copies only what the index
+does not carry: the registry, the apps list, and one avatar per owner, fetched
+from Hugging Face's avatar CDN at the size that CDN stores and copied whole.
+The filters are
 grouped as Hugging Face groups them (Main, Libraries, Languages, Licenses,
 Other), and Parameters is one bar with two handles over the stops the screen
 names, rather than a row of buckets.
