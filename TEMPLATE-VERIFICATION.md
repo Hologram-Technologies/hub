@@ -322,6 +322,52 @@ hosted verifier also verified every module of the previous revision
 root of the Pages site and the proof page under `app/`, so the interface
 reads the holo, the runtime and the brand tokens from beside it.
 
+## One index, two readers
+
+The browse page drew 500 rows copied at deploy while the signed index held
+400 releases and the wire answered from a third place, so a search could miss
+a model the hub could serve and a deep page had nothing behind it. The page
+now reads the index.
+
+`tools/index.mjs` writes browse shards beside the records: one row per release,
+derived by `tools/facets.mjs`, which is also the only place the hub decides
+what a model's task, size, family, architecture, languages, format and licence
+are. The root names each shard by the hash of its bytes and names the rule
+that produced the rows (`rules: hologram.hub.facets/1`), so a reader can tell
+which opinion it is looking at. The signature over the root now covers the
+listing as well as the releases.
+
+The page checks both. A shard is drawn only when its bytes are the ones the
+root names, judged by the kernel's accept rule (`HK-10`, the same rule a
+download goes through), and the root's signature is checked with the pinned
+Sigstore roots from screen 3 and the kernel's trust rule (`HK-14`). The lead
+row says which of the two it is holding: `Signed listing` or `Unsigned
+listing`, with the row and shard counts and the rule behind it.
+
+Because the rows come from records rather than a catalogue copy, `sort=modified`
+returns: the record carries `lastModified` and the copy never did.
+
+### The gate, and the defect that proves it fails
+
+`tests/index/shards.mjs` reads an index the way the page does, then copies it,
+changes one row's licence, leaves the root alone, and reads it again.
+
+    ok   the root names its browse shards
+    ok   the root names the rule that derived them
+    ok   every shard is read
+    ok   a row carries what the page filters on
+    ok   a row's counts name the host that measured them
+    ok   a changed shard is refused
+
+The same defect was planted in the browser against the preview: one row's
+licence changed in `data/index/browse/0.json` and the root left as it was. The
+page drew no cards and said
+
+    the index shard browse/0.json does not match the signed root
+
+Restored, it drew all six rows again. The step runs in `pages.yml` between
+building the index and signing its root.
+
 ## The query a link carries (HK-16)
 
 The Phase 1 inventory measured a Hugging Face browse link losing everything it

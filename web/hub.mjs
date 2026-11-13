@@ -59,27 +59,76 @@ function said(key, value) {
 }
 
 // ---------------------------------------------------------------- data
-// The catalog is a copy of the live hub's, taken when the site was built
-// (tools/web-data.mjs), with every owner's avatar beside it.
+// The browse list comes from the signed index, the same one an agent reads
+// through the edge, so a model is listed here exactly when a tool can fetch
+// it. The root names each shard by the hash of its bytes; a shard is drawn
+// only when the bytes agree, judged by the kernel's accept rule (HK-10). The
+// signature over the root is checked when the deploy left one, and the page
+// says which of the two it is holding.
 let catalogRequest;
+let listing = { signed: false, rows: 0, shards: 0, rules: "" };
 function catalog() {
-  catalogRequest ??= fetch(new URL("data/models.json", root)).then((r) => {
-    if (!r.ok) throw new Error(`the catalog answered ${r.status}`);
-    return r.json();
-  }).then(({ snapshot, models }) => {
-    const s = screens.models;
-    const now = Date.parse(snapshot) || Date.now();
-    const label = Object.fromEntries(s.statuses);
-    for (const m of models) {
-      const age = m.created ? (now - Date.parse(m.created)) / 864e5 : Infinity;
-      m.status = label[m.state] ?? label.pending;
-      m.recency = s.recency.filter(([, days]) => age <= days).map(([l]) => l);
-      m.isNew = age <= s.newDays;
-    }
-    return models;
-  });
+  catalogRequest ??= readIndex();
   return catalogRequest;
 }
+const indexUrl = (path) => new URL(`data/index/${path}`, root);
+
+async function readIndex() {
+  const s = screens.models;
+  const bytes = new Uint8Array(await (await fetch(indexUrl("root.json"))).arrayBuffer());
+  const rootJson = JSON.parse(new TextDecoder().decode(bytes));
+  listing.rules = rootJson.rules ?? "";
+  listing.signed = await indexSigned(bytes);
+  const rows = [];
+  for (const shard of rootJson.browse ?? []) {
+    const body = new Uint8Array(await (await fetch(indexUrl(shard.path))).arrayBuffer());
+    if (!(await addressed(body, shard.sha256))) throw new Error(`the index shard ${shard.path} does not match the signed root`);
+    rows.push(...JSON.parse(new TextDecoder().decode(body)));
+    listing.shards += 1;
+  }
+  const faces = await fetch(new URL("data/avatars/index.json", root)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+  const now = Date.now();
+  const label = Object.fromEntries(s.statuses);
+  for (const m of rows) {
+    m.avatar = faces[m.org] ?? null;
+    m.likes = m.observed?.likes ?? 0;
+    m.downloads = m.observed?.downloads ?? 0;
+    m.status = label[m.state] ?? label.pending;
+    const age = m.created ? (now - Date.parse(m.created)) / 864e5 : Infinity;
+    m.recency = s.recency.filter(([, days]) => age <= days).map(([l]) => l);
+    m.isNew = age <= s.newDays;
+  }
+  listing.rows = rows.length;
+  return rows;
+}
+
+// The kernel decides whether these are the addressed bytes, the same rule a
+// download goes through.
+async function addressed(body, expected) {
+  if (!/^[0-9a-f]{64}$/.test(expected ?? "")) return false;
+  const observed = new Uint8Array(await crypto.subtle.digest("SHA-256", body));
+  const request = new Uint8Array(81);
+  request.set([2]); request.set(hex(expected), 1); request.set(observed, 33);
+  request.set(u64(body.length), 65); request.set(u64(body.length), 73);
+  return (await kernel.dispatch(request))[0] === 20;
+}
+
+// The signature over the root, checked the way a model's manifest is: the
+// pinned Sigstore roots from screen 3, then the kernel's trust rule.
+async function indexSigned(bytes) {
+  const t = screens.model.trust;
+  const bundle = await fetch(indexUrl("index.sigstore.json")).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  if (!bundle) return false;
+  const facts = await verifyBundle(bundle, bytes, { ...t.policy, predicateType: t.policy.indexPredicateType }).catch(() => null);
+  const request = new Uint8Array(11);
+  request[0] = 5;
+  request[1] = 1;
+  CHECKS.forEach((c, i) => { request[2 + i] = facts?.[c] ? 1 : 0; });
+  request[9] = 1;
+  request[10] = 0;
+  return (await kernel.dispatch(request))[0] === 1;
+}
+
 // A model outside the copied catalog, from the hub's own API, in the catalog's shape.
 function fromApi(row) {
   const [org, name] = row.id.split("/");
@@ -492,7 +541,8 @@ async function drawModels(main) {
   const st = readState();
   const order = {};
   main.innerHTML = `
-    <div class="lead"><h1>${esc(s.title)}</h1><span class="pill" id="count"></span>${copyLine(s.command)}</div>
+    <div class="lead"><h1>${esc(s.title)}</h1><span class="pill" id="count"></span>${copyLine(s.command)}
+      <span class="status listing ${listing.signed ? "" : "bad"}" title="${esc(fill(s.listing.detail, { n: listing.rows, shards: listing.shards, rules: listing.rules }))}">${esc(listing.signed ? s.listing.signed : s.listing.unsigned)}</span></div>
     <div class="browse">
       <aside class="panel filters" id="filters" aria-label="${esc(s.filters)}">
         <button type="button" class="control square close-filters" id="close-filters" aria-label="${esc(s.close)}">${ICON.close}</button>
