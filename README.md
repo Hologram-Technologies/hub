@@ -107,6 +107,18 @@ the frame's Unsplash worker, which holds the one key every Prism app shares, so
 no page here carries a key. Choosing a photo reports the use to Unsplash, as
 its licence asks, and credits the photographer with a link.
 
+A release record carries ten fields, and the kernel decides whether they are
+enough. `tools/index.mjs` writes the revision, every file, the tags as
+published, the task, the library, the config, the card's front matter and the
+address of its bytes, the parameter counts, the last change and whether the
+publisher gates access. Operation 6 answers from those facts: answer from the
+index, ask the source dialect, or answer and say the answer is partial
+(`X-Hub-Partial` names the absent fields). An incomplete record is never
+served as though it were whole, and `HK-15` proves there is no input for which
+it could be. Counts of another host's traffic - downloads and likes - sit
+under `observed`, which names the host and the day they were read, because
+nobody holding a copy of the index can re-derive them.
+
 Registry, Apps and Buckets are screens of the kernel too. The registry and apps
 lists are copies of the live hub's, taken at each deploy by `tools/web-data.mjs`
 because the live hub does not let another origin read them; each page shows

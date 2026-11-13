@@ -322,6 +322,72 @@ hosted verifier also verified every module of the previous revision
 root of the Pages site and the proof page under `app/`, so the interface
 reads the holo, the runtime and the brand tokens from beside it.
 
+## A record the index may answer from (HK-15)
+
+The Phase 1 inventory (`docs/phase1-models.md`) measured the hub describing a
+model it had indexed worse than one it had never seen: `GET
+/api/models/openai-community/gpt2` returned fifteen keys from the index and
+twenty-four when it passed through to Hugging Face, and an indexed answer
+carried neither `config` nor `cardData` nor `safetensors` nor `lastModified`.
+The edge preferred the index whatever the index held.
+
+The kernel now decides that. Operation 6 takes twelve bytes — one per field of
+a release record, in the order the docs screen lists them, then one byte for
+whether the source dialect can be asked — and answers 1 answer from the index,
+2 ask the source dialect, 3 answer from the index and say the answer is
+partial. `completeHolds` (`app/src/Proofs/Complete.lex.tex`) proves that no
+input reaches `breaksComplete`: the answer is never 1 while a field is absent,
+never 2 while the dialect cannot be asked, never 3 while it can, and is always
+one of the three. Lean observes `Classical.choice`, `Quot.sound` and
+`propext`, which is what the module declares. `prismpm build` accepted the
+proof with only the first two declared; `prismpm verify`, which `just vv`
+runs, refused it with `LLV7005` until the third was added, so the exact axiom
+policy is checked by the gate and not by the build. The conformance test pins
+that list too, so `app/tools/write_tests.py` had to be run again and the test
+reformatted; the gate refused the stale pin in between.
+
+The record itself grew to carry the ten fields (`tools/index.mjs`, format
+`hologram.hub.release/v2`): the revision, every file, the tags as published,
+the task, the library, the config, the card's front matter and the address of
+its bytes, the parameter counts, the last change and whether the publisher
+gates access. Two calls per release now, the repository and the tree, where
+there was one. The card's bytes are not copied; the record names the file and
+the git blob address its bytes must have, so a reader fetches it from any
+source and checks it.
+
+The counts of another host's traffic moved under `observed`, which names the
+host that measured them and the day they were read. Before this, `likes` and
+`downloads` sat beside the hashes as though the index had established them.
+
+### The gate, and the defect that proves it fails
+
+`tests/edge/complete.mjs` copies the index, removes one field from one
+record, recomputes that record's hash in the root, serves the copy, and asks
+the edge for both repositories with Hugging Face unreachable.
+
+Measured on 2026-11-13, against the holo built from this tree and a five
+record index:
+
+    ok   a complete record answers from the index
+    ok   the answer carries config, cardData, safetensors, lastModified, tags, siblings
+    ok   downloads come from the observation
+    ok   an incomplete record still answers
+    ok   and names the field that was removed
+    ok   and does not invent the field
+
+Planted defect: in `fromIndex`, drop the partial header and answer as though
+the record were whole.
+
+    const headers = {};   // was: plan === 3 && missing.length ? { [partialHeader]: ... } : {}
+
+    $ node tests/edge/complete.mjs <holo> <index>
+    FAIL and names the field that was removed: null
+    exit 1
+
+Restored, the same command exits 0 with every check passing. The step runs in
+`pages.yml` after the deploy, against the published holo and a two record copy
+of the published index.
+
 ## The look, measured against gethologram.ai
 
 The site's look is the live hub's own, not an imitation of it: `web/hub.css`

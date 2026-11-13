@@ -83,6 +83,12 @@ Feature: kernel
     When the Lean kernel checks verdictHolds in app/src/Proofs/Verdict.lex.tex during prismpm verify
     Then no input meets breaksVerdict
 
+  @HK-15 @build
+  Scenario: An answer is built from the index only when the record holds every field that answer names; where one is missing the source dialect is asked, and where it cannot be asked the answer says it is partial
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks completeHolds in app/src/Proofs/Complete.lex.tex during prismpm verify
+    Then no input meets breaksComplete
+
   @HK-14 @build
   Scenario: A model page says Witnessed or Published only when every signature check passed, says Published only for a publisher's signature from the namespace owner, and never shows a witness's signature as a publisher's
     Given the kernel model in app/src/Kernel.lex.tex

@@ -1,9 +1,16 @@
 // Builds the hub's index: everything an edge needs to answer the Hugging Face
 // read surface for a model without asking Hugging Face. One record per model
 // (its release commit, every file with its size and hashes, which sources hold
-// it), a catalog of the models, and a root that names the catalog and every
-// record by SHA-256. Only the root is signed (pages.yml); a record is trusted
-// because the signed root names its hash.
+// it, and the ten fields the kernel calls a complete record), a catalog of the
+// models, and a root that names the catalog and every record by SHA-256. Only
+// the root is signed (pages.yml); a record is trusted because the signed root
+// names its hash.
+//
+// A record holds two kinds of thing, and says which is which. Facts about the
+// bytes - the files, their hashes, the config, the card, the tensor counts -
+// anyone holding the bytes can re-derive. Counts of other people's traffic -
+// downloads and likes - nobody can, so they are kept under `observed`, with
+// the host that measured them and the day they were read.
 //
 //   node tools/index.mjs <out dir> [limit]
 //
@@ -66,27 +73,56 @@ for (const row of rows) {
   let record = null;
   try {
     const kept = JSON.parse(await readFile(path, "utf8"));
-    if (kept.revision === row.sha) record = kept;
+    if (kept.revision === row.sha && kept.format === "hologram.hub.release/v2") record = kept;
   } catch {}
   if (!record) {
     try {
+      // Two calls per release: the repository, which carries the fields a
+      // client reads, and the tree, which carries each file's size and
+      // address. The repository's own answer is preferred over the catalog
+      // row for everything both hold, because it is the publisher's.
+      const about = await hf(`/api/models/${row.id}?blobs=false`);
       const tree = await hf(`/api/models/${row.id}/tree/${row.sha}?recursive=true`);
       let sources = [];
       try {
         const held = await json(`${SOURCES}/${row.id}.json`);
         if (held.revision === row.sha) sources = held.sources.filter((s) => s.resolve).map((s) => ({ kind: s.kind, resolve: s.resolve, missing: s.missing ?? [] }));
       } catch {}
+      const files = tree.filter((f) => f.type === "file").map((f) => ({
+        path: f.path, size: f.size, gitSha1: f.oid, ...(f.lfs ? { sha256: f.lfs.oid, pointerSize: f.lfs.pointerSize } : {}),
+      }));
+      // The card is not copied into the record. The record names the file and
+      // the address its bytes must have, so a reader fetches it from any
+      // source and checks it for itself.
+      const card = files.find((f) => f.path.toLowerCase() === "readme.md");
       record = {
-        format: "hologram.hub.release/v1",
+        format: "hologram.hub.release/v2",
         repo: row.id,
         revision: row.sha,
         info: {
-          author: row.author, tags: row.tags ?? [], pipeline_tag: row.pipeline_tag ?? null, library_name: row.library_name ?? null,
-          createdAt: row.createdAt ?? null, likes: row.likes ?? 0, downloads: row.downloads ?? 0,
+          author: about.author ?? row.author ?? null,
+          tags: about.tags ?? row.tags ?? [],
+          pipeline_tag: about.pipeline_tag ?? row.pipeline_tag ?? null,
+          library_name: about.library_name ?? row.library_name ?? null,
+          createdAt: about.createdAt ?? row.createdAt ?? null,
+          lastModified: about.lastModified ?? null,
+          gated: about.gated ?? false,
+          private: about.private ?? false,
+          disabled: about.disabled ?? false,
         },
-        files: tree.filter((f) => f.type === "file").map((f) => ({
-          path: f.path, size: f.size, gitSha1: f.oid, ...(f.lfs ? { sha256: f.lfs.oid, pointerSize: f.lfs.pointerSize } : {}),
-        })),
+        config: about.config ?? null,
+        cardData: about.cardData ?? null,
+        card: card ? { path: card.path, gitSha1: card.gitSha1 } : null,
+        safetensors: about.safetensors ?? null,
+        transformersInfo: about.transformersInfo ?? null,
+        // Measurements of another host's traffic, named as such.
+        observed: {
+          source: HF,
+          date: new Date().toISOString().slice(0, 10),
+          downloads: about.downloads ?? row.downloads ?? 0,
+          likes: about.likes ?? row.likes ?? 0,
+        },
+        files,
         sources,
       };
       fetched += 1;
@@ -105,4 +141,16 @@ const catalog = JSON.stringify(rows.filter((r) => records.some((x) => x.repo ===
 await writeFile(join(out, "catalog.json"), catalog);
 const root = { format: "hologram.hub.index/v1", catalog: sha256(catalog), records };
 await writeFile(join(out, "root.json"), JSON.stringify(root));
-console.log(`index: ${records.length} records (${fetched} fetched, ${records.length - fetched} reused)`);
+// The kernel calls a record complete when it holds all ten fields; the build
+// says how many do, because an incomplete record makes the edge ask the
+// source dialect instead of answering from the index.
+const whole = (r) => Boolean(r.revision && r.files?.length && r.info?.tags && r.info?.pipeline_tag
+  && r.info?.library_name && r.config && r.cardData && r.safetensors && r.info?.lastModified
+  && r.info?.gated !== undefined);
+let complete = 0;
+for (const { repo } of records) {
+  try {
+    if (whole(JSON.parse(await readFile(join(out, "models", `${repo}.json`), "utf8")))) complete += 1;
+  } catch {}
+}
+console.log(`index: ${records.length} records (${fetched} fetched, ${records.length - fetched} reused), ${complete} complete`);

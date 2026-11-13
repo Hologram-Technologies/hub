@@ -1,0 +1,47 @@
+\begin{lexlean}{Proofs.Complete}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksComplete,
+  parameters: [
+    revision : Nat,
+    siblings : Nat,
+    tags : Nat,
+    pipelineTag : Nat,
+    libraryName : Nat,
+    config : Nat,
+    cardData : Nat,
+    safetensors : Nat,
+    lastModified : Nat,
+    gated : Nat,
+    passthrough : Nat
+  ],
+  result: Bool,
+  body: ((((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 1) && (not (Kernel::recordHolds revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated))) || ((((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 2) && (not (passthrough =? 1))) || ((((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 3) && (passthrough =? 1)) || (not ((((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 1) || ((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 2)) || ((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 3))))))
+}
+
+theorem{
+  name: completeHolds,
+  parameters: [
+    revision : Nat,
+    siblings : Nat,
+    tags : Nat,
+    pipelineTag : Nat,
+    libraryName : Nat,
+    config : Nat,
+    cardData : Nat,
+    safetensors : Nat,
+    lastModified : Nat,
+    gated : Nat,
+    passthrough : Nat
+  ],
+  statement: ((breaksComplete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) = false),
+  proof: linear_arithmetic{definitions: [Kernel::complete, Kernel::recordHolds, breaksComplete]},
+  axioms: [Classical.choice, Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

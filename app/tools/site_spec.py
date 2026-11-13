@@ -300,6 +300,31 @@ SCREENS = {
         "answersTitle": "Answers",
         "answers": [[code, status, ERROR_CODES[err] or "none", msg] for code, (status, err, msg) in sorted(DIALECT.items())]
                    + [["any other", BAD_REQUEST[0], ERROR_CODES[BAD_REQUEST[1]], BAD_REQUEST[2]]],
+        "record": {
+            "title": "What a release record holds",
+            "lead": "A record is complete when it holds every field below. The kernel decides what to do when one is missing: ask the source dialect if it can be reached, and otherwise answer from the index and say the answer is partial. An incomplete record is never served as though it were whole.",
+            # The order is the kernel's: request `06` carries one byte per
+            # field, in this order, then one byte for whether the source
+            # dialect can be asked.
+            "fields": [
+                ["revision", "The commit this release names"],
+                ["siblings", "Every file, with its size and address"],
+                ["tags", "The tags as the publisher wrote them"],
+                ["pipelineTag", "The task"],
+                ["libraryName", "The library that loads it"],
+                ["config", "The model configuration"],
+                ["cardData", "The card's front matter and its address"],
+                ["safetensors", "Parameter counts by type"],
+                ["lastModified", "When the release was last changed"],
+                ["gated", "Whether the publisher gates access"],
+            ],
+            "plans": [
+                [1, "Answer from the index"],
+                [2, "Ask the source dialect"],
+                [3, "Answer from the index, partial"],
+            ],
+            "partialHeader": "X-Hub-Partial",
+        },
         "columnsRoutes": ["Method", "Path", "What it returns"],
         "columnsAnswers": ["Kernel answer", "HTTP status", "X-Error-Code", "Meaning"],
         "sections": [

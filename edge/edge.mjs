@@ -26,6 +26,8 @@ const TTL = 60_000;
 
 let kernel = null;
 let dialect = null;
+let recordFields = [];
+let partialHeader = "X-Hub-Partial";
 let index = null;
 let useHuggingFace = true;
 const cache = new Map();
@@ -47,6 +49,9 @@ export async function start({ holo, index: indexUrl, huggingFace = true, drain =
   const docs = await screen(4);
   dialect = new Map(docs.answers.filter(([code]) => typeof code === "number").map(([code, status, error, message]) => [code, { status, error: error === "none" ? "" : error, message }]));
   dialect.set("other", Object.fromEntries(["status", "error", "message"].map((k, i) => [k, docs.answers.find(([c]) => typeof c !== "number")[i + 1]])));
+  const record = docs.record;
+  recordFields = record.fields.map(([id]) => id);
+  partialHeader = record.partialHeader;
   const policy = (await screen(3)).trust?.policy;
   let state = "none";
   if (indexUrl && policy?.indexPredicateType) {
@@ -172,7 +177,7 @@ function resolveRequest({ repo, revisionKind, refFound, requested, commit, entry
 // ---------------------------------------------------------------- HTTP
 const CORS = {
   "access-control-allow-origin": "*",
-  "access-control-expose-headers": "x-repo-commit, x-linked-etag, x-linked-size, etag, x-error-code, x-error-message, x-hub-source, link, accept-ranges, content-range, x-xet-cas-url, x-xet-access-token, x-xet-token-expiration",
+  "access-control-expose-headers": "x-repo-commit, x-linked-etag, x-linked-size, etag, x-error-code, x-error-message, x-hub-source, x-hub-partial, link, accept-ranges, content-range, x-xet-cas-url, x-xet-access-token, x-xet-token-expiration",
 };
 function refuse(answer, method) {
   const d = dialect.get(answer) ?? dialect.get("other");
@@ -181,7 +186,7 @@ function refuse(answer, method) {
   if (answer === 10 || answer === 13) headers["www-authenticate"] = "Bearer";
   return new Response(method === "HEAD" ? null : JSON.stringify({ error: d.message }), { status: d.status, headers });
 }
-const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, "content-type": "application/json", "cache-control": "no-store" } });
+const json = (body, status = 200, extra = {}) => new Response(JSON.stringify(body), { status, headers: { ...CORS, ...extra, "content-type": "application/json", "cache-control": "no-store" } });
 
 async function resolve(method, via, repo, revision, path) {
   const info = await release(repo, revision);
@@ -240,12 +245,44 @@ async function resolve(method, via, repo, revision, path) {
 // GitRefs), built from an index record.
 function modelInfo(rec, blobs) {
   const siblings = [...siblingsOf(rec).values()].map((s) => (blobs ? s : { rfilename: s.rfilename }));
+  const observed = rec.observed ?? {};
   return {
     _id: rec.revision.slice(0, 24), id: rec.repo, modelId: rec.repo, author: rec.info.author, sha: rec.revision,
-    private: false, gated: false, disabled: false, downloads: rec.info.downloads, likes: rec.info.likes,
+    private: rec.info.private ?? false, gated: rec.info.gated ?? false, disabled: rec.info.disabled ?? false,
+    downloads: observed.downloads ?? 0, likes: observed.likes ?? 0,
     tags: rec.info.tags, pipeline_tag: rec.info.pipeline_tag, library_name: rec.info.library_name,
-    createdAt: rec.info.createdAt, siblings,
+    createdAt: rec.info.createdAt, lastModified: rec.info.lastModified ?? null,
+    config: rec.config ?? undefined, cardData: rec.cardData ?? undefined,
+    safetensors: rec.safetensors ?? undefined, transformersInfo: rec.transformersInfo ?? undefined,
+    siblings,
   };
+}
+
+// The ten facts the kernel reads about a record, in the order operation 6
+// names them (the `record` block of screen 4). The runner measures; the
+// kernel decides whether this record may answer at all.
+const RECORD_FACTS = [
+  (r) => Boolean(r.revision),
+  (r) => (r.files?.length ?? 0) > 0,
+  (r) => Array.isArray(r.info?.tags),
+  (r) => Boolean(r.info?.pipeline_tag),
+  (r) => Boolean(r.info?.library_name),
+  (r) => Boolean(r.config),
+  (r) => Boolean(r.cardData),
+  (r) => Boolean(r.safetensors),
+  (r) => Boolean(r.info?.lastModified),
+  (r) => r.info?.gated !== undefined,
+];
+// 1 answer from this record, 2 ask Hugging Face, 3 answer from it and say the
+// answer is partial.
+async function completeness(rec) {
+  const request = new Uint8Array(12);
+  request[0] = 6;
+  RECORD_FACTS.forEach((held, i) => { request[1 + i] = held(rec) ? 1 : 0; });
+  request[11] = useHuggingFace ? 1 : 0;
+  const plan = (await kernel.dispatch(request))[0];
+  const missing = RECORD_FACTS.map((held, i) => (held(rec) ? null : recordFields[i])).filter(Boolean);
+  return { plan, missing };
 }
 function treeEntries(rec, dir, recursive) {
   const prefix = dir ? `${dir.replace(/\/+$/, "")}/` : "";
@@ -277,7 +314,15 @@ async function fromIndex(request, url, path) {
   if (kind === "refs") return json({ branches: [{ name: "main", ref: "refs/heads/main", targetCommit: rec.revision }], converts: [], tags: [], pullRequests: [] });
   const rev = decodeURIComponent(revision);
   if (kind && !indexedRevision(rec, rev)) return useHuggingFace ? null : refuse(11, request.method);
-  if (!kind || kind === "revision") return json(modelInfo(rec, url.searchParams.get("blobs") === "true"));
+  if (!kind || kind === "revision") {
+    // An incomplete record never answers as though it were whole: where
+    // Hugging Face can be asked it is asked, and where it cannot the answer
+    // carries the header that says which fields are absent.
+    const { plan, missing } = await completeness(rec);
+    if (plan === 2) return null;
+    const headers = plan === 3 && missing.length ? { [partialHeader]: missing.join(",") } : {};
+    return json(modelInfo(rec, url.searchParams.get("blobs") === "true"), 200, headers);
+  }
   if (kind === "tree") return json(treeEntries(rec, decodeURIComponent(rest), url.searchParams.get("recursive") === "true"));
   if (kind === "paths-info") {
     const form = new URLSearchParams(await request.text());

@@ -143,6 +143,8 @@ def ref_dispatch(b):
         return bytes([ref_verdict(list(b[1:]))])
     if len(b) == 11 and b[0] == 5:
         return bytes([ref_trust(*b[1:])])
+    if len(b) == 12 and b[0] == 6:
+        return bytes([ref_complete(list(b[1:11]), b[11])])
     return bytes([0, 4, 0])
 
 
@@ -165,6 +167,20 @@ def ref_trust(present, *rest):
         if kind == 1:
             return 1
     return 3
+
+
+# Operation 6 (complete), exactly 12 bytes: `06 f0..f9 passthrough`. One byte
+# per field of a release record, in the order `site_spec` lists them, 1 when
+# the record holds it and 0 when it does not, then 1 when the source dialect
+# can be asked and 0 when it cannot. The answer is one byte: 1 answer from the
+# index, 2 ask the source dialect, 3 answer from the index and say so.
+RECORD_FIELDS = [f[0] for f in site_spec.SCREENS["docs"]["record"]["fields"]]
+
+
+def ref_complete(fields, passthrough):
+    if all(f == 1 for f in fields):
+        return 1
+    return 2 if passthrough == 1 else 3
 
 
 # Operation 4 (verdict), exactly 5 bytes: `04 r0 r1 r2 r3`, one byte per source
@@ -255,6 +271,13 @@ VECTORS = [
     bytes([5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
     bytes([5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
     bytes([5, 2, 1, 1, 1, 1, 1, 1, 1, 1, 0]),
+    bytes([6] + [1] * 10 + [1]),
+    bytes([6] + [1] * 10 + [0]),
+    bytes([6] + [1] * 9 + [0] + [1]),
+    bytes([6] + [1] * 9 + [0] + [0]),
+    bytes([6, 0] + [1] * 9 + [1]),
+    bytes([6] + [0] * 10 + [0]),
+    bytes([6] + [1] * 10),
 ]
 assert len(set(VECTORS)) == len(VECTORS), "requests must be unique"
 assert max(len(v) for v in VECTORS) == 128, "one request is exactly guestAllocationMaximum bytes"
@@ -450,6 +473,17 @@ def kernel_module():
             ("(kind =? 1)", "1"),
         ], "3")),
     ], "3")))
+    # Whether an answer may be built from the record the index holds. Every
+    # field is a fact the runner measured about its own record; the kernel
+    # decides, so the page and the edge cannot differ about what counts as
+    # complete.
+    cparams = ", ".join("%s : Nat" % f for f in RECORD_FIELDS) + ", passthrough : Nat"
+    k.append(defn("recordHolds", ", ".join("%s : Nat" % f for f in RECORD_FIELDS), "Bool",
+                  nest("&&", ["(%s =? 1)" % f for f in RECORD_FIELDS])))
+    k.append(defn("complete", cparams, "Nat", chain([
+        ("(recordHolds %s)" % " ".join(RECORD_FIELDS), "1"),
+        ("(passthrough =? 1)", "2"),
+    ], "3")))
     k.append(defn("encodeVerdict", "code : Nat", "Bytes", chain(
         [("(code =? %d)" % i, hx(bytes([i]))) for i in (1, 2, 3)], "0x00")))
     # A source and an ETag are named only when the file is delivered, so every
@@ -466,8 +500,11 @@ def kernel_module():
                   "(Site::screen (byteNat value 1)) else (if (((Foundation.Bytes::byteLength value) =? 5) && "
                   "((byteNat value 0) =? 4)) then (encodeVerdict (verdict (byteNat value 1) (byteNat value 2) "
                   "(byteNat value 3) (byteNat value 4))) else (if (((Foundation.Bytes::byteLength value) =? 11) && "
-                  "((byteNat value 0) =? 5)) then (encodeVerdict (trust %s)) else 0x000400)))))"
-                  % " ".join("(byteNat value %d)" % i for i in range(1, 11)), AX))
+                  "((byteNat value 0) =? 5)) then (encodeVerdict (trust %s)) else "
+                  "(if (((Foundation.Bytes::byteLength value) =? 12) && ((byteNat value 0) =? 6)) then "
+                  "(encodeVerdict (complete %s)) else 0x000400))))))"
+                  % (" ".join("(byteNat value %d)" % i for i in range(1, 11)),
+                     " ".join("(byteNat value %d)" % i for i in range(1, 12))), AX))
     vec = "(nil %sAcceptanceVector)" % T
     for r, e in reversed(list(zip(VECTORS, EXPECTED))):
         vec = "(cons (record %sAcceptanceVector {request := %s, response := %s}) %s)" % (T, hx(r), hx(e), vec)
@@ -566,6 +603,19 @@ INVARIANTS = [
      "((((r0 =? 21) || (r1 =? 21)) || ((r2 =? 21) || (r3 =? 21))) && "
      "(not (((Kernel::verdict r0 r1 r2 r3) =? 2) || ((Kernel::verdict r0 r1 r2 r3) =? 0)))))",
      [q("verdict"), q("resultValid")]),
+    # An answer is built from the record only when the record holds every
+    # field that answer names; where a field is missing the source dialect is
+    # asked, and where it cannot be asked the answer says it is partial.
+    ("Complete", "breaksComplete", "completeHolds",
+     ", ".join("%s : Nat" % f for f in RECORD_FIELDS) + ", passthrough : Nat",
+     " ".join(RECORD_FIELDS) + " passthrough",
+     "((((Kernel::complete {a}) =? 1) && (not (Kernel::recordHolds {b}))) || "
+     "((((Kernel::complete {a}) =? 2) && (not (passthrough =? 1))) || "
+     "((((Kernel::complete {a}) =? 3) && (passthrough =? 1)) || "
+     "(not ((((Kernel::complete {a}) =? 1) || ((Kernel::complete {a}) =? 2)) || "
+     "((Kernel::complete {a}) =? 3))))))".format(
+         a=" ".join(RECORD_FIELDS) + " passthrough", b=" ".join(RECORD_FIELDS)),
+     [q("complete"), q("recordHolds")]),
     # A label of witnessed or published needs every check to pass; published
     # needs a publisher's signature from the namespace owner; a witness's
     # signature is never shown as a publisher's.
@@ -605,7 +655,7 @@ def proof_module(name, declarations, imports="Kernel"):
 # The axioms Lean observes for each proof (`#print axioms`, measured): `omega`
 # reaches `Classical.choice` when a split leaves an `if` over a disjunction.
 # LexLean refuses a proof whose declared set differs (LLV7005).
-CLASSICAL = {"Delivery", "Etag", "Healthy", "Sound", "Trust"}
+CLASSICAL = {"Complete", "Delivery", "Etag", "Healthy", "Sound", "Trust"}
 
 
 def proof_modules():

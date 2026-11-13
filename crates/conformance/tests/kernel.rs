@@ -296,6 +296,20 @@ fn kernel_hk_13() {
     dispatch_decides_by("(encodeVerdict (verdict (byteNat value 1)");
 }
 
+/// `HK-15`: An answer is built from the index only when the record holds every field that answer names; where one is missing the source dialect is asked, and where it cannot be asked the answer says it is partial
+#[test]
+fn kernel_hk_15() {
+    pinned(
+        "Complete",
+        "breaksComplete",
+        "((((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 1) && (not (Kernel::recordHolds revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated))) || ((((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 2) && (not (passthrough =? 1))) || ((((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 3) && (passthrough =? 1)) || (not ((((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 1) || ((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 2)) || ((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 3))))))",
+        "completeHolds",
+        "revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough",
+        "Classical.choice, Quot.sound, propext",
+    );
+    dispatch_decides_by("(encodeVerdict (complete (byteNat value 1)");
+}
+
 /// `HK-14`: A model page says Witnessed or Published only when every signature check passed, says Published only for a publisher's signature from the namespace owner, and never shows a witness's signature as a publisher's
 #[test]
 fn kernel_hk_14() {

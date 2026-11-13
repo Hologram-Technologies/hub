@@ -1009,7 +1009,7 @@ function drawDocs(main) {
   const cmd = (c) => `<div class="get">${copyLine(c, "command copy")}</div>`;
   const sections = s.sections.map((x) => `<section id="${esc(x.id)}"><h2>${esc(x.title)}</h2>
     ${x.body.map((p) => `<p>${esc(p)}</p>`).join("")}${(x.commands ?? []).map(cmd).join("")}</section>`).join("");
-  const toc = [...s.sections.map((x) => [x.id, x.title]), ["routes", s.endpointsTitle], ["answers", s.answersTitle]];
+  const toc = [...s.sections.map((x) => [x.id, x.title]), ["record", s.record.title], ["routes", s.endpointsTitle], ["answers", s.answersTitle]];
   main.innerHTML = `
     <div class="lead"><h1>${esc(s.title)}</h1>${copyLine(s.command)}</div>
     <div class="doc-grid">
@@ -1017,6 +1017,9 @@ function drawDocs(main) {
       <article class="panel doc">
         <p class="intro">${esc(s.lead)}</p>
         ${sections}
+        <section id="record"><h2>${esc(s.record.title)}</h2><p>${esc(s.record.lead)}</p>
+          ${table(["Field", "What it holds"], s.record.fields, [0])}
+          ${table(["Plan", "What the kernel decides"], s.record.plans.map(([n, t]) => [String(n), t]), [0])}</section>
         <section id="routes"><h2>${esc(s.endpointsTitle)}</h2>${table(s.columnsRoutes, s.endpoints, [0, 1])}</section>
         <section id="answers"><h2>${esc(s.answersTitle)}</h2>${table(s.columnsAnswers, s.answers, [0, 1, 2])}</section>
         <p><a class="button" data-in href="${href(ROUTE_PATH[s.backRoute])}">${esc(s.back)}${ICON.right}</a></p>
