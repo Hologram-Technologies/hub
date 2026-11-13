@@ -238,6 +238,20 @@ fn kernel_hk_09() {
     );
 }
 
+/// `HK-16`: Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state
+#[test]
+fn kernel_hk_16() {
+    pinned(
+        "Query",
+        "breaksQuery",
+        "((facet <? (Site::facetCount)) && ((not ((Site::facetParam facet) <? (Site::paramCount))) || (((not (facet =? 0)) && ((Site::facetParam facet) =? 12)) || (((not (facet =? 1)) && ((Site::facetParam facet) =? 11)) || (((not (facet =? 2)) && ((Site::facetParam facet) =? 9)) || (((not (facet =? 3)) && ((Site::facetParam facet) =? 8)) || (((not (facet =? 4)) && ((Site::facetParam facet) =? 10)) || (((not (facet =? 5)) && ((Site::facetParam facet) =? 0)) || (((not (facet =? 6)) && ((Site::facetParam facet) =? 7)) || (((not (facet =? 7)) && ((Site::facetParam facet) =? 6)) || (((not (facet =? 8)) && ((Site::facetParam facet) =? 3)) || (((not (facet =? 9)) && ((Site::facetParam facet) =? 2)) || (((not (facet =? 10)) && ((Site::facetParam facet) =? 1)) || (((not (facet =? 11)) && ((Site::facetParam facet) =? 4)) || ((not (facet =? 12)) && ((Site::facetParam facet) =? 5))))))))))))))))",
+        "queryHolds",
+        "facet",
+        "Quot.sound, propext",
+    );
+    dispatch_decides_by("(Site::screen (byteNat value 1))");
+}
+
 /// `HK-11`: Every header item and every link that stays in the hub opens a screen the kernel renders
 #[test]
 fn kernel_hk_11() {

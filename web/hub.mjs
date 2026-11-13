@@ -48,6 +48,15 @@ const context = (n) => (!n ? "" : n >= 1048576 ? `${trim(n / 1048576)}M` : `${Ma
 const bytes = (n = 0) => (n >= 1e12 ? `${trim(n / 1e12)} TB` : n >= 1e9 ? `${trim(n / 1e9)} GB` : n >= 1e6 ? `${trim(n / 1e6)} MB` : n >= 1e3 ? `${trim(n / 1e3)} kB` : `${n} B`);
 const month = (d) => (d ? new Date(d).toLocaleDateString("en", { month: "short", year: "numeric", timeZone: "UTC" }) : "");
 const words = (s) => String(s ?? "").replace(/[-_]/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+// A facet's value is the one a link carries, which is Hugging Face's:
+// `text-generation`, `en`. The page says it the way a reader would.
+const LANGUAGE = new Intl.DisplayNames(["en"], { type: "language" });
+const titled = (s) => String(s).replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).replace(/\bTo\b/g, "to");
+function said(key, value) {
+  if (key === "task") return titled(value);
+  if (key === "languages") { try { return titled(LANGUAGE.of(value)); } catch { return value; } }
+  return value;
+}
 
 // ---------------------------------------------------------------- data
 // The catalog is a copy of the live hub's, taken when the site was built
@@ -339,7 +348,7 @@ async function drawHome(main) {
     const theirs = list.filter((m) => m.org === org);
     const face = theirs.find((m) => m.avatar);
     const img = face ? `<img src="${esc(href(`data/avatars/${face.avatar}`))}" alt="" width="40" height="40" loading="lazy" decoding="async" />` : "";
-    return `<li><a data-in href="${href(`models/?q=${encodeURIComponent(org)}`)}" title="${esc(fill(s.familyTitle, { label, n: theirs.length }))}">${img}<span>${esc(label)}</span></a></li>`;
+    return `<li><a data-in href="${href(`models/?author=${encodeURIComponent(org)}`)}" title="${esc(fill(s.familyTitle, { label, n: theirs.length }))}">${img}<span>${esc(label)}</span></a></li>`;
   }).join("");
   main.className = "land";
   main.innerHTML = `
@@ -386,25 +395,36 @@ const valuesOf = (m, key) => { const v = m[key]; return Array.isArray(v) ? v : v
 function readState() {
   const s = screens.models;
   const p = new URLSearchParams(location.search);
-  const st = { q: p.get("q") ?? "", sort: p.get("sort") ?? "trending", page: Math.max(1, +(p.get("page") ?? 1) || 1), tab: p.get("tab") ?? "main", f: {} };
+  const st = {
+    q: p.get(s.searchParam) ?? "",
+    sort: p.get("sort") ?? "trending",
+    page: Math.max(1, +(p.get(s.pageParam) ?? 1) || 1),
+    tab: p.get("tab") ?? "main",
+    f: {},
+  };
   if (!s.sorts.some(([k]) => k === st.sort)) st.sort = "trending";
   if (!s.tabs.some(([k]) => k === st.tab)) st.tab = "main";
   for (const f of chipFacets()) { const v = p.get(f.param); if (v) st.f[f.key] = v.split(",").filter(Boolean); }
-  // The parameter range, as two stop numbers.
+  // The parameter range is a pair of the stops' own labels, as Hugging Face
+  // writes it: `num_parameters=6B,32B`.
   const last = s.stops.length - 1;
-  const range = (p.get("params") ?? "").split("-").map(Number);
-  st.range = range.length === 2 && range.every((n) => Number.isInteger(n) && n >= 0 && n <= last) && range[0] < range[1] ? range : [0, last];
+  const asked = (p.get(rangeFacetDef().param) ?? "").split(",").map((label) => s.stops.findIndex(([, l]) => l === label.trim()));
+  st.range = asked.length === 2 && asked.every((i) => i >= 0) && asked[0] < asked[1] ? asked : [0, last];
   return st;
 }
+const rangeFacetDef = () => facetDefs().find((f) => f.kind === "range");
 function writeState(st) {
+  const s = screens.models;
   const p = new URLSearchParams();
-  if (st.q) p.set("q", st.q);
+  if (st.q) p.set(s.searchParam, st.q);
   if (st.sort !== "trending") p.set("sort", st.sort);
   for (const f of chipFacets()) if (st.f[f.key]?.length) p.set(f.param, st.f[f.key].join(","));
   const [low, high] = fullRange();
-  if (st.range[0] !== low || st.range[1] !== high) p.set("params", st.range.join("-"));
+  if (st.range[0] !== low || st.range[1] !== high) {
+    p.set(rangeFacetDef().param, st.range.map((i) => s.stops[i][1]).join(","));
+  }
   if (st.tab !== "main") p.set("tab", st.tab);
-  if (st.page > 1) p.set("page", st.page);
+  if (st.page > 1) p.set(s.pageParam, st.page);
   const q = p.toString().replace(/%2C/g, ",");
   history.replaceState(null, "", `${href("models/")}${q ? `?${q}` : ""}`);
 }
@@ -432,12 +452,13 @@ function inRange(m, st) {
   const to = st.range[1] === high ? Infinity : stops()[st.range[1]][0];
   return billions >= from && billions <= to;
 }
+// The names are Hugging Face's, so a link that carries one means the same here.
 const SORTERS = {
   trending: (a, b) => a.rank - b.rank,
   downloads: (a, b) => b.downloads - a.downloads,
   likes: (a, b) => b.likes - a.likes,
-  newest: (a, b) => String(b.created ?? "").localeCompare(String(a.created ?? "")),
-  size: (a, b) => (b.params ?? 0) - (a.params ?? 0),
+  created: (a, b) => String(b.created ?? "").localeCompare(String(a.created ?? "")),
+  modified: (a, b) => String(b.modified ?? b.created ?? "").localeCompare(String(a.modified ?? a.created ?? "")),
 };
 
 function tags(m, { full = false } = {}) {
@@ -448,6 +469,7 @@ function tags(m, { full = false } = {}) {
     m.isNew ? `<span class="tag new">${esc(s.new)}</span>` : "",
     m.params ? `<span class="tag">${params(m.params)}</span>` : "",
     m.context ? `<span class="tag">${context(m.context)}</span>` : "",
+    full && m.task ? `<span class="tag">${esc(titled(m.task))}</span>` : "",
     m.modality && m.modality !== "Other" && (full || m.modality !== "Text") ? `<span class="tag">${esc(m.modality)}</span>` : "",
     full && m.format && m.format !== "Other" ? `<span class="tag">${esc(m.format)}</span>` : "",
   ].join("");
@@ -545,7 +567,10 @@ async function drawModels(main) {
     if (!key) return;
     const w = e.target.value.trim().toLowerCase();
     const section = e.target.closest(".facet");
-    for (const chip of $$(".chip", section)) chip.hidden = Boolean(w) && !chip.dataset.value.toLowerCase().includes(w);
+    for (const chip of $$(".chip", section)) {
+      const hay = `${chip.dataset.value} ${chip.querySelector(".label")?.textContent ?? ""}`.toLowerCase();
+      chip.hidden = Boolean(w) && !hay.includes(w);
+    }
     const chips = $(".chips", section);
     chips.classList.toggle("clamped", !w);
     $(".more", section).hidden = Boolean(w) || chips.scrollHeight <= chips.clientHeight;
@@ -575,7 +600,7 @@ function chipFacet(f, list, st, order) {
   else if (order[f.key] === "az") rows.sort((a, b) => a[0].localeCompare(b[0]));
   else rows.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   const plain = f.kind === "plain";
-  const chips = rows.map(([v, n]) => `<button type="button" class="chip${plain ? " plain" : ""}" data-facet="${esc(f.key)}" data-value="${esc(v)}" aria-pressed="${active.includes(v)}">${ICON[f.icon] ?? ""}<span class="label">${esc(v)}</span>${plain ? "" : `<span class="n">${count(n)}</span>`}</button>`).join("");
+  const chips = rows.map(([v, n]) => `<button type="button" class="chip${plain ? " plain" : ""}" data-facet="${esc(f.key)}" data-value="${esc(v)}" aria-pressed="${active.includes(v)}">${ICON[f.icon] ?? ""}<span class="label">${esc(said(f.key, v))}</span>${plain ? "" : `<span class="n">${count(n)}</span>`}</button>`).join("");
   const placeholder = fill(s.filterBy, { label: f.label.toLowerCase() });
   const az = order[f.key] === "az";
   const tools = f.kind === "search" ? `<div class="facet-tools"><label class="field compact">${ICON.search}<input type="search" placeholder="${esc(placeholder)}" data-facet-search="${esc(f.key)}" autocomplete="off" aria-label="${esc(placeholder)}" /></label><button type="button" class="control square" data-order="${esc(f.key)}" aria-label="${esc(az ? s.sortCount : s.sortAz)}" title="${esc(az ? s.sortCount : s.sortAz)}">${az ? ICON.sortCount : ICON.sortAz}</button></div>` : "";
@@ -670,7 +695,7 @@ async function drawModel(main, id) {
   const facts = {
     status, revision: m.revision ? `<code>${esc(m.revision.slice(0, 12))}</code>` : "", files: m.files ? esc(m.files) : "",
     weights: m.weightBytes ? esc(bytes(m.weightBytes)) : "", params: m.params ? esc(params(m.params)) : "",
-    task: m.task ? esc(words(m.task)) : "", library: esc(m.library ?? ""), license: esc(m.license ?? ""),
+    task: m.task ? esc(titled(m.task)) : "", library: esc(m.library ?? ""), license: esc(m.license ?? ""),
   };
   const factRows = (keys) => keys.filter(([k]) => facts[k]).map(([k, l]) => `<div><dt>${esc(l)}</dt><dd>${facts[k]}</dd></div>`).join("");
   const sub = [m.org, m.params ? `${params(m.params)} parameters` : "", m.weightBytes ? bytes(m.weightBytes) : "", m.license ?? ""].filter(Boolean);

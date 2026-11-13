@@ -107,6 +107,14 @@ the frame's Unsplash worker, which holds the one key every Prism app shares, so
 no page here carries a key. Choosing a photo reports the use to Unsplash, as
 its licence asks, and credits the photographer with a link.
 
+The browse page speaks Hugging Face's query language. The filters write
+`pipeline_tag`, `num_parameters`, `library`, `language`, `license` and
+`author`, the search box writes `search`, the pager writes `p`, and the
+slider writes a pair of the stops' own labels (`num_parameters=6B,32B`), so a
+link copied from huggingface.co with the host changed opens the same view
+here. The hub's own facets carry a `hub_` prefix and cannot collide with one.
+`HK-16` proves every facet maps to one parameter and back.
+
 A release record carries ten fields, and the kernel decides whether they are
 enough. `tools/index.mjs` writes the revision, every file, the tags as
 published, the task, the library, the config, the card's front matter and the

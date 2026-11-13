@@ -322,6 +322,49 @@ hosted verifier also verified every module of the previous revision
 root of the Pages site and the proof page under `app/`, so the interface
 reads the holo, the runtime and the brand tokens from beside it.
 
+## The query a link carries (HK-16)
+
+The Phase 1 inventory measured a Hugging Face browse link losing everything it
+carried when the host was changed: `?pipeline_tag=text-generation&num_parameters=6B,32B&sort=modified&p=2`
+left the hub showing all 500 rows with no filter pressed, sort Trending, page
+one, and rewrote the address bar to `/models/` with no query at all. The hub
+read `tasks`, `params` and `page`, and dropped silently what it did not know.
+
+The parameter names are now Hugging Face's own, read from its browse page's
+hydration props on 2026-11-13 (`activeFilters`): `pipeline_tag`,
+`num_parameters`, `library`, `language`, `license`, and `author`, `search`,
+`sort` and `p` beside them. The slider writes a pair of the stops' own labels,
+as Hugging Face writes it. The hub's own facets - status, source, format,
+family, architecture, modality, release recency - wear a `hub_` prefix, so
+nothing a copied link carries can collide with one.
+
+`sort=modified` is left out rather than accepted and answered with some other
+order: the copied catalog carries no last-changed date. The signed index does,
+so it returns when the page reads the index.
+
+`queryHolds` (`app/src/Proofs/Query.lex.tex`) proves the table is sound:
+`facetParam` reads the facets in the order the screen lists them, `paramFacet`
+reads them back from the parameter names in their own order, and no input
+reaches `breaksQuery`, so every facet maps to one parameter and that parameter
+maps back to it. Two facets sharing a parameter leaves the second without a way
+home and the proof fails, which is how a collision is caught.
+
+The first statement of the claim was the obvious one - read the parameter
+from the facet, read the facet back from the parameter, and ask that it is the
+one you started with - and Lean refused it (`LLV7002`): `omega` cannot see
+through an `if` whose scrutinee is itself an `if` chain, so it printed a
+counterexample made of the whole nested table. The claim is now stated without
+the nesting: every facet's parameter is one of the parameters, and no other
+facet has the same one, each comparison against a literal. It proves the same
+thing - a map that is total and injective is a map that round-trips - and
+`omega` proves it in seconds.
+
+The gate refused the first generated module as not canonical (`LLL1003`):
+`lexlean fmt` keeps a proof's definitions on one line while they fit in 100
+columns, and the generator went straight to one definition per line. The
+generator now matches the formatter, so the modules are canonical as written
+rather than after a pass.
+
 ## A record the index may answer from (HK-15)
 
 The Phase 1 inventory (`docs/phase1-models.md`) measured the hub describing a
@@ -358,6 +401,27 @@ source and checks it.
 The counts of another host's traffic moved under `observed`, which names the
 host that measured them and the day they were read. Before this, `likes` and
 `downloads` sat beside the hashes as though the index had established them.
+
+### The edge is older than the kernel it meets
+
+The `edge` workflow starts the edge against the *published* holo, not the one
+built from the commit under test, because that is how the edge is deployed:
+separately, and against whatever kernel the hub is serving. The first push of
+this work therefore failed it (run 43453813350, 2026-11-13):
+
+    TypeError: Cannot read properties of undefined (reading 'fields')
+    '[Errno 111] Connection refused' thrown while requesting HEAD
+      http://127.0.0.1:8787/openai-community/gpt2/resolve/main/config.json
+
+The edge read `docs.record` from screen 4 and the deployed kernel, built
+before the record block existed, did not carry one; the start threw and every
+client request met a closed port. The deploy itself had already passed, so
+this was the only gate that could catch it.
+
+The edge now takes a kernel that does not know operation 6 as one that cannot
+answer the question: the plan falls back to answering from the index, which is
+what it did before. `tests/edge/older-kernel.mjs` pins the start path against
+whatever is published.
 
 ### The gate, and the defect that proves it fails
 

@@ -13,6 +13,13 @@ the signed index alone (400 records).
 Hugging Face lists 3,234,881 models. This hub's page draws 500 rows copied at
 deploy; its index holds 400 releases.
 
+> Phase 2 has begun. The record's thinness (finding 1) is addressed by
+> `HK-15`: the kernel decides whether the index may answer, and the record
+> carries ten fields. The vocabulary (finding 2) is addressed by `HK-16`: the
+> page's query parameters are Hugging Face's own. The tables below are left as
+> they were measured on 2026-11-13, because they are the evidence the work
+> argues from.
+
 ## The one measurement that frames the rest
 
 A Hugging Face browse link with the host changed loses everything it carries.
