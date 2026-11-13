@@ -52,8 +52,13 @@ const witnessed = (await readFile(new URL("../manifests/models.txt", import.meta
   .split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
 for (const repo of witnessed.filter((r) => !rows.some((m) => m.id === r))) {
   const found = (await json(`https://gethologram.ai/api/models?search=${encodeURIComponent(repo.split("/")[1])}&limit=50`)).find((m) => m.id === repo);
-  if (found?.sha) rows.push(found);
+  if (found?.sha) { rows.push(found); continue; }
+  // The catalog's search does not reach every model, so ask Hugging Face directly.
+  const m = await hf(`/api/models/${repo}`);
+  rows.push({ id: m.id, sha: m.sha, author: m.author, tags: m.tags, pipeline_tag: m.pipeline_tag, library_name: m.library_name, createdAt: m.createdAt, likes: m.likes, downloads: m.downloads });
 }
+const missing = witnessed.filter((r) => !rows.some((m) => m.id === r));
+if (missing.length) throw new Error(`index: witnessed models without a release: ${missing.join(", ")}`);
 const records = [];
 let fetched = 0;
 for (const row of rows) {
