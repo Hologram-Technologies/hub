@@ -21,12 +21,12 @@ const examples = JSON.parse(readFileSync(new URL("../app/tools/vectors.json", im
 
 // Each page, and the element that shows its screen was drawn from the kernel.
 const pages = [
-  ["", ".hero h1"],
+  ["", ".land-title"],
   ["models/", ".card"],
-  ["models/openai-community/gpt2/", ".head h1"],
+  ["models/openai-community/gpt2/", ".model-head h1"],
   ["docs/", "#answers table"],
   ["registry/", ".card.entry"],
-  ["apps/", ".card.app"],
+  ["apps/", ".grid.apps .card"],
   ["buckets/", "#check"],
   // A witnessed model: its signature, made by this deploy, must check out.
   ["models/BAAI/bge-small-en-v1.5/", "#signed.s1"],

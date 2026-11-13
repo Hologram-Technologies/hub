@@ -322,6 +322,45 @@ hosted verifier also verified every module of the previous revision
 root of the Pages site and the proof page under `app/`, so the interface
 reads the holo, the runtime and the brand tokens from beside it.
 
+## The look, measured against gethologram.ai
+
+The site's look is the live hub's own, not an imitation of it: `web/hub.css`
+is gethologram.ai's `chrome.css` and `styles.css` (read on 2026-11-13),
+trimmed to the parts this hub draws, and `web/icons.mjs` is its icon set and
+its card mesh, which seeds a surface from each entry's address so the same
+entry draws the same surface. The marks on the cards and on the landing strip
+are the owners' own: Hugging Face names one avatar per owner
+(`/api/organizations/{owner}/avatar`, then `/api/users/{owner}/avatar`), the
+CDN serves one original at 200 px, and `tools/web-data.mjs` copies those bytes
+whole. Measured on 2026-11-13: 500 of 500 catalogue rows have one, 249 files,
+1.3 MB in all.
+
+The filters are grouped as Hugging Face groups them, and the facet values are
+derived rather than taken, because the hub's API does not carry them. Measured
+against the live hub's own prepared catalogue on 2026-11-13, for the rows both
+hold: the format counts agree exactly (Safetensors 187, GGUF 125, ONNX 5,
+MLX 3), and task, family and architecture agree after three fixes — tasks are
+mapped by an explicit table rather than by pattern (the live hub reads
+`zero-shot-classification`, `video-to-video` and `image-to-3d` as neither
+Text nor Video), a family keeps the version glued to its name ("Qwen 3.8", not
+"Qwen 3 8"), and one spelling per family is chosen by count, so "MiniMax" and
+"Minimax" are one facet and not two.
+
+The holo grew from 81,413 bytes to 88,280 as the screens took the new facets,
+the parameter stops and the theme panel's words. GitHub Pages serves it
+gzipped, so what a visitor downloads went from 22,901 bytes to 23,085: the
+proof page's Lighthouse budget (122,880 bytes of transfer, 100 ms of total
+blocking time) is measured on that.
+
+The theme panel is the Prism frame's, reached through the frame's Unsplash
+worker (`prism-unsplash.trinity-03d.workers.dev`), which answers
+`Access-Control-Allow-Origin: *` and holds the one key every Prism app shares,
+so no page here carries one. Measured on 2026-11-13: a search returns nine
+photos with their photographer and a placeholder colour, the chosen photo is
+set as the wall through the worker's image route at this screen's own width,
+and `POST /use?id=` reports the use as Unsplash's licence asks. A wallpaper
+this site ships names no photographer, so it carries no credit line.
+
 ## Verify
 
 `Verify` on a model page is decided by the kernel. The page fetches the

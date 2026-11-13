@@ -14,7 +14,7 @@ if (!site || !api) {
   console.error("usage: node tools/web-routes.mjs <site dir> <hub API origin>");
   process.exit(64);
 }
-const shell = await readFile(join(site, "index.html"));
+const shell = await readFile(join(site, "index.html"), "utf8");
 const routes = ["models", "docs", "registry", "apps", "buckets"];
 try {
   const response = await fetch(`${api}/api/models?limit=500`, { signal: AbortSignal.timeout(30000) });
@@ -30,8 +30,14 @@ try {
   const { manifests } = JSON.parse(await readFile(join(site, "data", "manifests", "index.json"), "utf8"));
   for (const { repo } of manifests) if (!routes.includes(`models/${repo}`)) routes.push(`models/${repo}`);
 } catch {}
+// Each page says where the hub's root is, in the markup. The shell works out
+// the same base for a deep link that arrives through 404.html, but the
+// browser's preload scanner reads the <link> tags before any script runs, so a
+// page without a written base fetches its stylesheet and holo once from the
+// wrong depth and then again from the right one.
+const base = (route) => `<base href="${"../".repeat(route.split("/").length)}" />\n    `;
 for (const route of routes) {
   await mkdir(join(site, route), { recursive: true });
-  await writeFile(join(site, route, "index.html"), shell);
+  await writeFile(join(site, route, "index.html"), shell.replace("<script>", `${base(route)}<script>`));
 }
 console.log(`web-routes: ${routes.length} route pages`);

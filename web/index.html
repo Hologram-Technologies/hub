@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="dark" data-theme="immersive">
+<html lang="en" class="dark" data-theme="immersive" data-wallpaper="alps" data-page="landing">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -11,14 +11,27 @@
       // fallback for deep links, so every relative URL needs one base: the
       // path up to the first route segment the hub owns.
       (function () {
+        // A route page carries its own <base>; a deep link answered by 404.html
+        // works it out from the path, up to the first route the hub owns.
         var p = location.pathname, m = p.match(/^(.*?\/)(models|docs|registry|apps|buckets)(\/|$)/);
-        var base = document.createElement("base");
-        base.href = m ? m[1] : p.replace(/[^/]*$/, "");
-        document.head.appendChild(base);
-        var t = "immersive";
-        try { t = localStorage.getItem("hologram-hub.theme") || t; } catch (e) {}
-        document.documentElement.dataset.theme = t;
-        document.documentElement.className = t === "light" ? "" : "dark";
+        if (!document.querySelector("base")) {
+          var base = document.createElement("base");
+          base.href = m ? m[1] : p.replace(/[^/]*$/, "");
+          document.head.appendChild(base);
+        }
+        // The theme and the picture behind it before the first paint, so
+        // neither flashes: the picture is a file this site ships or a photo
+        // from Unsplash, and the browser already holds the one shown last.
+        var t = "immersive", h = document.documentElement, base = document.querySelector("base").href, pic = null;
+        try {
+          t = localStorage.getItem("hologram-hub.theme") || t;
+          pic = JSON.parse(localStorage.getItem("hologram-hub.picture") || "null");
+        } catch (e) {}
+        var wall = pic && pic.file ? base + "wallpapers/" + pic.file + ".jpg" : pic && pic.wall ? pic.wall : base + "wallpapers/alps.jpg";
+        h.dataset.theme = t;
+        h.dataset.page = m ? "page" : "landing";
+        h.className = t === "light" ? "" : "dark";
+        h.style.setProperty("--hh-wallpaper", 'url("' + wall + '")');
       })();
     </script>
     <!-- The prism-code runtime imports node:crypto; in a browser that is the
@@ -26,14 +39,18 @@
     <script type="importmap">{ "imports": { "node:crypto": "./app/vendor/node-crypto-shim.mjs" } }</script>
     <link rel="icon" href="app/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="app/brand/hologram-warm.css" />
+    <link rel="stylesheet" href="tokens.css" />
     <link rel="preload" href="fonts/Geist-Regular.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="hub.css" />
     <link rel="modulepreload" href="hub.mjs" />
   </head>
   <body>
-    <div class="wall" aria-hidden="true"></div>
-    <header class="top" id="chrome"></header>
-    <main id="main" tabindex="-1"><p class="boot">Loading the proved kernel</p></main>
+    <div class="veil" aria-hidden="true"></div>
+    <div class="shell">
+      <header class="top" id="chrome"></header>
+      <main id="main" tabindex="-1"><p class="boot">Loading the proved kernel</p></main>
+      <footer class="foot"><a class="status wait" id="proof" href="app/"><span id="proof-text">Proved by Lean</span></a></footer>
+    </div>
     <script type="module" src="hub.mjs"></script>
   </body>
 </html>

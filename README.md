@@ -65,22 +65,47 @@ hand: a changed claim fails them until a person agrees to it.
 ## The hub interface
 
 `web/` is the hub's site, published at the root of this repository's Pages
-site, with the proof page under `app/`. It looks like gethologram.ai, but it
-decides nothing: every label, route, header item, link, facet, sort, size
-bucket, command and the whole Hugging Face dialect table come from
-`app/src/Site.lex.tex`, and the browser gets them by asking the verified holo.
+site, with the proof page under `app/`. Its look is gethologram.ai's own: the
+shell, header, controls, landing, catalogue and model page in `web/hub.css` are
+that site's `chrome.css` and `styles.css`, trimmed to what this hub draws, and
+`web/icons.mjs` carries its icon set and the mesh behind every card. Every
+value still resolves to the brand kit (`app/brand/hologram-warm.css` for the
+colours and families, `web/tokens.css` for the scales).
+
+The site decides nothing: every label, route, header item, link, facet, tab,
+sort, parameter stop, command and the whole Hugging Face dialect table come
+from `app/src/Site.lex.tex`, and the browser gets them by asking the verified
+holo.
 
 1. The page loads `app/app.holo` with `prism-code`'s browser runtime, which
    checks its identities.
 2. For each screen it sends the guest `03 nn` and draws the JSON it returns.
-3. It reads catalog data from the hub's own Hugging Face API
-   (`/api/models`, `/api/models/{repo}/tree/{revision}`).
+3. It reads the catalogue from `data/models.json`, the copy `tools/web-data.mjs`
+   takes at each deploy, and a model's files from the hub's own Hugging Face
+   API (`/api/models/{repo}/tree/{revision}`).
 4. After first paint it replays every acceptance vector the holo carries and
-   shows the count in the header.
+   says so in the footer.
 5. Verify on a model page fetches the smallest addressed file from each source
    through the hub's `/via/<source>` route and hashes it in the browser; the
    kernel's accept rule (`HK-10`) judges each copy and its verdict rule
    (`HK-13`, request `04 r0 r1 r2 r3`) decides what the page says.
+
+The catalogue reads the way Hugging Face's does. `tools/web-data.mjs` writes
+one row per model carrying the facets the browse page filters on — task,
+parameter count, family, architecture, languages, format, library, licence,
+source and status — each derived from the row's own fields and tags, and it
+fetches every owner's avatar once from Hugging Face's avatar CDN at the size
+that CDN stores, copied whole rather than scaled or re-encoded. The filters are
+grouped as Hugging Face groups them (Main, Libraries, Languages, Licenses,
+Other), and Parameters is one bar with two handles over the stops the screen
+names, rather than a row of buckets.
+
+The theme switch is the Prism frame's panel: the three looks as one segmented
+control, a search of Unsplash, nine pictures and the photographer's line. The
+three wallpapers this site ships come first; everything else is fetched through
+the frame's Unsplash worker, which holds the one key every Prism app shares, so
+no page here carries a key. Choosing a photo reports the use to Unsplash, as
+its licence asks, and credits the photographer with a link.
 
 Registry, Apps and Buckets are screens of the kernel too. The registry and apps
 lists are copies of the live hub's, taken at each deploy by `tools/web-data.mjs`
