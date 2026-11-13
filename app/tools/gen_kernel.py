@@ -637,11 +637,17 @@ def theorem(name, params, statement, form, defs, axioms):
     else:
         key = lambda d: d
     ordered = sorted(set(defs), key=key)
-    # `lexlean fmt` keeps a proof on one line when it fits in 100 columns.
+    # `lexlean fmt` keeps a proof on one line when it fits in 100 columns;
+    # past that it opens the brace and keeps the list on one line while that
+    # fits; past that again it gives each definition a line of its own.
     proof = "  proof: %s{definitions: [%s]}," % (form, ", ".join(ordered))
     if len(proof) > 100:
-        rows = ",\n".join("      " + d for d in ordered)
-        proof = "  proof: %s{\n    definitions: [\n%s\n    ]\n  }," % (form, rows)
+        inner = "    definitions: [%s]" % ", ".join(ordered)
+        if len(inner) <= 100:
+            proof = "  proof: %s{\n%s\n  }," % (form, inner)
+        else:
+            rows = ",\n".join("      " + d for d in ordered)
+            proof = "  proof: %s{\n    definitions: [\n%s\n    ]\n  }," % (form, rows)
     return ("theorem{\n  name: %s,\n%s\n  statement: %s,\n%s\n"
             "  axioms: [%s]\n}\n" % (name, parameters(params), statement, proof, ", ".join(axioms)))
 

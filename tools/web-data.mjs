@@ -51,8 +51,6 @@ const LANGUAGE = new Intl.DisplayNames(["en"], { type: "language" });
 const modality = (task) => MODALITY[task] ?? "Other";
 const bucket = (n) => (n ? BUCKETS.find(([hi]) => n / 1e9 < hi)[1] : null);
 const words = (s) => String(s).replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-// A task as a reader says it: "image-text-to-text" is Image Text to Text.
-const taskLabel = (t) => (t ? words(t).replace(/\bTo\b/g, "to") : null);
 
 // What a reader calls the model: its name, and its version when the name
 // carries one. "Qwen3.8-27B-Instruct" is Qwen 3.8, "DeepSeek-V4-Pro" is
@@ -72,9 +70,19 @@ const NOT_ARCH = new Set(["safetensors", "gguf", "onnx", "mlx", "pytorch", "tens
   "peft", "timm", "other", "conversational", "endpoints_compatible", "autotrain_compatible", "text-generation-inference", "custom_code", "code"]);
 const architecture = (tags, task) => tags.find((t) => /^[a-z][a-z0-9_]*$/.test(t) && !NOT_ARCH.has(t) && t !== task && !t.startsWith("region")) ?? null;
 
+// A language is kept as its code, because that is what a link carries
+// (`language=en`); the page turns it into a name when it draws the chip.
+const CODE = new Map();
 function language(tag) {
-  if (/^[a-z]{2,3}$/.test(tag)) { try { return words(LANGUAGE.of(tag)); } catch { return null; } }
-  return /^[A-Z][a-z]+$/.test(tag) ? tag : null;
+  if (/^[a-z]{2,3}$/.test(tag)) {
+    try { return LANGUAGE.of(tag) === tag ? null : tag; } catch { return null; }
+  }
+  if (!CODE.size) {
+    for (const code of ["en", "zh", "es", "fr", "de", "ja", "ko", "ru", "pt", "it", "ar", "hi", "nl", "pl", "tr", "vi", "th", "id", "sv", "cs", "uk", "fa", "he", "el", "da", "fi", "no", "hu", "ro", "bg"]) {
+      try { CODE.set(LANGUAGE.of(code), code); } catch {}
+    }
+  }
+  return CODE.get(tag) ?? null;
 }
 
 const catalog = await take("/api/models?limit=500");
@@ -83,9 +91,11 @@ const models = catalog.data.map((row, i) => {
   const tags = row.tags ?? [];
   const h = row.hologram ?? {};
   return {
-    id: row.id, org, name, rank: i + 1,
+    // `author` is the owner under Hugging Face's own name for it, so the
+    // browse page's `author=` filter means what a copied link means.
+    id: row.id, org, author: org, name, rank: i + 1,
     likes: row.likes ?? 0, downloads: row.downloads ?? 0, created: (row.createdAt ?? "").slice(0, 10) || null,
-    modality: modality(row.pipeline_tag), task: taskLabel(row.pipeline_tag),
+    modality: modality(row.pipeline_tag), task: row.pipeline_tag ?? null,
     params: h.parameters ?? null, bucket: bucket(h.parameters), context: h.context ?? null,
     arch: architecture(tags, row.pipeline_tag),
     family: family(row.id),

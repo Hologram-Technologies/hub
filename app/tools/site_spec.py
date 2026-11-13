@@ -180,30 +180,44 @@ SCREENS = {
         "search": "Search models",
         "filters": "Filters",
         "close": "Close filters",
-        "sorts": [["trending", "Trending"], ["downloads", "Downloads"], ["likes", "Likes"],
-                  ["newest", "Newest"], ["size", "Parameters"]],
+        # The sort names are Hugging Face's own, so a link carries across.
+        # Hugging Face also offers `modified`; this hub leaves it out rather
+        # than accept it and sort by something else, because the copied
+        # catalog carries no last-changed date. The signed index does, so it
+        # returns when the page reads the index.
+        "sorts": [["trending", "Trending"], ["downloads", "Most downloads"], ["likes", "Most likes"],
+                  ["created", "Recently created"]],
+        "searchParam": "search",
+        "pageParam": "p",
         "tabs": [["main", "Main", "sliders"], ["libraries", "Libraries", "box"], ["languages", "Languages", "globe"],
                  ["licenses", "Licenses", "scale"], ["other", "Other", "cpu"]],
         # key (the catalog field), URL name, label, the tabs it appears on,
         # icon, kind: "fixed" keeps the order given below, "search" adds a
         # filter box, "plain" drops the counts, "range" is the slider.
-        "facets": [["task", "tasks", "Tasks", ["main"], "grid", ""],
-                   ["params", "params", "Parameters", ["main"], "tag", "range"],
-                   ["library", "libraries", "Libraries", ["main", "libraries"], "box", "search"],
-                   ["status", "status", "Status", ["main"], "seal", "fixed"],
-                   ["sources", "source", "Source", ["main"], "nodes", ""],
-                   ["format", "format", "Formats", ["libraries"], "file", ""],
+        # key (the catalog field), the query parameter, label, the tabs it
+        # appears on, icon, kind. The first eight parameters are Hugging
+        # Face's; the four after them name facets Hugging Face does not have,
+        # so they cannot collide with a link copied from it.
+        "facets": [["task", "pipeline_tag", "Tasks", ["main"], "grid", ""],
+                   ["params", "num_parameters", "Parameters", ["main"], "tag", "range"],
+                   ["library", "library", "Libraries", ["main", "libraries"], "box", "search"],
                    ["languages", "language", "Languages", ["languages"], "globe", "search"],
                    ["license", "license", "Licenses", ["licenses"], "scale", "search"],
-                   ["family", "family", "Model family", ["other"], "layers", "search"],
-                   ["arch", "arch", "Architecture", ["other"], "cpu", "search"],
-                   ["modality", "modality", "Modality", ["other"], "image", ""],
-                   ["recency", "released", "Release recency", ["other"], "calendar", "plain"]],
+                   ["author", "author", "Owner", ["other"], "user", "search"],
+                   ["status", "hub_status", "Status", ["main"], "seal", "fixed"],
+                   ["sources", "hub_source", "Source", ["main"], "nodes", ""],
+                   ["format", "hub_format", "Formats", ["libraries"], "file", ""],
+                   ["family", "hub_family", "Model family", ["other"], "layers", "search"],
+                   ["arch", "hub_arch", "Architecture", ["other"], "cpu", "search"],
+                   ["modality", "hub_modality", "Modality", ["other"], "image", ""],
+                   ["recency", "hub_released", "Release recency", ["other"], "calendar", "plain"]],
         # The parameter slider's stops, in billions: a model is kept when its
         # count falls between the chosen stops, and the last stop means no
         # upper limit. Models whose count is unknown are kept until the slider
         # is moved.
-        "stops": [[0, "< 1B"], [8, "8B"], [32, "32B"], [128, "128B"], [500, "> 500B"]],
+        # Hugging Face's own stops and labels: the slider writes a pair of
+        # labels, `num_parameters=6B,32B`, and reads the same.
+        "stops": [[0, "< 1B"], [6, "6B"], [12, "12B"], [32, "32B"], [128, "128B"], [500, "> 500B"]],
         "parameterRange": "Parameters, {low} to {high}",
         "statuses": [["addressed", "Verified"], ["pending", "Queued"], ["skipped", "Unverified"]],
         "recency": [["Last 30 days", 30], ["90 days", 90], ["6 months", 183], ["1 year", 365]],

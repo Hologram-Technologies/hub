@@ -111,3 +111,9 @@ id = "HK-15"
 level = "build"
 suite = "kernel"
 statement = "An answer is built from the index only when the record holds every field that answer names; where one is missing the source dialect is asked, and where it cannot be asked the answer says it is partial"
+
+[[id]]
+id = "HK-16"
+level = "build"
+suite = "kernel"
+statement = "Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state"

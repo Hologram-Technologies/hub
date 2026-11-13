@@ -61,6 +61,12 @@ Feature: kernel
     When the Lean kernel checks revisionHolds in app/src/Proofs/Revision.lex.tex during prismpm verify
     Then no input meets breaksRevision
 
+  @HK-16 @build
+  Scenario: Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks queryHolds in app/src/Proofs/Query.lex.tex during prismpm verify
+    Then no input meets breaksQuery
+
   @HK-11 @build
   Scenario: Every header item and every link that stays in the hub opens a screen the kernel renders
     Given the kernel model in app/src/Kernel.lex.tex

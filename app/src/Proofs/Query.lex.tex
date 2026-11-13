@@ -1,0 +1,25 @@
+\begin{lexlean}{Proofs.Query}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Site}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksQuery,
+  parameters: [facet : Nat],
+  result: Bool,
+  body: ((facet <? (Site::facetCount)) && ((not ((Site::facetParam facet) <? (Site::paramCount))) || (((not (facet =? 0)) && ((Site::facetParam facet) =? 12)) || (((not (facet =? 1)) && ((Site::facetParam facet) =? 11)) || (((not (facet =? 2)) && ((Site::facetParam facet) =? 9)) || (((not (facet =? 3)) && ((Site::facetParam facet) =? 8)) || (((not (facet =? 4)) && ((Site::facetParam facet) =? 10)) || (((not (facet =? 5)) && ((Site::facetParam facet) =? 0)) || (((not (facet =? 6)) && ((Site::facetParam facet) =? 7)) || (((not (facet =? 7)) && ((Site::facetParam facet) =? 6)) || (((not (facet =? 8)) && ((Site::facetParam facet) =? 3)) || (((not (facet =? 9)) && ((Site::facetParam facet) =? 2)) || (((not (facet =? 10)) && ((Site::facetParam facet) =? 1)) || (((not (facet =? 11)) && ((Site::facetParam facet) =? 4)) || ((not (facet =? 12)) && ((Site::facetParam facet) =? 5))))))))))))))))
+}
+
+theorem{
+  name: queryHolds,
+  parameters: [facet : Nat],
+  statement: ((breaksQuery facet) = false),
+  proof: linear_arithmetic{
+    definitions: [Site::facetCount, Site::facetParam, Site::paramCount, breaksQuery]
+  },
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

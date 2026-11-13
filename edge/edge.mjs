@@ -49,7 +49,10 @@ export async function start({ holo, index: indexUrl, huggingFace = true, drain =
   const docs = await screen(4);
   dialect = new Map(docs.answers.filter(([code]) => typeof code === "number").map(([code, status, error, message]) => [code, { status, error: error === "none" ? "" : error, message }]));
   dialect.set("other", Object.fromEntries(["status", "error", "message"].map((k, i) => [k, docs.answers.find(([c]) => typeof c !== "number")[i + 1]])));
-  const record = docs.record;
+  // The edge is deployed apart from the kernel, so it must start against a
+  // holo older than itself: a kernel with no record block answers operation 6
+  // as invalid, and the edge then answers from the index as it did before.
+  const record = docs.record ?? { fields: [], partialHeader: "X-Hub-Partial" };
   recordFields = record.fields.map(([id]) => id);
   partialHeader = record.partialHeader;
   const policy = (await screen(3)).trust?.policy;
@@ -282,7 +285,9 @@ async function completeness(rec) {
   request[11] = useHuggingFace ? 1 : 0;
   const plan = (await kernel.dispatch(request))[0];
   const missing = RECORD_FACTS.map((held, i) => (held(rec) ? null : recordFields[i])).filter(Boolean);
-  return { plan, missing };
+  // 1, 2 and 3 are the kernel's plans; anything else is a kernel that does not
+  // know this operation, and the index answers as it used to.
+  return { plan: plan === 2 || plan === 3 ? plan : 1, missing };
 }
 function treeEntries(rec, dir, recursive) {
   const prefix = dir ? `${dir.replace(/\/+$/, "")}/` : "";

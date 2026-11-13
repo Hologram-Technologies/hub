@@ -37,6 +37,12 @@ jobs:
           set -euo pipefail
           python3 -m venv "$RUNNER_TEMP/hf"
           "$RUNNER_TEMP/hf/bin/pip" install --quiet huggingface_hub==2.4.0 hf_xet==1.8.0
+      - name: The edge starts against the kernel the hub is serving
+        # The edge is deployed apart from the kernel, so it must start against
+        # a holo older than itself. A screen that gains a field must not stop
+        # the edge that has not met it.
+        shell: bash
+        run: node tests/edge/older-kernel.mjs https://hologram-technologies.github.io/hub/app/app.holo https://hologram-technologies.github.io/hub/data/index/
       - name: The edge answers as huggingface.co does
         shell: bash
         run: |
