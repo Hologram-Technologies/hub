@@ -322,6 +322,54 @@ hosted verifier also verified every module of the previous revision
 root of the Pages site and the proof page under `app/`, so the interface
 reads the holo, the runtime and the brand tokens from beside it.
 
+## The listing, with Hugging Face switched off
+
+With Hugging Face unreachable the hub answered `/api/models` with fifty rows
+of seven keys, no `Link` header, and silence for `filter`, `sort`,
+`direction`, `full`, `config` and `expand[]`; it also answered 200 where
+Hugging Face answers 400. The inventory called it a different endpoint, and it
+was.
+
+It answers from the browse shards now, the same rows the page draws, so the
+listing a person sees and the listing a tool gets are one set of facts. The
+query it takes is the kernel's (`listQuery` on screen 4), so the docs page and
+the answer cannot disagree about it.
+
+Measured against huggingface.co on 2026-11-13, the same request to each:
+
+| Request | Hugging Face | This hub, Hugging Face off |
+| --- | --- | --- |
+| `?limit=2` | 200, eleven keys, `Link` next | the same eleven keys, in the same order, with a `Link` |
+| `?sort=trending` | 400 | 400 `BadRequest` |
+| `?direction=1` | 400 | 400 `BadRequest` |
+| `?full=true` | 200, sixteen keys | the same sixteen keys, in the same order |
+| `?expand[]=lastModified` | `_id, id, lastModified, trendingScore` | identical |
+| `?expand[]=downloadsAllTime` | `_id, id, trendingScore, downloadsAllTime` | identical |
+| `?expand[]=downloads&sort=downloads` | `_id, id, downloads` | identical |
+| `?expand[]=safetensors&expand[]=gguf` | `_id, id, trendingScore, safetensors` | identical |
+
+Two behaviours had to be measured rather than guessed. An expansion comes back
+with the identity, the key the answer was sorted by, and the fields asked for
+that the model has - a field it has not is left out, not sent as null. And the
+keys follow the record's own order, which is the order `full=true` answers in,
+with a field that order does not name coming after it. Both are now what the
+hub does.
+
+Three routes the inventory found unanswered now answer from the index:
+`/api/models-tags-by-type` (the tags the listed models carry, by kind),
+`/api/quicksearch`, and `/api/models/{repo}/commits/{revision}`, which returns
+the one commit the index holds and says `X-Hub-Partial: history` rather than
+implying the repository has had one commit.
+
+### The gate
+
+`tests/edge/listing.mjs` runs the edge with Hugging Face drained and checks
+twenty-one things: the row shape, each accepted sort and the order it
+produces, the two refusals, `filter`, `author`, `full`, `config`, `expand`,
+the cursor and that the next page is new rows, the taxonomy, quicksearch and
+the commit. It runs in `pages.yml` after the deploy, against the published
+holo and the published index.
+
 ## One index, two readers
 
 The browse page drew 500 rows copied at deploy while the signed index held

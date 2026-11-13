@@ -65,8 +65,29 @@ ENDPOINTS = [
     ("GET", "/api/models/{repo}/tree/{revision}/{path}", "Files and folders, with sizes and LFS addresses"),
     ("POST", "/api/models/{repo}/paths-info/{revision}", "Information for named paths"),
     ("GET", "/api/models/{repo}/refs", "Branches and tags"),
+    ("GET", "/api/models/{repo}/commits/{revision}", "The commits the index knows; partial, because it holds the release"),
+    ("GET", "/api/models-tags-by-type", "Every tag the listed models carry, by kind"),
+    ("GET", "/api/quicksearch", "Models whose name matches, for a search box"),
     ("GET", "/api/whoami-v2", "Who the token belongs to"),
 ]
+
+# The query a client may put to /api/models, and what the hub does with it.
+# The names and the accepted values are Hugging Face's; anything else is a
+# request the hub does not understand, and the kernel's answer for that is a
+# 400 with BadRequest, the same as any other malformed request.
+LIST_QUERY = [
+    ("search", "Match the repository name"),
+    ("author", "One owner"),
+    ("filter", "Every tag that must be present, comma separated"),
+    ("sort", "One of downloads, likes, createdAt, lastModified, trendingScore"),
+    ("direction", "-1, the only direction Hugging Face accepts"),
+    ("limit", "How many rows, at most 1000"),
+    ("cursor", "The next page, from the Link header"),
+    ("full", "true adds every field a record holds"),
+    ("config", "true adds the model configuration"),
+    ("expand[]", "Name a field to add it; naming any field drops the rest"),
+]
+LIST_SORTS = ["downloads", "likes", "createdAt", "lastModified", "trendingScore"]
 
 SCREENS = {
     "registry": {
@@ -343,6 +364,12 @@ SCREENS = {
             ],
             "partialHeader": "X-Hub-Partial",
         },
+        "listTitle": "Listing models",
+        "listLead": "The query /api/models takes, in Hugging Face's own names. A value the hub does not understand is a bad request, not a quiet default: an unknown sort, or a direction other than -1, is refused the way Hugging Face refuses it.",
+        "listQuery": [list(q) for q in LIST_QUERY],
+        "listSorts": LIST_SORTS,
+        "listLimit": 1000,
+        "columnsQuery": ["Parameter", "What it does"],
         "columnsRoutes": ["Method", "Path", "What it returns"],
         "columnsAnswers": ["Kernel answer", "HTTP status", "X-Error-Code", "Meaning"],
         "sections": [

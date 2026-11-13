@@ -154,6 +154,14 @@ digest and the statement type), and the kernel's trust rule (`HK-14`, request
 `05` and ten facts) decides the label. The Tensors tab lists every tensor's
 address.
 
+With Hugging Face switched off the edge answers the listing from the browse
+shards: the same eleven-field row, the accepted sorts, `filter`, `author`,
+`full`, `config`, `expand[]` and a cursor in a `Link` header, and the same
+refusals - an unknown sort or a direction other than `-1` is a 400, not a
+quiet default. `/api/models-tags-by-type` and `/api/quicksearch` answer for
+what the index holds, and `/api/models/{repo}/commits/{revision}` returns the
+one commit it holds with `X-Hub-Partial: history`.
+
 ## The edge runner
 
 `edge/edge.mjs` answers the Hugging Face Hub's read surface, so
