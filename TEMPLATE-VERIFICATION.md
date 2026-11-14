@@ -781,11 +781,30 @@ The other six parts of `just vv` pass in the same image: `fmt-check`, `model`
 `SDK lock is canonical and valid`), `lint`, `test` and `deny`. `just app` is
 the part not run here, for the reason below.
 
-Running LexLean on the Windows-mounted checkout is the trap. `lexlean verify`
-there used no CPU at all for twenty minutes; the same command on a copy of the
-model inside the container's own filesystem took seven. Copy `src/`,
-`language/` and the five project files - not `app/target`, which the earlier
-`prismpm verify` left at 1.7 GB and which takes minutes to walk over the mount.
+Running LexLean on the Windows-mounted checkout is slower, not broken, and the
+difference is worth stating because the first measurement taken here said
+otherwise. `lexlean verify` on the mounted tree completed in 12 minutes 53
+seconds; the same command on a copy of the model inside the container's own
+filesystem took 7 minutes 6 seconds. Both answered with attestation
+`e5567e6d7160658bc286b6cf19a81840c0e902bfc9635930c51de207fc945c02` - the same
+model, verified from two filesystems, to the same attestation. The second of
+those runs was on the tree after the claim was renumbered from `HK-18` to
+`HK-19`, which is the direct evidence that renumbering an id leaves the proved
+artefacts alone.
+
+An earlier run of that same command on that same mount used no CPU at all for
+twenty minutes and was abandoned. It overlapped a `prismpm verify` working the
+same mount from a second container. A process blocked in I/O wait accrues no
+CPU time, so `docker top` shows `00:00:00` for one that is stuck rather than
+idle, which is what made it look like a hang rather than a wait. Contention on
+the mount is the likely cause; one sample each way does not establish it, and
+it is recorded here as unverified. What is established is that the mount alone
+does not stop `lexlean verify`.
+
+Do not copy the whole of `app/` to work around it. `app/target` is 1.7 GB after
+a `prismpm verify` and walking it over the mount takes minutes; `src/`,
+`language/` and the five project files are enough, and that copy takes six
+seconds.
 
 `runner/swarm.mjs` is a leeching BitTorrent client with no dependencies, which
 matters because this repository ships none: `package.json` has two
@@ -860,9 +879,8 @@ cache is a shortcut, and a delivered file always has a source (`HK-02`,
 Not established here: `prismpm --project app verify` did not complete on this
 machine. It ran Lean on the generated kernel and then stopped making progress
 in a later stage, which matches what this file already records about the
-Hologram oracle stage on a Windows-mounted checkout. `lexlean verify` run
-directly on the mounted tree used no CPU at all for twenty minutes; run on a
-copy of `app/` inside the container's own filesystem it proceeds. The holo was
+Hologram oracle stage on a Windows-mounted checkout. `lexlean verify` completes either
+on the mounted tree or on a copy inside the container, as above. The holo was
 therefore not rebuilt here, so `tests/runner/kernel.mjs`, which pins the
 answers `HK-19` changes, has not been run against a holo that contains it. The
 other runner tests ran against the published holo, as the edge tests do.
