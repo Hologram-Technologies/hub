@@ -263,12 +263,97 @@ fact, reproduced from its named source, not restated as a local one.
 A poller, which is the only part that must run on a schedule rather than at
 deploy time.
 
-Open questions that are the user's, not mine. How much of the roll belongs in
-the published site, since 3.08 million records is far more than the 2.4 MB the
-index publishes today. Whether the roll is signed as one object or per shard.
-Whether a tombstone is a claim the kernel reasons about, which would make it a
-registered capability with a scenario and a failing test, or build-tool data like
-`manifests/owners.txt`, which carries no ID.
+Open questions that are the user's, not mine. Whether the roll is signed as one
+object or per shard. Whether a tombstone is a claim the kernel reasons about,
+which would make it a registered capability with a scenario and a failing test,
+or build-tool data like `manifests/owners.txt`, which carries no ID.
+
+The third question - how much of the roll belongs in the published site - is
+settled below.
+
+## How much of it the site can publish
+
+All of it, without the file names, in 1,024 shards. That is 185 MB, eighteen
+per cent of what GitHub Pages allows, and it answers any lookup in one fetch of
+51 kB.
+
+### What a record costs
+
+Measured on 1,000 real rows, written as one JSON array per line:
+
+| Record | Raw | Gzipped | 3.08 million, raw | Gzipped |
+| --- | --- | --- | --- | --- |
+| `[id, sha, created]` | 58 B | 17 B | 178 MB | 51 MB |
+| plus state and last seen | 60 B | 17 B | 185 MB | 52 MB |
+| plus the file names | 2,683 B | 476 B | 8.3 GB | 1.5 GB |
+
+Sorting by id rather than creation order changes the compressed size by less
+than one per cent, so sorting is free and worth doing for the lookup.
+
+The file names are the whole difference, and they settle their own question:
+8.3 GB is eight times the published-site limit. They belong in the index, where
+they arrive with the sizes and addresses that make them useful, one model at a
+time. The 2,683 B figure comes from a trending sample averaging 56.9 files a
+model, which is biased high because popular models carry many files, so the real
+figure across three million is lower - but not by the factor of eight it would
+need to be.
+
+### What the site allows
+
+From GitHub's own limits page, read 2026-11-14: a published Pages site "may be
+no larger than 1 GB"; source repositories have a recommended limit of 1 GB;
+there is a soft bandwidth limit of 100 GB a month; and the soft limit of ten
+builds an hour "does not apply if you build and publish your site with a custom
+GitHub Actions workflow", which `pages.yml` is.
+
+So 185 MB is 18.1 per cent of the hard limit, next to the 2.4 MB the index
+publishes today. The bandwidth limit is the one that binds in practice: 100 GB
+a month is about 1,910 downloads of the whole roll, or about 1.96 million
+single-model lookups if the roll is sharded. That is the argument for sharding,
+rather than cache-friendliness.
+
+### How many shards
+
+Measured arithmetic, not a measurement: a shard holds 3.08 million over the
+shard count at 17 B compressed a row, and the root names each shard by path and
+SHA-256, which is about 78 B an entry and compresses to roughly a third.
+
+| Shards | Shard, gzipped | Root, gzipped | Cold lookup | Warm lookup |
+| --- | --- | --- | --- | --- |
+| 256 | 205 kB | 7 kB | 212 kB | 205 kB |
+| 512 | 102 kB | 14 kB | 116 kB | 102 kB |
+| **1,024** | **51 kB** | **28 kB** | **79 kB** | **51 kB** |
+| 2,048 | 26 kB | 56 kB | 81 kB | 26 kB |
+| 4,096 | 13 kB | 112 kB | 125 kB | 13 kB |
+
+1,024 is the minimum for a cold lookup, and the curve is flat between 1,024 and
+2,048, so the choice is not delicate. Fewer shards and the shard dominates; more
+and the root does, because every reader fetches the root first.
+
+Key by the first ten bits of the SHA-256 of the model id, which gives 1,024
+buckets of about 3,008 rows each, evenly filled whatever the distribution of
+owner names. Each shard is named in the signed root by the hash of its bytes, so
+a reader checks a shard before believing a row of it - the same rule the browse
+shards already follow, and the same kernel accept rule (`HK-10`) judges it.
+
+### The alternative, which also works
+
+One sorted file and HTTP Range, no shards. Measured 2026-11-14 against the
+published site: a ranged request answered `206 Partial Content` with
+`Content-Range: bytes 100-199/71782` and returned exactly 100 bytes, and the
+range was over the uncompressed length, because the client did not ask for
+gzip. Pages also compresses on the wire when asked - the same file came back
+`Content-Encoding: gzip` at 34,593 bytes against 71,782 raw.
+
+So a binary search over a fixed-width key table is possible on Pages today, in
+about twenty-two ranged reads of a few bytes each, which is far less traffic
+than a 51 kB shard. It is not the recommendation, for two reasons. A ranged read
+cannot be checked against a hash without fetching the whole file, so it trades
+away the one property the index is built on. And the shard layout already
+exists here, with a signed root and a kernel rule that judges it.
+
+Worth keeping in mind for the edge rather than the browser: a runner that has
+already verified a shard can serve ranges out of it.
 
 ## Sources
 
