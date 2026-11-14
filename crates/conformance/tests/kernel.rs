@@ -366,9 +366,9 @@ fn kernel_hk_19() {
     dispatch_decides_by("(select facts)");
 }
 
-/// `HK-21`: A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts
+/// `HK-22`: A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts
 #[test]
-fn kernel_hk_21() {
+fn kernel_hk_22() {
     pinned(
         "Servable",
         "breaksServable",
