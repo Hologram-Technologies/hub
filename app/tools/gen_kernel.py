@@ -22,11 +22,17 @@ import site_spec  # noqa: E402
 SRC = os.path.join(HERE, "..", "src")
 PREFIX = "HologramHubKernel"
 
-# Request layout, operation 1 (resolve), exactly 104 bytes:
+# Request layout, operation 1 (resolve), exactly 105 bytes:
 #   0 op=1 | 1 runner (0 edge, 1 local) | 2 repo state | 3 revision kind
 #   4 named ref found | 5 revision length | 6 entry (0 missing, 1 small, 2 large)
 #   7 pin (0 none, 1..4 source slot) | 8..23 four sources x (holds, healthy, vetted, failed)
 #   24..63 revision bytes as requested | 64..103 the release's 40-hex commit
+#   104 addressed (1 when the record names an address for this file)
+# `entry` and `addressed` are separate facts. `entry` decides the ETag a
+# Hugging Face client is given, and only an LFS file has a SHA-256 there.
+# `addressed` decides which sources may serve the file, and a second witness
+# can address a file Hugging Face never did. They coincided while both came
+# from the LFS pointer; they are not the same question.
 # Request layout, operation 2 (accept), exactly 81 bytes:
 #   0 op=2 | 1..32 expected digest | 33..64 observed digest
 #   65..72 expected size (u64 BE) | 73..80 observed size (u64 BE)
@@ -48,21 +54,21 @@ ANSWERS = [
     ("answerQuarantine", 21),
 ]
 SOURCE_FIELDS = ("holds", "healthy", "vetted", "failed")
-FIELDS = ["runner", "repo", "revision", "entry", "pin"] + [
+FIELDS = ["runner", "repo", "revision", "entry", "addressed", "pin"] + [
     k + str(i) for i in range(4) for k in SOURCE_FIELDS
 ]
 
 
 # ---------------------------------------------------------------- reference
-def ref_eligible(runner, holds, vetted, failed, entry):
-    addressable = vetted == 1 or (runner == 1 and entry == 2)
+def ref_eligible(runner, holds, vetted, failed, addressed):
+    addressable = vetted == 1 or (runner == 1 and addressed == 1)
     return holds == 1 and failed == 0 and addressable
 
 
 def ref_select(f):
     el = [
         ref_eligible(f["runner"], f["holds%d" % i], f["vetted%d" % i], f["failed%d" % i],
-                     f["entry"])
+                     f["addressed"])
         for i in range(4)
     ]
     us = [el[i] and f["healthy%d" % i] == 1 for i in range(4)]
@@ -114,7 +120,7 @@ def ref_revision(kind, ref_found, length, matched):
 
 
 def ref_dispatch(b):
-    if len(b) == 104 and b[0] == 1:
+    if len(b) == 105 and b[0] == 1:
         ln = b[5]
         matched = 1
         for i in range(ln):
@@ -126,6 +132,7 @@ def ref_dispatch(b):
             repo=b[2],
             revision=ref_revision(b[3], b[4], ln, matched),
             entry=b[6],
+            addressed=b[104],
             pin=b[7],
         )
         for i in range(4):
@@ -222,13 +229,17 @@ NONE = (0, 0, 0, 0)
 
 
 def resolve(runner=0, repo=0, kind=0, ref=1, ln=0, entry=2, pin=0,
-            src=(GOOD, NONE, NONE, NONE), rev=b"", commit=COMMIT):
-    b = bytearray(104)
+            src=(GOOD, NONE, NONE, NONE), rev=b"", commit=COMMIT, addressed=None):
+    b = bytearray(105)
     b[0:8] = bytes([1, runner, repo, kind, ref, ln, entry, pin])
     for i, s in enumerate(src):
         b[8 + 4 * i:12 + 4 * i] = bytes(s)
     b[24:24 + len(rev)] = rev
     b[64:104] = commit
+    # A file the record addresses, which is every file with an address of any
+    # kind. Unless a vector says otherwise, so the existing vectors keep
+    # meaning what they meant: an LFS file was addressed before this field.
+    b[104] = (1 if entry == 2 else 0) if addressed is None else addressed
     return bytes(b)
 
 
@@ -246,6 +257,13 @@ VECTORS = [
     resolve(runner=1, src=((1, 1, 0, 0), NONE, NONE, NONE)),
     resolve(runner=1, entry=1, src=((1, 1, 0, 0), NONE, NONE, NONE)),
     resolve(entry=1, src=((1, 1, 0, 0), NONE, NONE, NONE)),
+    # The two facts pulled apart. A small file a second witness addressed is
+    # now servable by a local runner from a source nobody vetted, which it was
+    # not while eligibility read `entry`; and a large file the record does not
+    # address is not, which `entry` alone could never have refused.
+    resolve(runner=1, entry=1, addressed=1, src=((1, 1, 0, 0), NONE, NONE, NONE)),
+    resolve(runner=1, entry=2, addressed=0, src=((1, 1, 0, 0), NONE, NONE, NONE)),
+    resolve(entry=1, addressed=1, src=((1, 1, 0, 0), NONE, NONE, NONE)),
     resolve(src=((1, 1, 0, 0), GOOD, NONE, NONE)),
     resolve(src=((1, 1, 1, 1), (1, 0, 1, 0), NONE, NONE)),
     resolve(src=((1, 0, 1, 0), NONE, GOOD, NONE)),
@@ -271,6 +289,7 @@ VECTORS = [
     accept(D1, D2, 548105171, 548105171),
     accept(D1, D1, 548105171, 548105170),
     resolve()[:103],
+    resolve()[:104],  # the length a resolve request was before `addressed`
     resolve() + b"\x00",
     b"",
     bytes([3]) + resolve()[1:],
@@ -378,11 +397,11 @@ def kernel_module():
     k.append(structure("Digest", [("w%d" % i, "Nat") for i in range(4)]))
     k.append(structure("Check", [("expected", "Digest"), ("observed", "Digest"),
                                  ("expectedSize", "Nat"), ("observedSize", "Nat")]))
-    k.append(defn("eligible", "runner : Nat, holds : Nat, vetted : Nat, failed : Nat, entry : Nat", "Bool",
-                  "(((holds =? 1) && (failed =? 0)) && ((vetted =? 1) || ((runner =? 1) && (entry =? 2))))"))
+    k.append(defn("eligible", "runner : Nat, holds : Nat, vetted : Nat, failed : Nat, addressed : Nat", "Bool",
+                  "(((holds =? 1) && (failed =? 0)) && ((vetted =? 1) || ((runner =? 1) && (addressed =? 1))))"))
     for i in range(4):
         k.append(defn("eligible%d" % i, "facts : Facts", "Bool", "(eligible %s %s %s %s %s)" % (
-            pf("runner"), pf("holds%d" % i), pf("vetted%d" % i), pf("failed%d" % i), pf("entry"))))
+            pf("runner"), pf("holds%d" % i), pf("vetted%d" % i), pf("failed%d" % i), pf("addressed"))))
     for i in range(4):
         k.append(defn("usable%d" % i, "facts : Facts", "Bool",
                       "((eligible%d facts) && (%s =? 1))" % (i, pf("healthy%d" % i))))
@@ -464,6 +483,7 @@ def kernel_module():
         "revision := (revisionDecision (byteNat value 3) (byteNat value 4) (byteNat value 5) "
         "(prefixEqual value 24 64 (byteNat value 5)))",
         "entry := (byteNat value 6)",
+        "addressed := (byteNat value 104)",
         "pin := (byteNat value 7)",
     ]
     o = 8
@@ -527,7 +547,7 @@ def kernel_module():
                   "(prim append (encodeSlot (select facts)) (encodeEtag (etagKind facts)) : Bytes) : Bytes) "
                   "else (prim append (encodeAnswer (answer facts)) 0x0400 : Bytes))"))
     k.append(defn("dispatch", "value : Bytes", "Bytes",
-                  "(if (((Foundation.Bytes::byteLength value) =? 104) && ((byteNat value 0) =? 1)) then "
+                  "(if (((Foundation.Bytes::byteLength value) =? 105) && ((byteNat value 0) =? 1)) then "
                   "(plan (observeFacts value)) else (if (((Foundation.Bytes::byteLength value) =? 81) && "
                   "((byteNat value 0) =? 2)) then (if (accepts (observeCheck value)) then 0x140400 else 0x150400) "
                   "else (if (((Foundation.Bytes::byteLength value) =? 2) && ((byteNat value 0) =? 3)) then "
@@ -553,7 +573,7 @@ def kernel_module():
         'cargoHomepage := "https://github.com/Hologram-Technologies/hub", '
         'libraryRoots := (cons "%s.Kernel.dispatch" (nil String)), acceptanceVectors := %s, '
         'entryRoot := "%s.Kernel.dispatch", coreContract := "hologram:guest/core-wasm@1", '
-        'requestMaximum := (104 : UInt32), responseMaximum := (%d : UInt32), guestAllocationMaximum := (128 : UInt32), '
+        'requestMaximum := (105 : UInt32), responseMaximum := (%d : UInt32), guestAllocationMaximum := (128 : UInt32), '
         'capabilitiesEmpty := true, fatArchive := true, primaryLayer := (0 : UInt8), viewLayer := (1 : UInt8), '
         'view := (record %sTextView {title := "Hub kernel", heading := "Hub kernel", inputLabel := "Request facts", '
         'submitLabel := "Decide", outputLabel := "Plan", inputError := "Invalid request", '
@@ -611,8 +631,16 @@ INVARIANTS = [
     # bytes from an untrusted source are always checkable before they are
     # served.
     ("Addressed", "breaksAddressed", "addressedHolds", FACTS, "facts", nest("||", [
-        "(((Kernel::select facts) =? %d) && ((not (%s =? 1)) && (not (%s =? 2))))"
-        % (i, kf("vetted%d" % i), kf("entry")) for i in range(4)]), SELECT_DEFS),
+        "(((Kernel::select facts) =? %d) && ((not (%s =? 1)) && (not (%s =? 1))))"
+        % (i, kf("vetted%d" % i), kf("addressed")) for i in range(4)]), SELECT_DEFS),
+    # And the other side of the same separation: a file whose address is known
+    # may be served from a source nobody vetted, even where the source dialect
+    # published no address of its own. This was false for every small file while
+    # eligibility read `entry`, however well a second witness addressed it.
+    ("Servable", "breaksServable", "servableHolds", FACTS, "facts", nest("||", [
+        "((((%s =? 1) && (%s =? 1)) && ((%s =? 1) && (%s =? 0))) && (not (Kernel::eligible%d facts)))"
+        % (kf("runner"), kf("addressed"), kf("holds%d" % i), kf("failed%d" % i), i)
+        for i in range(4)]), ELIGIBLE_DEFS),
     # A delivered file always has a source ...
     ("Sourced", "breaksSourced", "sourcedHolds", FACTS, "facts",
      "((Kernel::delivers facts) && ((Kernel::select facts) =? 4))", DELIVERS_DEFS),
@@ -715,7 +743,7 @@ def proof_module(name, declarations, imports="Kernel"):
 # The axioms Lean observes for each proof (`#print axioms`, measured): `omega`
 # reaches `Classical.choice` when a split leaves an `if` over a disjunction.
 # LexLean refuses a proof whose declared set differs (LLV7005).
-CLASSICAL = {"Complete", "Concur", "Delivery", "Etag", "Healthy", "Sound", "Trust"}
+CLASSICAL = {"Complete", "Concur", "Delivery", "Etag", "Healthy", "Servable", "Sound", "Trust"}
 
 
 def proof_modules():

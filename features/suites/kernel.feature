@@ -113,6 +113,12 @@ Feature: kernel
     When the Lean kernel checks addressedHolds in app/src/Proofs/Addressed.lex.tex during prismpm verify
     Then no input meets breaksAddressed
 
+  @HK-22 @build
+  Scenario: A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks servableHolds in app/src/Proofs/Servable.lex.tex during prismpm verify
+    Then no input meets breaksServable
+
   @HK-10 @build
   Scenario: Received bytes are delivered exactly when their digest and size equal the expected digest and size
     Given the kernel model in app/src/Kernel.lex.tex
