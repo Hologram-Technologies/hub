@@ -762,3 +762,55 @@ commits and against mirrors served with `PRISM_TEMPLATE_RAW`:
 | a mirror's lock names a file its frame does not | refused: the lock's list against the frame's; nothing written |
 | a mirror's frame and lock both add `.github/workflows/x.yml` | refused: `names files outside the page`; nothing written |
 | an untouched mirror | pinned |
+
+## Indexing an owner whole
+
+`manifests/owners.txt` names owners, not repositories; `tools/index.mjs` reads
+it beside `manifests/models.txt` and indexes every public model Hugging Face
+lists under each name (`GET /api/models?author=<owner>&full=true`, the Link
+header followed to the next page, the same one-call-a-second throttle and the
+same reuse of a record already written for the same revision). `HOLOGRAMTECH`
+is the first owner listed.
+
+Measured on 2026-11-14. `node tools/index.mjs <dir> 2` built 20 records: 2 from
+the catalog, 3 witnessed, 15 from `HOLOGRAMTECH`, 4 of the 20 complete. The
+owner's listing is case sensitive: `author=hologramtech` answers 200 with an
+empty array, `author=HOLOGRAMTECH` answers 15 models.
+
+| Gate | Planted defect | Result |
+| --- | --- | --- |
+| `node tools/index.mjs <dir> 2` with the new owner list | `HOLOGRAMTECH` misspelled as `HologramTech` in `manifests/owners.txt` | refused: `index: HologramTech lists no public model with a release; check the name in manifests/owners.txt`; restored, 15 models indexed under the owner |
+
+`HOLOGRAMTECH/q-ternary-bonsai-1.7b` was the model this list was added for. It
+is on Hugging Face and not on the live hub, so its record's `sources` is empty:
+`https://gethologram.ai/data/files/HOLOGRAMTECH/q-ternary-bonsai-1.7b.json`
+answers 404, and `https://gethologram.ai/api/models/HOLOGRAMTECH/q-ternary-bonsai-1.7b`
+answers 404 `RepoNotFound`. That is not a defect. An empty `sources` leaves
+Hugging Face as the only slot that holds the file, and the kernel's source
+choice (`HK-05`, `HK-06`) does the rest. Measured against the published holo
+with the local index adopted unsigned:
+
+| Request | Answer |
+| --- | --- |
+| `GET /api/models/HOLOGRAMTECH/q-ternary-bonsai-1.7b`, Hugging Face off | 200, `X-Hub-Partial: pipelineTag,libraryName,safetensors` |
+| the same, Hugging Face reachable | asked of Hugging Face, no partial header (operation 6 plan 2) |
+| `HEAD /HOLOGRAMTECH/q-ternary-bonsai-1.7b/resolve/main/q-ternary-bonsai-1.7b.v1.holo` | 302 to `huggingface.co`, `X-Hub-Source: huggingface.co`, ETag `acf0b5ad…`, size 424013749 |
+| the same pinned `/via/modelscope.cn/` | 404 `SourceHasNotGotIt` |
+
+So a user can fetch the file through the hub, not merely see it listed; what an
+empty `sources` costs is the second copy, and with it the page's cross-source
+check, which has nothing to compare.
+
+The record carries 7 of the ten fields operation 6 names: revision, files,
+tags, config, cardData, lastModified and gated. It is missing `pipeline_tag`,
+`library_name` and `safetensors`, which the publisher has not set - the
+repository ships one `.holo` file, not safetensors weights. The edge names
+exactly those three in `X-Hub-Partial` with Hugging Face off, and asks Hugging
+Face when it can. Nothing was filled in to make the record look complete.
+
+Two things this change leaves as they are. A record with no source already
+describes 147 of the 400 models in the live index, and the model page shows
+its Verify button for all of them although there is nothing to compare, so the
+button does nothing when clicked; that is older than this change.
+`tools/web-routes.mjs` builds its model pages from the live hub's catalog, so
+an owner's models have no prerendered page and open through `404.html`.

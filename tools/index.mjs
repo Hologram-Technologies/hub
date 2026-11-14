@@ -12,6 +12,13 @@
 // downloads and likes - nobody can, so they are kept under `observed`, with
 // the host that measured them and the day they were read.
 //
+// Three lists name what is indexed: the hub's own catalog of trending models,
+// the witnessed models in `manifests/models.txt`, and the owners in
+// `manifests/owners.txt`, each of which is indexed whole - every public model
+// Hugging Face lists under that name. The build line says how many records
+// each list contributed. `[limit]` caps the catalog only; the other two lists
+// are indexed entire, because a list a person wrote is not a ranking to cut.
+//
 //   node tools/index.mjs <out dir> [limit]
 //
 // A record already in <out dir> for the same revision is reused, so a cache of
@@ -42,7 +49,7 @@ async function json(url, timeout = 30000) {
 }
 
 let lastHf = 0;
-async function hf(path) {
+async function hfFetch(path) {
   const wait = lastHf + 1100 - Date.now();
   if (wait > 0) await pause(wait);
   lastHf = Date.now();
@@ -50,23 +57,58 @@ async function hf(path) {
     const r = await fetch(`${HF}${path}`, { signal: AbortSignal.timeout(30000) });
     if (r.status === 429 && attempt < 4) { await pause(Number(r.headers.get("retry-after") ?? 30) * 1000); continue; }
     if (!r.ok) throw new Error(`${path}: ${r.status}`);
-    return r.json();
+    return r;
   }
 }
-
-const rows = (await json(CATALOG, 60000)).filter((m) => !m.gated && !m.private && m.sha && /^[\w.-]+\/[\w.-]+$/.test(m.id)).slice(0, limit);
-// Witnessed models are always indexed, trending or not.
-const witnessed = (await readFile(new URL("../manifests/models.txt", import.meta.url), "utf8"))
-  .split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
-for (const repo of witnessed.filter((r) => !rows.some((m) => m.id === r))) {
-  const found = (await json(`https://gethologram.ai/api/models?search=${encodeURIComponent(repo.split("/")[1])}&limit=50`)).find((m) => m.id === repo);
-  if (found?.sha) { rows.push(found); continue; }
-  // The catalog's search does not reach every model, so ask Hugging Face directly.
-  const m = await hf(`/api/models/${repo}`);
-  rows.push({ id: m.id, sha: m.sha, author: m.author, tags: m.tags, pipeline_tag: m.pipeline_tag, library_name: m.library_name, createdAt: m.createdAt, likes: m.likes, downloads: m.downloads });
+const hf = async (path) => (await hfFetch(path)).json();
+// A listing answers one page and names the next in a Link header. The link is
+// followed, so an owner with more models than one page holds is indexed whole
+// rather than silently cut at the page size.
+async function hfList(path) {
+  const r = await hfFetch(path);
+  const next = /<([^>]+)>;\s*rel="next"/.exec(r.headers.get("link") ?? "")?.[1];
+  return { rows: await r.json(), next: next?.startsWith(HF) ? next.slice(HF.length) : null };
 }
-const missing = witnessed.filter((r) => !rows.some((m) => m.id === r));
+
+const listable = (m) => !m.gated && !m.private && m.sha && /^[\w.-]+\/[\w.-]+$/.test(m.id);
+const named = async (file) => (await readFile(new URL(`../manifests/${file}`, import.meta.url), "utf8"))
+  .split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+const asRow = (m) => ({ id: m.id, sha: m.sha, author: m.author, tags: m.tags, pipeline_tag: m.pipeline_tag, library_name: m.library_name, createdAt: m.createdAt, likes: m.likes, downloads: m.downloads });
+
+const rows = (await json(CATALOG, 60000)).filter(listable).slice(0, limit);
+// Which list named each row, so the build line can say where the index came
+// from. A model two lists name is indexed once, under the first that named it.
+const from = new Map(rows.map((m) => [m.id, "the catalog"]));
+const add = (m, source) => { if (!from.has(m.id)) { rows.push(asRow(m)); from.set(m.id, source); } };
+
+// Witnessed models are always indexed, trending or not.
+const witnessed = await named("models.txt");
+for (const repo of witnessed.filter((r) => !from.has(r))) {
+  const found = (await json(`https://gethologram.ai/api/models?search=${encodeURIComponent(repo.split("/")[1])}&limit=50`)).find((m) => m.id === repo);
+  if (found?.sha) { rows.push(found); from.set(found.id, "witnessed"); continue; }
+  // The catalog's search does not reach every model, so ask Hugging Face directly.
+  add(await hf(`/api/models/${repo}`), "witnessed");
+}
+const missing = witnessed.filter((r) => !from.has(r));
 if (missing.length) throw new Error(`index: witnessed models without a release: ${missing.join(", ")}`);
+
+// Owners the hub indexes whole. Hugging Face lists an owner's models under
+// `author`, which is its own spelling letter for letter, and `full=true`
+// carries the release commit, so one call lists however many models a page
+// holds. An owner that lists nothing fails the build: an empty answer is a
+// misspelled owner far more often than an owner with no model, and indexing
+// nothing quietly would read as though the owner had been indexed.
+const owners = await named("owners.txt");
+for (const owner of owners) {
+  let path = `/api/models?author=${encodeURIComponent(owner)}&full=true&limit=100`;
+  let listed = 0;
+  while (path) {
+    const page = await hfList(path);
+    for (const m of page.rows.filter(listable)) { listed += 1; add(m, owner); }
+    path = page.next;
+  }
+  if (!listed) throw new Error(`index: ${owner} lists no public model with a release; check the name in manifests/owners.txt`);
+}
 const records = [];
 let fetched = 0;
 for (const row of rows) {
@@ -183,4 +225,7 @@ for (const { repo } of records) {
     if (whole(JSON.parse(await readFile(join(out, "models", `${repo}.json`), "utf8")))) complete += 1;
   } catch {}
 }
-console.log(`index: ${records.length} records (${fetched} fetched, ${records.length - fetched} reused), ${complete} complete, ${browse.length} browse shards holding ${ordered.length} rows`);
+const counted = (source) => records.filter((r) => from.get(r.repo) === source).length;
+const where = ["the catalog", "witnessed", ...owners]
+  .map((s) => (s === "witnessed" ? `${counted(s)} witnessed` : `${counted(s)} from ${s}`)).join(", ");
+console.log(`index: ${records.length} records (${where}; ${fetched} fetched, ${records.length - fetched} reused), ${complete} complete, ${browse.length} browse shards holding ${ordered.length} rows`);
