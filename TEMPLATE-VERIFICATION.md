@@ -1632,6 +1632,27 @@ it is `||` now. And `tests/runner/kernel.mjs` shipped with the runner in `#8`
 and was in no workflow, so it had never run in CI - it is in `runner.yml` now,
 and passes against the published kernel.
 
+### The source gate rejects a page that stops sharing the rule
+
+`tests/index/swarm-catalog.mjs` holds the built shards to the rule.
+`index_hk_21` holds the two files to having one of it, which is the part no
+artifact can show, so it was planted against too. The defect is the state this
+change was made to leave behind: the page drops the import and spells the key
+itself.
+
+    -import { swarmKeyOf } from "./swarmkey.mjs";
+    -  const shard = (cat?.name ?? []).find((x) => x.prefix === swarmKeyOf(q));
+    +  const key = q.slice(0, 2).toLowerCase().replace(/[^a-z0-9]/g, "_");
+    +  const shard = (cat?.name ?? []).find((x) => x.prefix === key);
+
+    test index_hk_21 ... FAILED
+    panicked at crates/conformance/tests/index.rs:168:5:
+    the page must resolve a query by the shared rule, not its own
+
+The page still runs and a search for `llama` still returns rows, which is why
+this needed a gate rather than a test of behaviour: the damage is to the
+models nobody searches for by bare name. Restored, `index_hk_21` passes.
+
 ### What this change was proved at
 
 The model moved: `HK-21` is a new claim, and the site model gained the words
