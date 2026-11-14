@@ -723,6 +723,41 @@ function pagerHtml(page, pages, s) {
   ].join("");
 }
 
+// ---------------------------------------------------------------- witnesses
+// A release record, fetched and checked against the hash the signed root
+// names for it, the same accept rule a download goes through.
+const records = new Map();
+async function release(repo) {
+  if (!records.has(repo)) {
+    records.set(repo, (async () => {
+      const root = JSON.parse(new TextDecoder().decode(new Uint8Array(await (await fetch(indexUrl("root.json"))).arrayBuffer())));
+      const entry = root.records?.find((r) => r.repo.toLowerCase() === repo.toLowerCase());
+      if (!entry) return null;
+      const bytes = new Uint8Array(await (await fetch(indexUrl(`models/${entry.repo}.json`))).arrayBuffer());
+      if (!(await addressed(bytes, entry.sha256))) throw new Error(`the record for ${entry.repo} does not match the signed root`);
+      return JSON.parse(new TextDecoder().decode(bytes));
+    })().catch(() => null));
+  }
+  return records.get(repo);
+}
+
+// What the witnesses say about each file, and what the kernel makes of it.
+// `first` is what the release itself carries, from Hugging Face; `second` is
+// another party's. The kernel's concur rule (HK-17) decides whether the
+// address may be used, so the page never resolves a disagreement itself.
+async function addresses(record) {
+  const out = new Map();
+  if (!record) return out;
+  const second = new Map((record.witnesses ?? []).flatMap((w) => w.addresses.map((a) => [a.path, a.sha256])));
+  for (const file of record.files ?? []) {
+    const first = file.sha256 ?? null;
+    const other = second.get(file.path) ?? null;
+    const plan = (await kernel.dispatch(new Uint8Array([7, first ? 1 : 0, other ? 1 : 0, first && other && first === other ? 1 : 0])))[0];
+    out.set(file.path, { plan, sha256: plan === 1 || plan === 2 ? (first ?? other) : null, size: file.size });
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------- model
 async function drawModel(main, id) {
   const s = screens.model;
@@ -764,6 +799,7 @@ async function drawModel(main, id) {
         <div><dt>${esc(s.held)}</dt><dd class="held">${(m.sources ?? []).map((x) => `<span class="pill">${ICON.seal}${esc(x)}</span>`).join("") || "<span class=\"dim\">-</span>"}</dd></div>
         <div><dt>${esc(s.get)}</dt><dd><div class="ptabs" role="tablist">${s.tools.map(([tool], i) => `<button type="button" role="tab" aria-selected="${i === 0}" data-tool="${i}">${esc(tool)}</button>`).join("")}</div>
           <div class="get">${copyLine(command(0), "command copy")}</div></dd></div>
+        <div><dt>${esc(s.witnesses.row)}</dt><dd id="witnesses" class="witnesses">...</dd></div>
         <div><dt>${esc(s.trust.row)}</dt><dd id="signed" class="signed">...</dd></div>
       </dl>
     </section>
@@ -796,6 +832,7 @@ async function drawModel(main, id) {
       ${files.map((f) => `<tr><td class="path">${esc(f.path)}</td><td class="size">${esc(bytes(f.size ?? 0))}</td><td class="addr">${esc(((f.lfs?.oid ?? f.oid) || "").slice(0, 16))}</td></tr>`).join("")}
       </tbody></table></div>`;
   };
+  drawWitnesses(m, s.witnesses);
   const signed = signature(m, s.trust);
   signed.then(({ manifest }) => { if (manifest) $("#tensors-tab").hidden = false; });
   const tensorsTab = async () => {
@@ -818,6 +855,29 @@ async function drawModel(main, id) {
     show(+t.dataset.tab);
   });
   show(0);
+}
+
+// What the page says about who addressed this release's files. The counts are
+// the kernel's answers, not the page's opinion.
+async function drawWitnesses(m, w) {
+  const cell = $("#witnesses");
+  if (!cell) return;
+  const record = await release(m.id);
+  const known = await addresses(record);
+  if (!known.size) { cell.textContent = ""; cell.closest("div")?.remove(); return; }
+  const tally = { 1: 0, 2: 0, 3: 0, 0: 0 };
+  for (const { plan } of known.values()) tally[plan] = (tally[plan] ?? 0) + 1;
+  const sources = (record.witnesses ?? []).map((x) => x.source);
+  const addressedCount = tally[1] + tally[2];
+  const lines = [
+    tally[1] ? fill(w.both, { n: tally[1], first: new URL(chrome.api).host, second: sources[0] ?? "" }) : "",
+    tally[2] ? fill(w.one, { n: tally[2], source: sources[0] ?? new URL(chrome.api).host }) : "",
+    tally[3] ? fill(w.conflict, { n: tally[3] }) : "",
+    tally[0] ? fill(w.none, { n: tally[0] }) : "",
+  ].filter(Boolean);
+  cell.innerHTML = `<strong>${esc(fill(w.lead, { addressed: addressedCount, files: known.size }))}</strong>
+    <ul class="checks">${lines.map((l, i) => `<li class="${i === 2 && tally[3] ? "no" : "ok"}">${esc(l)}</li>`).join("")}</ul>
+    ${(record.witnesses ?? []).map((x) => `<p><code>${esc(fill(w.read, { source: x.source, date: x.date }))}</code></p>`).join("")}`;
 }
 
 // ---------------------------------------------------------------- registry
@@ -1039,12 +1099,17 @@ const u64 = (n) => { const b = new Uint8Array(8); new DataView(b.buffer).setBigU
 async function verify(m, v, tree) {
   const button = $("#verify");
   const box = $("#verdict");
-  const files = (await tree()).filter((f) => /^[0-9a-f]{64}$/.test(f.lfs?.oid ?? f.oid ?? "") && f.size > 0);
+  // Every file a witness addressed, not only the ones Hugging Face published
+  // an address for: the smallest is usually a few hundred bytes.
+  const known = await addresses(await release(m.id));
+  const files = (await tree())
+    .map((f) => ({ ...f, address: f.lfs?.oid ?? f.oid, usable: known.get(f.path)?.sha256 ?? null }))
+    .filter((f) => f.size > 0 && (/^[0-9a-f]{64}$/.test(f.address ?? "") || f.usable));
   const file = files.sort((a, b) => a.size - b.size)[0];
   const held = new Set(m.sources ?? []);
   const pick = v.sources.filter(([label]) => held.has(label)).slice(0, 4);
   if (!file || !pick.length) return;
-  const expected = hex(file.lfs?.oid ?? file.oid);
+  const expected = hex(/^[0-9a-f]{64}$/.test(file.address ?? "") ? file.address : file.usable);
   button.disabled = true;
   box.hidden = false;
   box.className = "verdict";
@@ -1072,7 +1137,7 @@ async function verify(m, v, tree) {
   box.className = `verdict ${verdict === 1 ? "ok" : verdict === 2 ? "bad" : ""}`;
   box.innerHTML = `<p><strong>${esc(text)}</strong></p>
     <ul>${results.map(([label, c]) => `<li class="r${c}"><span>${esc(label)}</span><span>${esc(v.rows[c] ?? v.rows[0])}</span></li>`).join("")}</ul>
-    <p class="note">${esc(file.path)} · ${esc(bytes(file.size))} · <code>${esc((file.lfs?.oid ?? file.oid).slice(0, 16))}</code> · ${esc(v.note)}</p>`;
+    <p class="note">${esc(file.path)} · ${esc(bytes(file.size))} · <code>${esc((/^[0-9a-f]{64}$/.test(file.address ?? "") ? file.address : file.usable).slice(0, 16))}</code> · ${esc(v.note)}</p>`;
   button.disabled = false;
 }
 

@@ -320,6 +320,11 @@ jobs:
             const out = process.argv[1];
             const root = await (await fetch(base + "root.json")).json();
             root.records = root.records.slice(0, 2);
+            // The copy carries records, not the listing: the edge checks every
+            // shard the root names against its hash, so a root that named a
+            // shard this copy does not hold would refuse to open at all.
+            // `tests/index/shards.mjs` is what covers the shards.
+            root.browse = [];
             await writeFile(join(out, "root.json"), JSON.stringify(root));
             for (const r of root.records) {
               const path = join(out, "models", r.repo + ".json");

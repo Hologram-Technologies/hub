@@ -18,6 +18,12 @@ The three honesty levels (R2):
 `cargo xtask audit-limits` fails if any code path returns an error the
 model does not sanction.
 
+## index
+
+| ID | Level | Statement |
+| --- | --- | --- |
+| `HK-18` | `build` | A release record always carries the fields a client reads: the repository, the revision, every file with its path, size and git blob address, and the sources that hold it |
+
 ## kernel
 
 | ID | Level | Statement |
@@ -38,6 +44,7 @@ model does not sanction.
 | `HK-14` | `build` | A model page says Witnessed or Published only when every signature check passed, says Published only for a publisher's signature from the namespace owner, and never shows a witness's signature as a publisher's |
 | `HK-15` | `build` | An answer is built from the index only when the record holds every field that answer names; where one is missing the source dialect is asked, and where it cannot be asked the answer says it is partial |
 | `HK-16` | `build` | Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state |
+| `HK-17` | `build` | An address with two witnesses is used only when they agree; where one witness alone names it the page says so, and where they disagree the file has no address |
 
 ## Cited authorities
 

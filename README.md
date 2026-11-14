@@ -120,6 +120,24 @@ link copied from huggingface.co with the host changed opens the same view
 here. The hub's own facets carry a `hub_` prefix and cannot collide with one.
 `HK-16` proves every facet maps to one parameter and back.
 
+A program that reads this index may depend on part of a record. `HK-18` holds
+that part fixed: the repository, the revision, every file's `path`, `size` and
+`gitSha1`, `sha256` where the source publishes one, and the sources that hold
+it. The rest of a record is still moving. The claim is a test rather than a
+proof, because a proof cannot catch a field being renamed in JavaScript, and
+the test reads the builder itself.
+
+A file may have more than one witness. Hugging Face publishes a SHA-256 only
+for LFS files, so `tools/index.mjs` also reads Pirate Face's per-file hashes
+for the same revision and keeps them in a `witnesses` block, with the party
+that gave each and the day it was read, never in `files[].sha256`, which the
+edge reads to decide a client's ETag. The kernel decides what two witnesses
+add up to (`HK-17`): an address is used when both name it and agree, the page
+says so when one names it alone, and a file whose witnesses disagree has no
+address at all. On `openai-community/gpt2` that takes the files a reader can
+check from eleven of twenty-six to twenty-five, so Verify picks a file of a
+few hundred bytes rather than a few hundred megabytes.
+
 A release record carries ten fields, and the kernel decides whether they are
 enough. `tools/index.mjs` writes the revision, every file, the tags as
 published, the task, the library, the config, the card's front matter and the

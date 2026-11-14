@@ -238,6 +238,20 @@ fn kernel_hk_09() {
     );
 }
 
+/// `HK-17`: An address with two witnesses is used only when they agree; where one witness alone names it the page says so, and where they disagree the file has no address
+#[test]
+fn kernel_hk_17() {
+    pinned(
+        "Concur",
+        "breaksConcur",
+        "(((((Kernel::concur ours theirs same) =? 1) && (((ours =? 1) && (theirs =? 1)) && (not (same =? 1)))) || (((Kernel::concur ours theirs same) =? 1) && (not ((ours =? 1) && (theirs =? 1))))) || ((((Kernel::concur ours theirs same) =? 2) && (((ours =? 1) && (theirs =? 1)) || ((not (ours =? 1)) && (not (theirs =? 1))))) || (((Kernel::concur ours theirs same) =? 0) && ((ours =? 1) || (theirs =? 1)))))",
+        "concurHolds",
+        "ours theirs same",
+        "Classical.choice, Quot.sound, propext",
+    );
+    dispatch_decides_by("(encodeVerdict (concur (byteNat value 1)");
+}
+
 /// `HK-16`: Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state
 #[test]
 fn kernel_hk_16() {
