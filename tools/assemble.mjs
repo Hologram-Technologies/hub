@@ -33,8 +33,12 @@ await cp(holo, join(out, "app", "app.holo"));
 await cp(join("try", "vendor"), join(out, "app", "vendor"), { recursive: true });
 await rm(join(out, "app", "vendor", "prism-code", "fixtures"), { recursive: true, force: true });
 
-for (const tool of ["web-data.mjs", "web-routes.mjs"]) {
-  const run = spawnSync(process.execPath, [join("tools", tool), out, origin], { stdio: "inherit" });
+// Both tools read the signed index from <out>/data/index, which this preview
+// does not build, so they say so and the preview shows no owner marks and no
+// model pages. Only web-data still needs an origin, for the registry and the
+// apps list.
+for (const [tool, args] of [["web-data.mjs", [out, origin]], ["web-routes.mjs", [out]]]) {
+  const run = spawnSync(process.execPath, [join("tools", tool), ...args], { stdio: "inherit" });
   if (run.status !== 0) process.exit(run.status ?? 70);
 }
 console.log(`assemble: ${out} ready from ${holo}`);

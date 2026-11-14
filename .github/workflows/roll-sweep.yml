@@ -1,0 +1,79 @@
+name: roll-sweep
+
+# Walks the whole of Hugging Face and leaves the result in the cache that
+# `pages.yml` reads. Run by hand, and in practice once: every later deploy
+# catches the roll up with `--tail`, which is a couple of calls.
+#
+# It is here rather than inside `pages.yml` because of the clock. A sweep is
+# about 3,076 listing calls paced at one a second, so a little over an hour,
+# and the deploy's build job has a 60-minute timeout it should keep. Putting
+# the sweep in front of a deploy would mean an hour of waiting before anything
+# was published, every time.
+#
+# Measured 2026-11-14 on the pieces: a day of the Hub is 3,970 models from four
+# calls; the whole history is about 3.08 million models and 367 MB.
+
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "Walk from this instant instead of the beginning (ISO 8601)"
+        type: string
+        required: false
+      to:
+        description: "Walk to this instant instead of now (ISO 8601)"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: roll-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    name: walk the whole history and leave it in the cache
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - name: Check out the exact event revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Start from whatever roll is already cached
+        # A sweep that is resumed rather than restarted keeps what it has. The
+        # builder merges into an existing roll, so a second sweep is cheap and
+        # a half-finished one is not wasted.
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/roll
+          key: roll-${{ hashFiles('tools/roll.mjs') }}-${{ github.run_id }}
+          restore-keys: roll-${{ hashFiles('tools/roll.mjs') }}-
+
+      - name: Sweep
+        shell: bash
+        env:
+          FROM: ${{ inputs.from }}
+          TO: ${{ inputs.to }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/roll"
+          args=()
+          if [ -n "${FROM:-}" ]; then args+=(--from "$FROM"); else args+=(--sweep); fi
+          if [ -n "${TO:-}" ]; then args+=(--to "$TO"); fi
+          node tools/roll.mjs "$RUNNER_TEMP/roll" "${args[@]}"
+
+      - name: Nothing is kept that the roll's root does not name
+        shell: bash
+        run: node tests/roll/published.mjs "$RUNNER_TEMP/roll"
+
+      - name: Say how big it is, since the deploy will carry it
+        shell: bash
+        run: du -sh "$RUNNER_TEMP/roll"
