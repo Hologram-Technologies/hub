@@ -15,7 +15,7 @@
 //   HK-03  a local runner is answered `serve`, never `redirect`
 //   HK-05  the source it is given holds the file and has not failed for it
 //   HK-07  a healthy source is chosen whenever a usable one exists
-//   HK-18  a source nobody vetted is chosen only for a file the record
+//   HK-19  a source nobody vetted is chosen only for a file the record
 //          addresses, so bytes from the swarm are always checkable
 //   HK-10  the bytes are delivered exactly when their digest and size match
 //
@@ -23,7 +23,7 @@
 // a judgement about Pirate Face; it is what the word means here. A vetted
 // source is one the edge may redirect a client to, and no client can be
 // redirected to a magnet link. `HK-04` therefore keeps the swarm off the edge
-// for every input, and `HK-18` keeps it off any file whose bytes we could not
+// for every input, and `HK-19` keeps it off any file whose bytes we could not
 // check afterwards - both proved, neither enforced by this file.
 import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
@@ -353,7 +353,7 @@ async function readAll(path) {
 
 // `HK-10`: the kernel decides, from the expected and observed digest and size.
 // A small file has no SHA-256 in the index, so its git blob identity is
-// compared here instead - tested, not proved. `HK-18` is what makes that
+// compared here instead - tested, not proved. `HK-19` is what makes that
 // safe: a source nobody vetted is never chosen for such a file.
 async function check(kernel, file, { address, size, blobId, entry }) {
   const info = await stat(file);

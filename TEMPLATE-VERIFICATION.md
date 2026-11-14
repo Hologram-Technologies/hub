@@ -696,7 +696,7 @@ cache blob names, and the errors for a missing repository, file and revision).
 The `offline` job in `pages.yml` repeats this after each deploy against the
 published, signed index.
 
-## A source no redirect can name (HK-18), and the runner that can reach it
+## A source no redirect can name (HK-19), and the runner that can reach it
 
 The edge cannot use Pirate Face, and measuring why decided the whole design.
 A magnet link is not something a `302` can point a Hugging Face client at, so
@@ -729,13 +729,13 @@ the edge for every input, already proved, with no new code. What was missing is
 the other half. `eligible` read `holds && !failed && (runner || vetted)`, so a
 local runner could fetch from a source nobody vetted for a file the record
 gives no address for - and then the only thing standing between the swarm and
-the cache is a check written by hand. `HK-18` closes that: `eligible` now reads
+the cache is a check written by hand. `HK-19` closes that: `eligible` now reads
 `holds && !failed && (vetted || (runner && entry == 2))`, and `addressedHolds`
 proves no input reaches `breaksAddressed`, which is a chosen source that is not
 vetted for a file the record does not address.
 
 This is not a hypothetical. Running the runner against the published holo,
-which predates `HK-18`, a request for `openai-community/gpt2/config.json` with
+which predates `HK-19`, a request for `openai-community/gpt2/config.json` with
 the HTTP sources failing reached the swarm - and `config.json` is a small file
 with no SHA-256 in the index. The rule changes real behaviour on a real
 request.
@@ -747,7 +747,7 @@ sources' sixteen bits. No input met `breaksAddressed`, `breaksVetted`,
 defect was to drop the address requirement, leaving `vetted || runner`: 110,336
 inputs then met `breaksAddressed`, the first at `runner 1, entry 0`, with slot
 three holding the file and vetted by nobody. The condition is not vacuous.
-`kernel_hk_18` pins its exact text, and `kernel_vectors_match_reference`
+`kernel_hk_19` pins its exact text, and `kernel_vectors_match_reference`
 requires the holo's 68 vectors to be the reference's; two of those vectors are
 new, a local runner and an unvetted source with and without an address.
 
@@ -756,13 +756,13 @@ and Lean 4.32.1: `lexlean verify` verified 24 modules in 7 minutes 6 seconds,
 attestation
 `e5567e6d7160658bc286b6cf19a81840c0e902bfc9635930c51de207fc945c02`.
 `addressedHolds` is one of them, proved by `linear_arithmetic` on `Quot.sound`
-and `propext`, as `kernel_hk_18` requires. `lexlean fmt --check` and
+and `propext`, as `kernel_hk_19` requires. `lexlean fmt --check` and
 `lexlean lock --check` pass, and `cargo test --workspace` passes with
-`kernel_hk_18` among 18 in the kernel suite.
+`kernel_hk_19` among 18 in the kernel suite.
 
 The planted defect was then run through the same gate. Weakening `eligible`
 in `src/Kernel.lex.tex` to `(vetted =? 1) || (runner =? 1)`, which is what it
-said before `HK-18`, and leaving every proof untouched, `lexlean verify`
+said before `HK-19`, and leaving every proof untouched, `lexlean verify`
 refused in 2 minutes 58 seconds with `LLV7002`:
 
     Lean rejected `HologramHubKernel.Proofs.Addressed` (error): omega could
@@ -864,7 +864,7 @@ Hologram oracle stage on a Windows-mounted checkout. `lexlean verify` run
 directly on the mounted tree used no CPU at all for twenty minutes; run on a
 copy of `app/` inside the container's own filesystem it proceeds. The holo was
 therefore not rebuilt here, so `tests/runner/kernel.mjs`, which pins the
-answers `HK-18` changes, has not been run against a holo that contains it. The
+answers `HK-19` changes, has not been run against a holo that contains it. The
 other runner tests ran against the published holo, as the edge tests do.
 
 ## Prism accounts: the remembered passkey

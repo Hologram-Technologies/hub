@@ -52,12 +52,12 @@ ok("HK-03: the local runner is answered serve and the edge redirect");
 assert.deepEqual(await answer(resolve({ runner: 0, sources: [UNVETTED] })), [17, 4, 0]);
 ok("HK-04: the edge is refused an unvetted source rather than redirected to it");
 
-// HK-18: the local runner may use an unvetted source, but only for a file the
+// HK-19: the local runner may use an unvetted source, but only for a file the
 // record addresses. This is what makes the swarm safe to fetch from: whatever
 // arrives can be checked.
 assert.deepEqual(await answer(resolve({ runner: 1, entry: 2, sources: [UNVETTED] })), [2, 0, 2]);
 assert.deepEqual(await answer(resolve({ runner: 1, entry: 1, sources: [UNVETTED] })), [17, 4, 0]);
-ok("HK-18: an unvetted source serves an addressed file and is refused an unaddressed one");
+ok("HK-19: an unvetted source serves an addressed file and is refused an unaddressed one");
 
 // A vetted source is unaffected by the address: a small file still comes from
 // one, with the git blob ETag.

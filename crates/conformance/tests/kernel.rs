@@ -338,9 +338,9 @@ fn kernel_hk_14() {
     dispatch_decides_by("(encodeVerdict (trust (byteNat value 1)");
 }
 
-/// `HK-18`: A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served
+/// `HK-19`: A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served
 #[test]
-fn kernel_hk_18() {
+fn kernel_hk_19() {
     pinned(
         "Addressed",
         "breaksAddressed",
