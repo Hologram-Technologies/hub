@@ -24,6 +24,7 @@ model does not sanction.
 | --- | --- | --- |
 | `HK-18` | `build` | A release record always carries the fields a client reads: the repository, the revision, every file with its path, size and git blob address, and the sources that hold it |
 | `HK-20` | `build` | A release record names where its own bytes come from, and the edge sends a client to that same place, so a reader who is not the edge can fetch and check a file without knowing which hub built the record |
+| `HK-21` | `build` | A swarm catalog row is filed under the shard key the page resolves a query with, and says it is a listing rather than a checked record, so a search reads one shard and what it draws is not mistaken for proof |
 
 ## kernel
 

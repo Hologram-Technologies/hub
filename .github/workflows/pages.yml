@@ -275,6 +275,13 @@ jobs:
           else
             echo "no swarm snapshot in the cache yet; nothing to publish"
           fi
+          # The catalog is published from the same cache, so it is held to the
+          # same thing here rather than only where it was built.
+          if [ -f "$RUNNER_TEMP/swarm/catalog/root.json" ]; then
+            node tests/index/swarm-catalog.mjs "$RUNNER_TEMP/swarm/catalog"
+          else
+            echo "no swarm catalog in the cache yet; nothing to publish"
+          fi
       - name: Sign the snapshot root as this repository's workflow
         id: swarmsig
         if: hashFiles(format('{0}/swarm/root.json', runner.temp)) != ''

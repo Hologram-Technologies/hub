@@ -83,7 +83,13 @@ export function browseRow(record, rank) {
     format: format(tags),
     license: licence(tags),
     state: (record.files?.length ?? 0) > 0 ? "addressed" : "pending",
-    sources: (record.sources ?? []).map((s) => s.kind),
+    // The origin counts: a release is held wherever its bytes can be got,
+    // and the host the record was built from is one of those. Leaving it
+    // out made the one source every model has the only one not shown.
+    sources: [...new Set([
+      ...(record.origin?.kind ? [record.origin.kind] : []),
+      ...(record.sources ?? []).map((s) => s.kind),
+    ])],
     revision: record.revision ?? null,
     files: record.files?.length ?? null,
     weightBytes: record.files?.reduce((a, f) => a + (f.size ?? 0), 0) ?? null,

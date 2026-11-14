@@ -58,6 +58,29 @@ jobs:
           path: ${{ runner.temp }}/swarm
           key: swarm-${{ hashFiles('tools/swarm-index.mjs') }}-${{ github.run_id }}
           restore-keys: swarm-${{ hashFiles('tools/swarm-index.mjs') }}-
+      - name: Write down the catalog, sharded so a page can read a slice
+        # Rows for browsing and searching, from Pirate Face's own listing and
+        # nothing else - no Hugging Face calls. Sharded by the first two
+        # characters of the model's name, because the whole catalog is about
+        # 300 MB at 468 bytes a row and no page should load that: a prefix
+        # shard is about 450 KB.
+        #
+        # First, because this step and the next share one timeout and they do
+        # not fail the same way. The catalog walk is about 3.6 hours at the
+        # 0.57 seconds a page measured on 2026-11-14, and makes no Hugging
+        # Face calls; the address sweep walks the same catalog and then asks
+        # Hugging Face about each release, so its first run is far longer. Run
+        # second, the catalog would not be written at all on a run that ran
+        # out of time, and a page with no catalog draws no swarm models. The
+        # addresses are built to be accumulated over nightly runs - the point
+        # is to have asked in time - so losing the tail of one sweep is how
+        # that step already works.
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/swarm-catalog.mjs "$RUNNER_TEMP/swarm/catalog" --all ${PAGES:+--pages "$PAGES"}
+        env:
+          PAGES: ${{ inputs.pages }}
       - name: Write down the addresses
         shell: bash
         run: |
@@ -68,6 +91,13 @@ jobs:
       - name: Every shard is the bytes the root names
         shell: bash
         run: node tests/index/swarm-shards.mjs "$RUNNER_TEMP/swarm"
+      - name: A row is in the shard the page will look in, and claims no more than a listing
+        # The page reads one shard for a search and no other, so a row filed
+        # by a different rule than the one the page resolves with is a row
+        # nobody can find. Both sides import `web/swarmkey.mjs`; this holds
+        # the built shards to it.
+        shell: bash
+        run: node tests/index/swarm-catalog.mjs "$RUNNER_TEMP/swarm/catalog"
       - name: Keep it where anyone can see what was written
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
