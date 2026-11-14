@@ -1796,3 +1796,47 @@ ranged read is a few hundred bytes out of 400 MB. So `checked` on the handle
 is false, the interface says so rather than implying otherwise, and the
 checkable artefact remains the roll itself - small shards, named by its root,
 which `tests/roll/published.mjs` refuses to publish unnamed.
+
+## Searching three million names
+
+A model is found by the words in its name: owner and repository, cut at
+anything that is not a letter or a digit, lowercased. `Qwen/Qwen3.8-27B` is
+found by qwen, 27b and 8. Measured 2026-11-14 over 103,000 models: 5.5 words
+each, 79,561 distinct, 60 per cent of them held by one model only; at three
+million that is about 17.6 million postings over 2.48 million words.
+
+Each word's rows are stored as positions in a sort's order, the same shape a
+facet uses, in a file named by the word's first two characters. So a term is
+one fetch of the bucket's word list and one ranged read of its postings, and
+two terms intersect.
+
+The words are written once and the postings once per sort. Writing both five
+times costs 128 MB at three million models - measured, 309 MB against 181 -
+which is the difference between a site that fits and one that does not. The
+whole published site comes to about 885 MB of the 1,024 MB GitHub allows, and
+`pages.yml` refuses at 950.
+
+### What the gate checks
+
+`tests/browse/reader.mjs` compares every search with the same search done the
+slow way over the rows: that a term finds exactly the rows whose name holds
+it, in the order sorting the lot would give; that two terms both have to
+match and give no more than either; that a word nothing holds finds nothing;
+and that a search and a filter intersect.
+
+**The planted defect.** Skip a word the index has never seen instead of
+letting it match nothing - one `continue`, and the kind of mistake that reads
+as leniency. Diagnostic:
+
+    FAIL a word nothing holds finds nothing: 96629
+
+Exit 1 with it, exit 0 restored. It is the one check that could see it: every
+other search check passed either way, because a search for words that do
+exist is unaffected. A typo would have quietly returned the whole catalogue.
+
+### Measured in a browser
+
+Against a month of the Hub, 96,629 models: `qwen` narrows 96.6k to 1.6k,
+`qwen gguf` to 108, and the cards are Qwen GGUF repositories. A search costs
+three requests and 4 kB; the page in total, including the catalogue load, is
+221 requests and 164 kB with nothing larger than 65 kB.

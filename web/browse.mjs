@@ -57,6 +57,12 @@ const union = (lists) => {
   return [...seen].sort((a, b) => a - b);
 };
 
+// The same cut the builder makes, and it has to stay the same cut: a word the
+// index was written under is the only word that will find it.
+export const words = (text) => [...new Set(String(text ?? "").toLowerCase()
+  .split(/[^a-z0-9]+/).filter((w) => w.length >= 2 && w.length <= 24))];
+const bucketOf = (word) => word.slice(0, 2);
+
 export async function openBrowse(base) {
   const url = (path) => new URL(path, base).href;
   const root = await fetch(url("root.json")).then((r) => (r.ok ? r.json() : null));
@@ -110,21 +116,58 @@ export async function openBrowse(base) {
     return out;
   }
 
-  const rowsUrl = url(root.rows.body);
-  const idxUrl = url(root.rows.index);
+  // The rows live in the roll, not here. The locator says which shard a row is
+  // in and which bytes, so a row is two ranged reads and the bytes stay in the
+  // shards the roll's root names - the only copy a reader can check.
+  const locUrl = url(root.rows.locator);
+  const shardUrl = (i) => new URL(root.rows.shards[i], new URL(root.rows.from, base)).href;
 
   async function rowsAt(numbers) {
     if (!numbers.length) return [];
-    // One read for the offsets of a contiguous run where we can, then one per
-    // row. Forty-two small ranged reads to one origin is what HTTP/2 is for.
-    const slots = await Promise.all(numbers.map(async (n) => {
-      const b = await range(idxUrl, n * 12, 12);
+    // Forty-two small ranged reads to one origin is what HTTP/2 is for.
+    const where = await Promise.all(numbers.map(async (n) => {
+      const b = await range(locUrl, n * 12, 12);
       const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
-      return { at: Number(v.getBigUint64(0)), len: v.getUint32(8) };
+      return { shard: v.getUint32(0), at: v.getUint32(4), len: v.getUint32(8) };
     }));
-    const bodies = await Promise.all(slots.map((s) => range(rowsUrl, s.at, s.len)));
+    const bodies = await Promise.all(where.map((w) => range(shardUrl(w.shard), w.at, w.len)));
     const decoder = new TextDecoder();
     return bodies.map((b) => JSON.parse(decoder.decode(b)));
+  }
+
+  // Which words a bucket holds, in the order its postings are stored in. One
+  // small file a bucket, fetched whole and kept, because every search term
+  // beginning with those two characters needs the same list.
+  const bucketWords = new Map();
+  async function wordsIn(key) {
+    if (!bucketWords.has(key)) {
+      bucketWords.set(key, (async () => {
+        const r = await fetch(url(`search/words/${key}.bin`));
+        if (!r.ok) return [];
+        const b = new Uint8Array(await r.arrayBuffer());
+        const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+        const count = v.getUint32(0, true), length = v.getUint32(4, true);
+        if (!count) return [];
+        return new TextDecoder().decode(b.subarray(8, 8 + length)).split("\n");
+      })());
+    }
+    return bucketWords.get(key);
+  }
+
+  // Where one word's rows are, in one sort's order. The bucket's offsets come
+  // first, so the word's block is one ranged read into the rest.
+  async function wordPositions(sort, word) {
+    const key = bucketOf(word);
+    const names = await wordsIn(key);
+    const i = names.indexOf(word);
+    if (i < 0) return [];
+    const path = url(`search/${sort}/${key}.bin`);
+    const head = await range(path, i * 4, 8);
+    const hv = new DataView(head.buffer, head.byteOffset, head.byteLength);
+    const from = hv.getUint32(0, true), to = hv.getUint32(4, true);
+    if (to <= from) return [];
+    const base = (names.length + 1) * 4;
+    return varints(await range(path, base + from, to - from));
   }
 
   return {
@@ -139,9 +182,43 @@ export async function openBrowse(base) {
     // `filters` is a map of facet to the values selected for it. Values within
     // one facet are a union - the interface treats chips in a group as "any of
     // these" - and the facets are intersected.
-    async page({ sort, filters = {}, page = 1 }) {
+    words,
+    // One model by name. The word index already knows which rows hold every
+    // word of its id, so the rarest of them is a short list to look through -
+    // no separate index, and no walk over three million rows.
+    async find(id) {
+      const use = Object.keys(root.orders)[0];
+      if (!root.search?.[use]) return undefined;
+      const terms = words(id);
+      if (!terms.length) return undefined;
+      let hits = null;
+      for (const word of terms) {
+        const found = await wordPositions(use, word);
+        hits = hits === null ? found : intersect(hits, found);
+        if (!hits.length) return undefined;
+      }
+      const order = url(root.orders[use].path);
+      const wanted = hits.slice(0, 64);
+      const numbers = await Promise.all(wanted.map(async (pos) => {
+        const b = await range(order, pos * 4, 4);
+        return new DataView(b.buffer, b.byteOffset, b.byteLength).getUint32(0);
+      }));
+      const rows = await rowsAt(numbers);
+      const row = rows.find((r) => r[0].toLowerCase() === id.toLowerCase());
+      return row && { id: row[0], revision: row[1], created: row[2], browse: row[6] ?? null };
+    },
+    async page({ sort, filters = {}, page = 1, q = "" }) {
       const use = root.orders[sort] ? sort : Object.keys(root.orders)[0];
       let hits = null;
+      // Every word typed has to match, so the terms intersect. A word the
+      // index has never seen matches nothing, which is the honest answer
+      // rather than quietly dropping it and widening the search.
+      for (const word of words(q)) {
+        if (!root.search?.[use]) break;
+        const found = await wordPositions(use, word);
+        hits = hits === null ? found : intersect(hits, found);
+        if (!hits.length) break;
+      }
       for (const [facet, values] of Object.entries(filters)) {
         if (!values?.length || !root.postings[use]?.[facet]) continue;
         const lists = await Promise.all(values.map((v) => positions(use, facet, v)));

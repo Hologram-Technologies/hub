@@ -44,6 +44,9 @@ async function boot() {
 
 // ---------------------------------------------------------------- numbers
 const trim = (n) => (n >= 100 ? Math.round(n).toString() : n.toFixed(1).replace(/\.0$/, ""));
+// The source the roll's models come from. Named here rather than written out
+// at the one place that asks it, so a reader can see what the page calls.
+const HF_API = "https://huggingface.co";
 const count = (n = 0) => (n >= 1e6 ? `${trim(n / 1e6)}M` : n >= 1e3 ? `${trim(n / 1e3)}k` : String(n));
 const params = (n) => (!n ? "" : n >= 1e12 ? `${trim(n / 1e12)}T` : n >= 1e9 ? `${trim(n / 1e9)}B` : n >= 1e6 ? `${Math.round(n / 1e6)}M` : `${Math.round(n / 1e3)}K`);
 const context = (n) => (!n ? "" : n >= 1048576 ? `${trim(n / 1048576)}M` : `${Math.round(n / 1024)}K`);
@@ -235,7 +238,8 @@ async function openRoll() {
 // A roll row as the cards and the filters want it. The dictionaries turn the
 // numbers back into the words the panel shows.
 function fromRoll(r, index, faces, s, now) {
-  const [id, revision, created, b] = r;
+  // A roll row: id, revision, created, first seen, last seen, state, browse.
+  const [id, revision, created, , , , b] = r;
   const d = index.dictionaries;
   const F = index.field;
   const at = (name, dict) => (b?.[F[name]] == null ? null : dict[b[F[name]]] ?? null);
@@ -761,7 +765,7 @@ async function drawModels(main) {
         if (codes.length) filters[facet] = codes;
       }
       const sort = ROLL_SORT[st.sort] ?? "downloads";
-      const got = await source.page({ sort, filters, page: st.page });
+      const got = await source.page({ sort, filters, page: st.page, q: st.q });
       st.page = got.page;
       total = got.total;
       pages = got.pages;
@@ -1017,6 +1021,40 @@ async function addresses(record) {
 }
 
 // ---------------------------------------------------------------- model
+// A model the roll knows and the index has not addressed. What the roll holds
+// is its name and release; what makes a page worth opening - the files, their
+// sizes, their addresses - comes from Hugging Face, named as its answer and
+// not as something this hub derived.
+async function fromRollAndSource(id) {
+  const source = await openRoll();
+  if (!source) return undefined;
+  const hit = await source.find?.(id);
+  const about = await fetch(`${HF_API}/api/models/${id}?blobs=true`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  if (!hit && !about) return undefined;
+  const [org, name] = id.split("/");
+  const files = (about?.siblings ?? []).map((f) => ({
+    path: f.rfilename, size: f.size ?? 0, gitSha1: f.blobId ?? null, sha256: f.lfs?.oid ?? null,
+  }));
+  const tags = about?.tags ?? [];
+  return {
+    id: about?.id ?? id, org, name,
+    revision: about?.sha ?? hit?.revision ?? null,
+    created: about?.createdAt ?? (hit?.created ? new Date(hit.created * 1000).toISOString() : null),
+    modified: about?.lastModified ?? null,
+    task: about?.pipeline_tag ?? null, library: about?.library_name ?? null,
+    license: tags.find((t) => t.startsWith("license:"))?.slice(8) ?? null,
+    languages: tags.filter((t) => /^[a-z]{2,3}$/.test(t)),
+    params: about?.safetensors?.total ?? 0, context: 0,
+    likes: about?.likes ?? 0, downloads: about?.downloads ?? 0,
+    gated: Boolean(about?.gated), manifest: null,
+    // No source of ours has hashed these bytes, so the page says so instead of
+    // offering a check it cannot make.
+    sources: [], fileList: files, files: files.length,
+    weightBytes: files.reduce((a, f) => a + (f.size ?? 0), 0),
+    state: "skipped", observed: { source: HF_API, downloads: about?.downloads ?? 0, likes: about?.likes ?? 0 },
+  };
+}
+
 async function drawModel(main, id) {
   const s = screens.model;
   const list = await catalog().catch(() => []);
@@ -1037,6 +1075,12 @@ async function drawModel(main, id) {
     const row = found.find(same);
     if (row) m = dress(row);
   }
+  // Still nothing, and the roll holds every model Hugging Face has ever
+  // listed. Browsing three million of them and then saying "no model of that
+  // name is indexed" when one is opened would make the catalogue a list of
+  // dead ends, so the page asks Hugging Face for what the roll does not keep:
+  // the files, their sizes and their addresses.
+  if (!m) m = await fromRollAndSource(id).catch(() => undefined);
   const back = `<div class="back-row"><a class="back" data-in href="${href("models/")}">${ICON.left}${esc(s.back)}</a></div>`;
   if (!m) { main.innerHTML = `${back}<section class="panel note-panel">${esc(s.missing)}</section>`; return; }
   document.title = `${m.name} · ${chrome.brand}`;
@@ -1091,12 +1135,21 @@ async function drawModel(main, id) {
   });
   const overview = `<div class="tags">${tags(m, { full: true })}</div><h2>${esc(s.glance)}</h2><dl class="facts glance">${factRows(s.facts)}</dl>`;
   let treeRequest;
-  const tree = () => (treeRequest ??= fetch(`${chrome.api}/api/models/${m.id}/tree/${m.revision ?? "main"}?recursive=true`)
-    .then((r) => (r.ok ? r.json() : [])).then((all) => all.filter((f) => f.type === "file")).catch(() => []));
+  // A model the roll knows and the index has not addressed brought its files
+  // with it, from Hugging Face. Asking this hub's API for them would be asking
+  // the wrong host: it does not hold a model it never indexed.
+  const tree = () => (treeRequest ??= m.fileList
+    ? Promise.resolve(m.fileList.map((f) => ({ path: f.path, size: f.size, oid: f.gitSha1, lfs: f.sha256 ? { oid: f.sha256 } : undefined })))
+    : fetch(`${chrome.api}/api/models/${m.id}/tree/${m.revision ?? "main"}?recursive=true`)
+      .then((r) => (r.ok ? r.json() : [])).then((all) => all.filter((f) => f.type === "file")).catch(() => []));
   $("#verify")?.addEventListener("click", () => verify(m, s.verify, tree));
   const filesTab = async () => {
     if (m.gated) return `<p class="note">${esc(s.gated)}</p>`;
-    if (!verified(m)) return `<p class="note">${esc(s.queued)}</p>`;
+    // Files the hub has not addressed are still worth listing: a reader came
+    // here to see what a model holds. The sizes and names are Hugging Face's
+    // answer, the status above the list already says Unverified, and nothing
+    // here claims a hash of ours.
+    if (!verified(m) && !m.fileList) return `<p class="note">${esc(s.queued)}</p>`;
     const files = await tree();
     if (!files.length) return `<p class="note">${esc(s.queued)}</p>`;
     const total = files.reduce((a, f) => a + (f.size ?? 0), 0);
