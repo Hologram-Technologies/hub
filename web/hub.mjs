@@ -556,8 +556,15 @@ const copyLine = (command, cls = "endpoint section-tag copy") => `<button type="
 // ---------------------------------------------------------------- home
 async function drawHome(main) {
   const s = screens.home;
+  // The call to action counts the catalogue, so it counts whatever the
+  // catalogue is: the roll when one is published, and the addressed index when
+  // not. It used to round the index down to a hundred and add a plus, which
+  // reads as a hedge once the number is three million; `count` is the same
+  // formatter the Models page's own pill uses, so the two agree.
+  const source = await openRoll();
   const list = await catalog().catch(() => []);
-  const total = list.length ? `${Math.floor(list.length / 100) * 100}+` : "";
+  const models = source?.total ?? list.length;
+  const total = models ? count(models) : "";
   const marks = s.families.map(([label, org]) => {
     const theirs = list.filter((m) => m.org === org);
     const face = theirs.find((m) => m.avatar);
