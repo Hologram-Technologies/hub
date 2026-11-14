@@ -34,6 +34,7 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import * as edge from "../edge/edge.mjs";
 import { holdings, search } from "./discover.mjs";
+import * as snapshot from "./snapshot.mjs";
 import { lookup, fetchTorrent } from "./pirateface.mjs";
 import { announce, fetchPieces, peerId } from "./swarm.mjs";
 import { findFile, piecesOf, readMagnet } from "./torrent.mjs";
@@ -52,6 +53,7 @@ let settings = {
   // Overridable so a test can stand a swarm index in front of the runner.
   piratefaceHost: undefined,
 };
+let addresses = null;
 let manifestCache = new Map();
 const lookups = new Map();
 const torrents = new Map();
@@ -64,8 +66,22 @@ const inflight = new Map();
 const quarantined = new Set();
 const id = peerId();
 
-export async function start({ holo, index, manifests = null, huggingFace = true, drain = [], cacheDir, piratefaceHost } = {}) {
+export async function start({ holo, index, manifests = null, huggingFace = true, drain = [], cacheDir, piratefaceHost, swarmIndex = null, swarmSigned = true } = {}) {
   const ready = await edge.start({ holo, index, huggingFace, drain });
+  addresses = null;
+  if (swarmIndex) {
+    try {
+      // Checked against the same pinned roots the index is, when the
+      // kernel's trust policy is available to check against.
+      addresses = await snapshot.open(swarmIndex, {
+        policy: edge.loaded().trust,
+        required: swarmSigned,
+      });
+    } catch (error) {
+      addresses = null;
+      console.error(`runner: the swarm address snapshot was refused (${error.message})`);
+    }
+  }
   settings = {
     cacheDir: cacheDir ?? settings.cacheDir,
     manifests,
@@ -73,7 +89,10 @@ export async function start({ holo, index, manifests = null, huggingFace = true,
     piratefaceHost,
   };
   await mkdir(settings.cacheDir, { recursive: true });
-  return { ...ready, runner: "local", sources: SOURCES, cache: settings.cacheDir };
+  return {
+    ...ready, runner: "local", sources: SOURCES, cache: settings.cacheDir,
+    addressed: snapshot.count(addresses),
+  };
 }
 
 // ------------------------------------------------------------------ facts
@@ -232,7 +251,15 @@ function wantedRange(request, size) {
 async function serveFile(request, via, repo, revision, path, onNote) {
   const { kernel } = edge.loaded();
   const method = request.method;
-  const info = await edge.release(repo, revision);
+  let info = await edge.release(repo, revision);
+  // Neither the signed index nor Hugging Face can describe this release.
+  // The snapshot holds Hugging Face's own addresses for it, written down
+  // while Hugging Face was still answering, so the swarm's bytes can still
+  // be checked against a digest that is not the swarm's own.
+  if (info.state !== 0 || !info.revision) {
+    const kept = await snapshot.release(addresses, repo).catch(() => null);
+    if (kept && (revision === "main" || revision === kept.sha || kept.sha.startsWith(revision))) info = kept;
+  }
   const commitKind = /^[0-9a-f]{7,40}$/.test(revision) ? 1 : 0;
   const held = info.state === 0 && info.revision ? await edge.holders(repo, info) : null;
   const sibling = info.siblings?.get(path);
@@ -497,6 +524,7 @@ export async function handle(request, { onNote = () => {} } = {}) {
     return new Response(JSON.stringify({
       runner: "local", kernel: Boolean(kernel), index: index ? index.records.size : 0,
       huggingFace: useHuggingFace, sources: SOURCES, cache: settings.cacheDir,
+      addressed: snapshot.count(addresses),
     }), { status: 200, headers: { ...CORS, "content-type": "application/json" } });
   }
   // Everything that is not a file request is metadata, and the edge already

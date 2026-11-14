@@ -200,10 +200,39 @@ jobs:
           predicate-type: https://hologram.foundation/hub/index/v1
           predicate: '{"source":"https://huggingface.co","tool":"tools/index.mjs"}'
           show-summary: false
+      - name: Take the swarm address snapshot the nightly run left
+        # Written by `.github/workflows/swarm.yml`, not here: a full catalog
+        # walk is about 22,300 requests and must not sit in front of a deploy.
+        # A deploy that finds none publishes none, and the runner falls back to
+        # asking Hugging Face live.
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/swarm
+          key: swarm-${{ hashFiles('tools/swarm-index.mjs') }}-
+          restore-keys: swarm-${{ hashFiles('tools/swarm-index.mjs') }}-
+      - name: Every snapshot shard is the bytes its root names
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "$RUNNER_TEMP/swarm/root.json" ]; then
+            node tests/index/swarm-shards.mjs "$RUNNER_TEMP/swarm"
+          else
+            echo "no swarm snapshot in the cache yet; nothing to publish"
+          fi
+      - name: Sign the snapshot root as this repository's workflow
+        id: swarmsig
+        if: hashFiles(format('{0}/swarm/root.json', runner.temp)) != ''
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/swarm/root.json
+          predicate-type: https://hologram.foundation/hub/swarm/v1
+          predicate: '{"addresses":"https://huggingface.co","catalog":"https://pirateface.co","tool":"tools/swarm-index.mjs"}'
+          show-summary: false
       - name: Put the hub at the root and the proof page under app/
         env:
           WITNESS_BUNDLE: ${{ steps.witness.outputs.bundle-path }}
           INDEX_BUNDLE: ${{ steps.indexsig.outputs.bundle-path }}
+          SWARM_BUNDLE: ${{ steps.swarmsig.outputs.bundle-path }}
         # The hub's interface (web/) is drawn from screens the verified holo
         # serves, so it reads the holo, the runtime, the brand tokens and the
         # fonts from the proof page beside it; nothing is copied twice.
@@ -235,6 +264,16 @@ jobs:
             try { bundle = JSON.parse(text); } catch { bundle = JSON.parse(text.split("\n")[0]); }
             writeFileSync(process.argv[2], JSON.stringify(bundle));
           ' "$INDEX_BUNDLE" "$RUNNER_TEMP/pages/data/index/index.sigstore.json"
+          if [ -f "$RUNNER_TEMP/swarm/root.json" ]; then
+            cp -r "$RUNNER_TEMP/swarm" "$RUNNER_TEMP/pages/data/swarm"
+            node -e '
+              const { readFileSync, writeFileSync } = require("node:fs");
+              const text = readFileSync(process.argv[1], "utf8").trim();
+              let bundle;
+              try { bundle = JSON.parse(text); } catch { bundle = JSON.parse(text.split("\n")[0]); }
+              writeFileSync(process.argv[2], JSON.stringify(bundle));
+            ' "$SWARM_BUNDLE" "$RUNNER_TEMP/pages/data/swarm/swarm.sigstore.json"
+          fi
       - name: Configure Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
       - name: Upload the page

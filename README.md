@@ -314,6 +314,38 @@ fetches, verifies and leaves the bytes in the cache under their SHA-256. A
 client pointed at the runner with the same `CACHE_DIR` is then answered at
 once, from bytes the kernel has already accepted.
 
+## Keeping an address after Hugging Face stops giving one
+
+A model is self-verifying only against a digest from somewhere other than the
+party serving the bytes, so Pirate Face's own SHA-256 cannot check bytes from
+Pirate Face's swarm. While Hugging Face answers, the runner asks it for the
+address and the swarm for the bytes, and those are different parties. When it
+stops, `HK-19` refuses the swarm, correctly.
+
+`tools/swarm-index.mjs` writes down Hugging Face's addresses for the models
+that have a torrent, before that happens:
+
+    node tools/swarm-index.mjs data/swarm
+
+It walks Pirate Face's catalog, keeps the releases with a torrent, and records
+`{ repo, revision, files: [ { path, size, sha256 } ] }` from Hugging Face's
+tree. No magnet and no infohash: those are fetched live when a file is pulled,
+and they are not what is lost. A release whose revision has not moved is reused,
+so after the first run almost nothing is asked of Hugging Face.
+
+`.github/workflows/swarm.yml` runs it nightly and leaves it in the cache
+`pages` restores; it is not part of a deploy, because a full catalog walk is
+about 22,300 requests. The root is signed the way the index root is, and
+`runner/snapshot.mjs` checks that signature against the same pinned Sigstore
+roots before reading a shard, and each shard against the root.
+
+The runner uses it in exactly one place: a release that neither the signed
+index nor Hugging Face can describe. `SWARM_URL` points at it.
+
+A model Hugging Face has already removed is absent from the snapshot rather
+than addressed by the party serving its bytes, and
+`tests/index/swarm-shards.mjs` fails the build if any row carries no address.
+
 ## Finding what the swarm has
 
 Pulling is half of it. Pirate Face indexes far more models than this hub does,
