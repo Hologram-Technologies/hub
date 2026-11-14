@@ -143,6 +143,15 @@ for (const row of rows) {
   try {
     const kept = JSON.parse(await readFile(path, "utf8"));
     if (kept.revision === row.sha && kept.format === "hologram.hub.release/v4") record = kept;
+    // A v3 record holds everything a v4 record does except `origin`, and this
+    // builder has only ever read Hugging Face, so a v3 record's origin is not a
+    // guess: it is the string this builder would write for it. Upgrading in
+    // place keeps the first run after the format moved as cheap as any other,
+    // rather than refetching every record to add a field already implied by the
+    // two fields beside it.
+    else if (kept.revision === row.sha && kept.format === "hologram.hub.release/v3") {
+      record = { ...kept, format: "hologram.hub.release/v4", origin: { kind: "huggingface.co", resolve: `${HF}/${kept.repo}/resolve/${kept.revision}/` } };
+    }
   } catch {}
   if (!record) {
     try {

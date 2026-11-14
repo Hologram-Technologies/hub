@@ -27,13 +27,17 @@ fn builder() -> String {
         .join("\n")
 }
 
-/// The record literal the builder writes, from `format:` to the line that
+/// The record literal the builder writes, from its assignment to the line that
 /// closes it. Reading the whole file would let a field mentioned anywhere
 /// pass; the promise is about this object.
 fn record_literal(source: &str) -> String {
+    // Anchored on the assignment, not on the format string: the builder names
+    // the format in more than one place now that it can upgrade a cached record
+    // in place, and the earlier of those is not the literal this promise is
+    // about. The trailing newline is what tells the two apart.
     let start = source
-        .find("format: \"hologram.hub.release/")
-        .expect("the builder writes a record with a format");
+        .find("record = {\n")
+        .expect("the builder assigns a record literal");
     let rest = &source[start..];
     let end = rest
         .find("\n      };")
@@ -46,7 +50,13 @@ fn record_literal(source: &str) -> String {
 fn index_hk_18() {
     let source = builder();
     let record = record_literal(&source);
-    for field in ["repo:", "revision:", "files,", "sources,"] {
+    for field in [
+        "format: \"hologram.hub.release/",
+        "repo:",
+        "revision:",
+        "files,",
+        "sources,",
+    ] {
         assert!(
             record.contains(field),
             "a release record must carry {field} for a client that reads this index:\n{record}"

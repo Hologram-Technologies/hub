@@ -973,3 +973,28 @@ when the file it reads does. `cargo clean -p repo-model -p xtask -p
 repo-conformance` rebuilds with the right path baked in; `just vv` is unaffected
 because it makes its own fresh copy. Any source-reading gate is exposed to this,
 which is the cost of a gate that reads a file rather than running code.
+
+### The record format moved without a refetch, and the anchor moved with it
+
+Moving the format to `v4` would have invalidated every cached record, and a
+record is reused only when the release has not moved, so the first run after
+it would have paid two Hugging Face calls for each of five hundred records at
+the one-a-second pace `hf()` keeps - about twenty minutes in a job that is
+normally almost free. But a `v3` record already holds everything a `v4` record
+does except `origin`, and this builder has only ever read Hugging Face, so that
+record's origin is not a guess: it is the string the builder would write for
+it. The builder upgrades such a record in place instead. Checked by building a
+fixture of `v3` records, applying the upgrade, and running
+`tests/edge/origin.mjs` over the result. `pages.yml`'s build job still moved
+from 45 to 60 minutes, because a run that genuinely cannot reuse the cache
+must finish rather than look like a flake.
+
+That upgrade broke `index_hk_18` and `index_hk_20` the moment it was written,
+and the break is worth recording because it is the failure mode of every gate
+that reads source. `record_literal` found the record by its format string, and
+the upgrade names the format too, earlier in the file. So the test began
+reading the upgrade expression as though it were the record. It is now
+anchored on `record = {` followed by a newline, which the one-line upgrade
+cannot match. The planted defect was re-run after the anchor moved -
+`the origin's resolve base must be built from HF, not written out` - because an
+anchor change is exactly what can make a gate vacuous while leaving it green.
