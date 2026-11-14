@@ -38,7 +38,7 @@ const PAGE = 1000;
 // 4.08 kB row and which the roll does not store - the index holds filenames,
 // with the sizes and addresses that make them worth having.
 const FIELDS = ["sha", "createdAt", "lastModified", "tags", "pipeline_tag", "library_name",
-  "safetensors", "downloads", "likes", "gated", "private"].map((f) => `expand[]=${f}`).join("&");
+  "safetensors", "downloads", "likes", "trendingScore", "gated", "private"].map((f) => `expand[]=${f}`).join("&");
 // 11 bits of the id's digest: 2,048 shards, about 1,500 rows each at today's
 // three million models, which is where a cold lookup is cheapest once a row's
 // real size is measured rather than estimated. The working, and the estimate
@@ -88,6 +88,11 @@ const browseOf = (m) => {
     m.safetensors?.total ?? null,
     m.downloads ?? 0,
     m.likes ?? 0,
+    // Hugging Face's own trending score, not a number of this hub's devising.
+    // It is a measurement of somebody else's traffic, like the downloads and
+    // the likes beside it, and the roll says so by carrying it as it was given
+    // rather than recomputing it.
+    m.trendingScore ?? 0,
   ];
 };
 
@@ -249,8 +254,8 @@ await walk(from, to, (m, created) => {
   } else {
     // [ id, revision, created, first seen, last seen, state, browse ]
     // where browse is [ modified, task, library, licence, languages,
-    // parameters, downloads, likes ], each name an index into the root's
-    // dictionary. A row with no browse is one this build did not see listed.
+    // parameters, downloads, likes, trending ], each name an index into the
+    // root's dictionary. A row with no browse is one this build did not see.
     rows.set(m.id, [m.id, m.sha ?? null, created, now, now, state, browseOf(m)]);
     added += 1;
   }
