@@ -858,13 +858,16 @@ requires the holo's 68 vectors to be the reference's; two of those vectors are
 new, a local runner and an unvetted source with and without an address.
 
 Proved on 2026-11-14 in the SDK image `prismpm.lock` pins, with LexLean 0.3.0
-and Lean 4.32.1: `lexlean verify` verified 24 modules in 7 minutes 6 seconds,
-attestation
-`e5567e6d7160658bc286b6cf19a81840c0e902bfc9635930c51de207fc945c02`.
-`addressedHolds` is one of them, proved by `linear_arithmetic` on `Quot.sound`
-and `propext`, as `kernel_hk_19` requires. `lexlean fmt --check` and
-`lexlean lock --check` pass, and `cargo test --workspace` passes with
-`kernel_hk_19` among 18 in the kernel suite.
+and Lean 4.32.1. Before `HK-17` merged, `lexlean verify` verified 24 modules
+in 7 minutes 6 seconds, attestation
+`e5567e6d7160658bc286b6cf19a81840c0e902bfc9635930c51de207fc945c02`. With the
+second witness merged the model is 25 modules and the attestation moves; the
+current one is recorded below, and the figure above is kept because the mount
+measurement further down was taken against it. `addressedHolds` is proved by
+`linear_arithmetic` on `Quot.sound` and `propext`, as `kernel_hk_19` requires.
+`lexlean fmt --check` and `lexlean lock --check` pass, and
+`cargo test --workspace` passes with `kernel_hk_19`, `kernel_hk_17` and
+`index_hk_18` together, 19 in the kernel suite.
 
 The planted defect was then run through the same gate. Weakening `eligible`
 in `src/Kernel.lex.tex` to `(vetted =? 1) || (runner =? 1)`, which is what it
@@ -1000,6 +1003,27 @@ on the mounted tree or on a copy inside the container, as above. The holo was
 therefore not rebuilt here, so `tests/runner/kernel.mjs`, which pins the
 answers `HK-19` changes, has not been run against a holo that contains it. The
 other runner tests ran against the published holo, as the edge tests do.
+
+The second witness does not yet reach the runner, and saying otherwise would be
+the easy mistake now that `HK-17` is on main. `tools/index.mjs` keeps a second
+witness's addresses in `record.witnesses[].addresses[]` and deliberately out of
+`files[].sha256`, because the edge reads that field to decide whether a file is
+an LFS file and so which ETag `HK-08` hands a client. The runner reads
+`files[].sha256` too. So for the fifteen `openai-community/gpt2` files Hugging
+Face gives no address for, `entry` is still 1, `HK-19` still keeps the swarm
+off them, and the swarm serves the eleven addressed files and not the other
+fifteen.
+
+Closing that is not a matter of reading the other field. `entry` carries two
+meanings at once - whether the file is LFS, which decides the ETag, and whether
+the record addresses it, which decides `HK-19` - and they have been the same
+thing only because both came from the LFS pointer. A second witness separates
+them. Setting `entry` to 2 because a witness named an address would change the
+ETag for those fifteen files and break the wire the edge tests pin, which is
+the trap `tools/index.mjs` already names in its own comment. The honest fix is
+a separate `addressed` fact in the resolve request, which moves it from 104
+bytes to 108 and re-proves every theorem that names the slots. That is a change
+of its own and is not made here.
 
 ## Prism accounts: the remembered passkey
 
