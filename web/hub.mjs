@@ -7,6 +7,7 @@
 import { load } from "./app/vendor/prism-code/src/browser.mjs";
 import { blake3Hex } from "./app/vendor/prism-code/src/blake3.mjs";
 import { verifyBundle } from "./sigstore.mjs";
+import { openBrowse } from "./browse.mjs";
 import { ICON, art } from "./icons.mjs";
 import { swarmKeyOf } from "./swarmkey.mjs";
 
@@ -206,6 +207,64 @@ function dress(m) {
   m.recency = s.recency.filter(([, days]) => age <= days).map(([l]) => l);
   m.isNew = age <= s.newDays;
   return m;
+}
+
+// The whole roll, read a page at a time. The index's browse shards are the
+// addressed models and fit in memory; the roll is every model Hugging Face has
+// ever listed and does not, so when it is published the catalogue comes from
+// there instead and the interface asks for one page at a time.
+//
+// A roll row knows less than an addressed one, and the difference is shown
+// rather than smoothed over: no manifest, no sources, and the status is
+// Unverified, because knowing a model exists is not the same as having
+// checked a byte of it.
+let rollSource;
+async function openRoll() {
+  if (rollSource !== undefined) return rollSource;
+  rollSource = null;
+  try {
+    const index = await openBrowse(new URL("data/browse/", root).href);
+    if (index) rollSource = index;
+  } catch {
+    // No roll published, or it could not be read: the addressed index below
+    // is the catalogue, which is what every deploy before this one shipped.
+  }
+  return rollSource;
+}
+
+// A roll row as the cards and the filters want it. The dictionaries turn the
+// numbers back into the words the panel shows.
+function fromRoll(r, index, faces, s, now) {
+  const [id, revision, created, b] = r;
+  const d = index.dictionaries;
+  const F = index.field;
+  const at = (name, dict) => (b?.[F[name]] == null ? null : dict[b[F[name]]] ?? null);
+  const day = (n) => (n == null ? null : new Date(n * 864e5).toISOString().slice(0, 10));
+  const org = id.slice(0, id.indexOf("/"));
+  const createdAt = new Date(created * 1000).toISOString().slice(0, 10);
+  const age = (now - created * 1000) / 864e5;
+  return {
+    id, org, author: org, name: id.slice(org.length + 1), revision,
+    manifest: null, sources: [], files: 0, weightBytes: 0, gated: false,
+    created: createdAt,
+    modified: day(b?.[F.modified]) ?? createdAt,
+    task: at("task", d.task),
+    library: at("library", d.library),
+    license: at("license", d.license),
+    languages: (b?.[F.languages] ?? []).map((v) => d.language[v]).filter(Boolean),
+    params: b?.[F.parameters] ?? 0,
+    likes: b?.[F.likes] ?? 0,
+    downloads: b?.[F.downloads] ?? 0,
+    trending: b?.[F.trending] ?? 0,
+    // Every facet the roll does not carry is absent rather than guessed.
+    modality: null, arch: null, family: null, format: null, bucket: null,
+    state: "skipped",
+    status: Object.fromEntries(s.statuses).skipped ?? "Unverified",
+    avatar: faces[org] ?? null,
+    isNew: age <= s.newDays,
+    recency: s.recency.filter(([, days]) => age <= days).map(([l]) => l),
+    observed: { source: "https://huggingface.co", downloads: b?.[F.downloads] ?? 0, likes: b?.[F.likes] ?? 0 },
+  };
 }
 
 // The kernel decides whether these are the addressed bytes, the same rule a
@@ -643,7 +702,12 @@ const card = (m) => `<a class="card" data-in href="${href(`models/${m.id}/`)}" t
 // catalog, its state in the URL.
 async function drawModels(main) {
   const s = screens.models;
-  const list = await catalog();
+  const source = await openRoll();
+  // The addressed index is still read when there is no roll, and is still what
+  // the model pages and Verify use either way.
+  const list = source ? [] : await catalog();
+  const faces = await fetch(new URL("data/avatars/index.json", root)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+  if (source) { listing.signed = false; listing.rows = source.total; listing.shards = 0; listing.rules = "roll"; }
   const st = readState();
   const order = {};
   main.innerHTML = `
@@ -667,20 +731,57 @@ async function drawModels(main) {
       <div class="sheet-footer" id="sheet-footer" hidden><button type="button" class="button primary" id="show"></button></div>
     </div>`;
   $("#q").value = st.q;
-  const draw = () => {
+  // Which of the interface's sorts and facets the roll can answer. The rest
+  // are the index's: they come from a model's tags and its files, and the roll
+  // carries neither, so they are left out rather than drawn empty.
+  const ROLL_SORT = { trending: "trending", downloads: "downloads", likes: "likes", created: "createdAt", modified: "lastModified" };
+  const ROLL_FACET = { task: "task", library: "library", license: "license", languages: "language" };
+  const codesOf = (key, labels) => {
+    const dict = source?.dictionaries[ROLL_FACET[key]] ?? [];
+    return (labels ?? []).map((l) => dict.indexOf(l)).filter((i) => i >= 0);
+  };
+
+  const draw = async () => {
     writeState(st);
     // A query that arrived in the URL deserves the same shard a typed one
     // gets, and this is the first chance to ask for it.
     pullSwarm(st.q);
-    const results = list.filter((m) => matches(m, st)).sort(SORTERS[st.sort]);
-    const pages = Math.max(1, Math.ceil(results.length / s.pageSize));
-    st.page = Math.min(st.page, pages);
-    $("#count").textContent = count(results.length);
-    $("#show").textContent = fill(s.show, { n: count(results.length) });
-    $("#filters-body").innerHTML = filtersHtml(list, st, order);
+    let shown, total, pages, pre = null;
+    if (source) {
+      const filters = {};
+      for (const [key, facet] of Object.entries(ROLL_FACET)) {
+        const codes = codesOf(key, st.f[key]);
+        if (codes.length) filters[facet] = codes;
+      }
+      const sort = ROLL_SORT[st.sort] ?? "downloads";
+      const got = await source.page({ sort, filters, page: st.page });
+      st.page = got.page;
+      total = got.total;
+      pages = got.pages;
+      shown = got.rows.map((r) => fromRoll(r, source, faces, s, Date.now()));
+      // The chip counts come from the postings header, so each is what that
+      // value holds in the catalogue rather than under the other filters. The
+      // interface used to narrow them as you chose; over three million rows
+      // that is a walk per chip, and a number honest about what it counts
+      // beats one that is not there.
+      pre = {};
+      for (const [key, facet] of Object.entries(ROLL_FACET)) {
+        const dict = source.dictionaries[facet] ?? [];
+        const counted = await source.counts(sort, facet);
+        pre[key] = new Map([...counted].map(([v, n]) => [dict[v], n]).filter(([label]) => label));
+      }
+    } else {
+      const results = list.filter((m) => matches(m, st)).sort(SORTERS[st.sort]);
+      total = results.length;
+      pages = Math.max(1, Math.ceil(total / s.pageSize));
+      st.page = Math.min(st.page, pages);
+      shown = results.slice((st.page - 1) * s.pageSize, st.page * s.pageSize);
+    }
+    $("#count").textContent = count(total);
+    $("#show").textContent = fill(s.show, { n: count(total) });
+    $("#filters-body").innerHTML = filtersHtml(list, st, order, pre);
     clampChips();
-    const slice = results.slice((st.page - 1) * s.pageSize, st.page * s.pageSize);
-    $("#cards").innerHTML = slice.length ? slice.map(card).join("")
+    $("#cards").innerHTML = shown.length ? shown.map(card).join("")
       : `<div class="empty"><p>${esc(s.empty)}</p><button type="button" class="link" data-clear>${esc(s.clear)}</button></div>`;
     $("#pager").innerHTML = pagerHtml(st.page, pages, s);
     showPartial(st);
@@ -766,19 +867,28 @@ async function drawModels(main) {
     chips.classList.toggle("clamped", !w);
     $(".more", section).hidden = Boolean(w) || chips.scrollHeight <= chips.clientHeight;
   });
-  draw();
+  // Awaited, so a failure to read the roll surfaces instead of leaving an
+  // empty grid behind a silently rejected promise.
+  await draw();
 }
-function filtersHtml(list, st, order) {
+function filtersHtml(list, st, order, pre) {
   const s = screens.models;
   const tabs = s.tabs.map(([k, label, ic]) => `<button type="button" class="tab" role="tab" data-tab="${esc(k)}" aria-selected="${st.tab === k}">${ICON[ic] ?? ""}<span>${esc(label)}</span></button>`).join("");
-  const sections = facetDefs().filter((f) => f.tabs.includes(st.tab)).map((f) => (f.kind === "range" ? rangeFacet(st) : chipFacet(f, list, st, order))).join("");
+  // When the caller brought counts, those are the facets there are: the rest
+  // are the addressed index's and the roll cannot answer them, so they are not
+  // offered rather than offered empty.
+  const can = (f) => (pre ? Object.hasOwn(pre, f.key) : true);
+  const sections = facetDefs().filter((f) => f.tabs.includes(st.tab) && can(f))
+    .map((f) => (f.kind === "range" ? rangeFacet(st) : chipFacet(f, list, st, order, pre))).join("");
   return `<div class="tabs" role="tablist">${tabs}</div><div class="sections">${sections}</div>`;
 }
-function chipFacet(f, list, st, order) {
+function chipFacet(f, list, st, order, pre) {
   const s = screens.models;
   const fixed = fixedValues(f);
-  const counts = new Map(fixed ? fixed.map((v) => [v, 0]) : []);
-  for (const m of list) {
+  // Counts the caller already has - from the roll's postings header, where
+  // a value's total is a number to read rather than a walk over rows.
+  const counts = pre?.[f.key] ?? new Map(fixed ? fixed.map((v) => [v, 0]) : []);
+  for (const m of (pre?.[f.key] ? [] : list)) {
     const hit = matches(m, st, f.key);
     for (const v of valuesOf(m, f.key)) {
       if (f.key === "modality" && v === "Other") continue;

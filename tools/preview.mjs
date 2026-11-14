@@ -30,8 +30,34 @@ createServer(async (request, response) => {
     ?? (await file(join(root, asked, "index.html")))
     ?? (await file(join(root, "404.html")));
   if (!path) { response.writeHead(404).end("not found"); return; }
-  response.writeHead(path.endsWith("404.html") && !asked.endsWith("404.html") ? 404 : 200, {
-    "content-type": TYPE[extname(path)] ?? "application/octet-stream",
+  const type = TYPE[extname(path)] ?? "application/octet-stream";
+  const missing = path.endsWith("404.html") && !asked.endsWith("404.html");
+  // Ranged reads, because GitHub Pages serves them and the browse index is
+  // built on them: a page of the catalogue is a few hundred bytes out of a
+  // file of hundreds of megabytes. A preview that answered 200 to every
+  // request would work and would hide what the real thing does.
+  const asking = /^bytes=(\d*)-(\d*)$/.exec(request.headers.range ?? "");
+  if (asking && !missing) {
+    const size = (await stat(path)).size;
+    const from = asking[1] ? Number(asking[1]) : Math.max(0, size - Number(asking[2]));
+    const to = asking[1] && asking[2] ? Math.min(Number(asking[2]), size - 1) : size - 1;
+    if (!(from <= to && from < size)) {
+      response.writeHead(416, { "content-range": `bytes */${size}` }).end();
+      return;
+    }
+    response.writeHead(206, {
+      "content-type": type,
+      "content-range": `bytes ${from}-${to}/${size}`,
+      "content-length": to - from + 1,
+      "accept-ranges": "bytes",
+      "cache-control": "no-store",
+    });
+    createReadStream(path, { start: from, end: to }).pipe(response);
+    return;
+  }
+  response.writeHead(missing ? 404 : 200, {
+    "content-type": type,
+    "accept-ranges": "bytes",
     "cache-control": "no-store",
   });
   createReadStream(path).pipe(response);
