@@ -1753,3 +1753,67 @@ An earlier run of the same tree verified `6e0cc8d6f8593efc3a4a2457d4dc34b023e79e
 before the site model was reworked. It is recorded here only so that the two
 hashes in this session's history are not mistaken for an unexplained drift:
 the model between them changed, and the second is the one this change ships.
+
+## HK-22: what the ETag says and what the sources may serve are different facts
+
+`entry` carried two questions at once. Is this file large, which decides which
+ETag a Hugging Face client is given, because only an LFS file has a SHA-256
+there. And does the record address this file, which decides whether a source
+nobody vetted may serve it. The two coincided while both came from the LFS
+pointer, so nothing showed. A second witness pulls them apart: it addresses
+files Hugging Face never did, and for `openai-community/gpt2` that is fourteen
+of twenty-six. Those files were addressed and still refused, because
+eligibility read `entry`.
+
+So the resolve request is 105 bytes rather than 104, with `addressed` at byte
+104 - appended, not inserted, so every existing offset is unchanged and only
+the length check and the declared maximum moved. `eligible` reads `addressed`;
+`etagKind` still reads `entry`. The `Addressed` invariant now names the fact
+its own statement always named.
+
+### The safety that nearly went the wrong way
+
+Widening eligibility alone would have broken the property it was meant to
+extend. `runner/local.mjs` verifies a file with no SHA-256 by its git blob
+identity, and the comment above that branch says why it is safe: `HK-19` means
+a source nobody vetted is never chosen for such a file. Let the swarm serve a
+witness-addressed file while the runner still took its address from
+`lfs?.sha256`, and the check would have fallen through to a SHA-1 in front of
+an untrusted source. Quietly turning a SHA-256 guarantee into a SHA-1 one is
+worse than refusing the file.
+
+So `addressed` means a SHA-256 is known, and there is one function that answers
+it: `addressOf` in `edge/edge.mjs`, reading the release's own `files[].sha256`
+and then any witness that named the same revision. The edge fills byte 104 from
+it and the runner takes its expected digest from the same call, so the kernel
+cannot permit a file the runner cannot then verify - by construction, not by two
+pieces of code agreeing. `files[].sha256` is still not filled from a witness,
+because that field decides the ETag.
+
+### The planted defect, and what actually objected
+
+| Planted | Refused by | Diagnostic |
+| --- | --- | --- |
+| `eligible` reads `entry =? 2` again, in the generator and the reference implementation together, so the acceptance vectors agree with the lie | Lean, on `HologramHubKernel.Proofs.Addressed` | `LLV7002: omega could not prove the goal` |
+
+The expectation was that `servableHolds` would break, since `HK-22` is what the
+change adds. `addressedHolds` broke first and the run stopped there. Both would
+have: with eligibility reading `entry`, a source nobody vetted can be chosen
+for a file that is not addressed, which is exactly what `Addressed` forbids.
+That the older invariant objects first is the better outcome - the new claim is
+not carrying the safety property on its own.
+
+Restored, the gate passes and verifies attestation
+`d6976b535fb3c4439bf13342fa7258201abb76dae107bdd729375d5563eea953`. It moved,
+where `HK-20`'s did not, because this claim added a proof module and that one
+added none. Two claims hours apart, opposite results, both correct.
+
+### `LLV7005` a third time
+
+`Servable` declared the axioms the generator assumes and Lean observed
+`Classical.choice`, so the first run was refused. `omega` reaches for it when a
+split leaves an `if` over a disjunction, and `breaksServable` is a four-way
+disjunction over the slots, so it was always going to. This is the third module
+to need it after `Complete` and `Concur`. The generator cannot predict which
+proofs will: the measurement comes from Lean and the declaration has to follow,
+which is the whole reason the check exists.

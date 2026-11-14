@@ -358,10 +358,24 @@ fn kernel_hk_19() {
     pinned(
         "Addressed",
         "breaksAddressed",
-        "((((Kernel::select facts) =? 0) && ((not ((project facts vetted0) =? 1)) && (not ((project facts entry) =? 2)))) || ((((Kernel::select facts) =? 1) && ((not ((project facts vetted1) =? 1)) && (not ((project facts entry) =? 2)))) || ((((Kernel::select facts) =? 2) && ((not ((project facts vetted2) =? 1)) && (not ((project facts entry) =? 2)))) || (((Kernel::select facts) =? 3) && ((not ((project facts vetted3) =? 1)) && (not ((project facts entry) =? 2)))))))",
+        "((((Kernel::select facts) =? 0) && ((not ((project facts vetted0) =? 1)) && (not ((project facts addressed) =? 1)))) || ((((Kernel::select facts) =? 1) && ((not ((project facts vetted1) =? 1)) && (not ((project facts addressed) =? 1)))) || ((((Kernel::select facts) =? 2) && ((not ((project facts vetted2) =? 1)) && (not ((project facts addressed) =? 1)))) || (((Kernel::select facts) =? 3) && ((not ((project facts vetted3) =? 1)) && (not ((project facts addressed) =? 1)))))))",
         "addressedHolds",
         "facts",
         "Quot.sound, propext",
+    );
+    dispatch_decides_by("(select facts)");
+}
+
+/// `HK-21`: A file whose address is known may be served from a source nobody vetted, even where the source dialect published no address of its own, because what the ETag says and what the sources may serve are decided by different facts
+#[test]
+fn kernel_hk_21() {
+    pinned(
+        "Servable",
+        "breaksServable",
+        "((((((project facts runner) =? 1) && ((project facts addressed) =? 1)) && (((project facts holds0) =? 1) && ((project facts failed0) =? 0))) && (not (Kernel::eligible0 facts))) || ((((((project facts runner) =? 1) && ((project facts addressed) =? 1)) && (((project facts holds1) =? 1) && ((project facts failed1) =? 0))) && (not (Kernel::eligible1 facts))) || ((((((project facts runner) =? 1) && ((project facts addressed) =? 1)) && (((project facts holds2) =? 1) && ((project facts failed2) =? 0))) && (not (Kernel::eligible2 facts))) || (((((project facts runner) =? 1) && ((project facts addressed) =? 1)) && (((project facts holds3) =? 1) && ((project facts failed3) =? 0))) && (not (Kernel::eligible3 facts))))))",
+        "servableHolds",
+        "facts",
+        "Classical.choice, Quot.sound, propext",
     );
     dispatch_decides_by("(select facts)");
 }

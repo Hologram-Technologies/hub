@@ -139,6 +139,22 @@ const siblingsOf = (rec) => new Map(rec.files.map((f) => [f.path, {
   rfilename: f.path, size: f.size, blobId: f.gitSha1,
   ...(f.sha256 ? { lfs: { sha256: f.sha256, size: f.size, pointerSize: f.pointerSize ?? 134 } } : {}),
 }]));
+// The SHA-256 a file's bytes can be checked against: the release's own, or a
+// second witness that named the same revision. `files[].sha256` is
+// deliberately not filled from a witness, because the edge reads that field
+// to decide which ETag a Hugging Face client is given and that wire must not
+// move. This is the same fact for a different purpose, so it is a different
+// function rather than a second meaning for one field.
+export function addressOf(record, path) {
+  const own = record?.files?.find((f) => f.path === path)?.sha256;
+  if (own) return own;
+  for (const witness of record?.witnesses ?? []) {
+    const seen = witness.addresses?.find((a) => a.path === path)?.sha256;
+    if (seen) return seen;
+  }
+  return null;
+}
+
 const indexedRevision = (rec, revision) => revision === "main" || revision === rec.revision
   || (/^[0-9a-f]{7,39}$/.test(revision) && rec.revision.startsWith(revision));
 
@@ -194,12 +210,16 @@ export function report(source, ok) {
 }
 
 const enc = new TextEncoder();
-function resolveRequest({ repo, revisionKind, refFound, requested, commit, entry, pin, slots }) {
-  const b = new Uint8Array(104);
+function resolveRequest({ repo, revisionKind, refFound, requested, commit, entry, addressed, pin, slots }) {
+  const b = new Uint8Array(105);
   b.set([1, 0, repo, revisionKind, refFound, revisionKind === 1 ? requested.length : 0, entry, pin]);
   slots.forEach((s, i) => b.set([s.holds, s.healthy, s.vetted, s.failed], 8 + 4 * i));
   if (revisionKind === 1) b.set(enc.encode(requested).subarray(0, 40), 24);
   if (commit) b.set(enc.encode(commit).subarray(0, 40), 64);
+  // Whether the record addresses this file, which decides which sources may
+  // serve it. `entry` at byte 6 decides the ETag instead; the two coincided
+  // only while both came from the LFS pointer.
+  b[104] = addressed;
   return b;
 }
 
@@ -243,6 +263,7 @@ async function resolve(method, via, repo, revision, path) {
     requested: revision,
     commit: info.sha ?? "",
     entry: info.state === 0 && info.revision ? (sibling ? (lfs ? 2 : 1) : 0) : 0,
+    addressed: addressOf(info.record, path) ? 1 : 0,
     pin,
     slots,
   }));

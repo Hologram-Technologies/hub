@@ -27,11 +27,15 @@ ok(`the holo replayed all ${replay.total} of its examples`);
 const COMMIT = "607a30d783dfa663caf39e06633721c8d4cfcd7e";
 const enc = new TextEncoder();
 
-// runner 0 edge, 1 local. entry 0 missing, 1 small, 2 large (addressed).
+// runner 0 edge, 1 local. entry 0 missing, 1 small, 2 large - which decides the
+// ETag, not eligibility. `addressed` is the separate fact that decides whether a
+// source nobody vetted may serve the file; it defaults to what `entry` used to
+// imply, so a case that does not mention it means what it always meant.
 // Each source is [holds, healthy, vetted, failed].
-function resolve({ runner = 1, repo = 0, refFound = 1, entry = 2, pin = 0, sources = [] }) {
-  const b = new Uint8Array(104);
+function resolve({ runner = 1, repo = 0, refFound = 1, entry = 2, pin = 0, sources = [], addressed = null }) {
+  const b = new Uint8Array(105);
   b.set([1, runner, repo, 0, refFound, 0, entry, pin]);
+  b[104] = addressed === null ? (entry === 2 ? 1 : 0) : addressed;
   sources.forEach((s, i) => b.set(s, 8 + 4 * i));
   b.set(enc.encode(COMMIT), 64);
   return b;
