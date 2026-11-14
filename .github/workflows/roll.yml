@@ -1,0 +1,39 @@
+name: roll
+
+# The roll is only worth keeping if it remembers what Hugging Face forgets and
+# if a reader can tell whether a row of it is the hub's answer. So this runs
+# the two rules that make it worth keeping: a model the listing no longer names
+# is marked gone rather than dropped, and a shard the signed root does not name
+# is refused rather than read.
+#
+# It walks one hour of the Hub, which is one call, and then a second time with
+# a model that never existed planted inside that hour. If the tombstone rule
+# were removed the planted model would simply vanish from the second build, and
+# the test would say so.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tombstone:
+    name: the roll remembers what the listing forgets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the exact event revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: A gone model keeps its line, and an unnamed shard is refused
+        shell: bash
+        run: node tests/roll/tombstone.mjs

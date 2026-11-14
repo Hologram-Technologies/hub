@@ -1530,3 +1530,54 @@ anchored on `record = {` followed by a newline, which the one-line upgrade
 cannot match. The planted defect was re-run after the anchor moved -
 `the origin's resolve base must be built from HF, not written out` - because an
 anchor change is exactly what can make a gate vacuous while leaving it green.
+
+## The roll, and the two rules that make it worth keeping
+
+`tools/roll.mjs` writes one line for every model Hugging Face has ever listed
+and for every model it has stopped listing. It is worth keeping only if it
+remembers what Hugging Face forgets, and only if a reader can tell whether a row
+of it is this hub's answer. `tests/roll/tombstone.mjs` runs exactly those two
+rules, and `.github/workflows/roll.yml` runs it on every push.
+
+Measured 2026-11-14. One hour of the Hub is one call. The test builds that hour,
+plants a model that never existed inside it, rebuilds the same hour, and checks
+that the planted model is still there and marked gone, that no model the listing
+still names was marked gone, and that a shard changed without its root is
+refused. Eleven checks, all passing.
+
+**The planted defect.** The tombstone loop skips a row it saw this run
+(`if (row[4] === now) continue;`). Replacing that guard with an unconditional
+`continue` means nothing is ever tombstoned - a plausible mistake, and one that
+leaves every other behaviour intact.
+
+Failing command: `node tests/roll/tombstone.mjs`. Diagnostic:
+
+    FAIL and it is marked gone: state 0
+    FAIL the root counts the gone one: {"listed":157,"gone":0,"withheld":1}
+
+Exit 1 with the defect, exit 0 with it restored, and nine of the eleven checks
+passed either way - including "the planted model is still there", because the
+row survives whether or not it is judged. A gate that only checked survival
+would have stayed green.
+
+## A measurement taken from the wrong sample
+
+Worth recording because the error was invisible and the correction changed a
+decision.
+
+`docs/model-roll.md` first sized a roll line at 60 B raw and 17 B gzipped,
+giving 185 MB for three million models. The real figures, measured by running
+`tools/roll.mjs` over a day - 3,970 models from four calls - are 119.1 B raw and
+42.9 B gzipped, or 367 MB and 132 MB.
+
+The estimate came from a sample of listing rows fetched without `full=true`.
+That flag is what carries `sha`, so every row in the sample serialised its
+revision as `null`: four characters where a real row carries forty. On a
+sixty-byte record that is a thirty-six byte error, and nothing about the sample
+looked wrong.
+
+The correction moved the roll from 18 to 36 per cent of what GitHub Pages
+allows, which still fits, and moved the cheapest shard count from 1,024 to
+2,048. The lesson is narrower than "measure rather than estimate": the sample
+has to be the shape the thing will really have, and a flag that changes whether
+a field is present changes its size.
