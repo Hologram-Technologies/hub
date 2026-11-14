@@ -24,6 +24,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { swarmKeyOf } from "../web/swarmkey.mjs";
 import { bucket, family, modality, rulesVersion } from "./facets.mjs";
 
 const args = process.argv.slice(2);
@@ -39,11 +40,6 @@ if (!out) {
 const PF = "https://pirateface.co";
 const RANK_ROWS = 500;
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
-const shardOf = (id) => {
-  const name = (id.split("/")[1] ?? id).toLowerCase();
-  const two = `${name[0] ?? "_"}${name[1] ?? "_"}`;
-  return /^[a-z0-9_.-]{2}$/.test(two) ? two.replace(/[^a-z0-9]/g, "_") : "__";
-};
 
 async function* catalog() {
   let cursor = null;
@@ -58,32 +54,56 @@ async function* catalog() {
   }
 }
 
-// The page's row, with only the fields Pirate Face can fill. `state` says what
-// this row is: listed by the swarm, not witnessed here. `sources` is what the
-// kernel would be offered, which is the swarm and nothing else until the
+// A browse row in the same shape `tools/facets.mjs` writes for an indexed
+// model, because the page draws both with the same card and opens both with
+// the same model page. A field Pirate Face cannot fill is null, which is the
+// absence the page already knows how to draw; what it must never be is a
+// guess, so nothing here is filled from anywhere but this listing.
+//
+// `state` is what tells the two apart, and it is the row's own word for
+// itself: `listed` by the swarm, not addressed by this hub. `sources` is what
+// the kernel would be offered, which is the swarm and nothing else until the
 // address snapshot says otherwise.
 function row(m, rank) {
   const id = m.id;
-  const params = m.params ?? m.activeParams ?? null;
+  // Pirate Face sends 0 for a model whose size it does not know. Kept as 0 it
+  // would read as a model with no parameters, so it becomes the absence it
+  // is; everything downstream already treats null as "not known".
+  const params = m.params || m.activeParams || null;
+  const org = m.author ?? id.split("/")[0];
   return {
     id,
-    org: m.author ?? id.split("/")[0],
+    org,
+    author: org,
     name: m.name ?? id.split("/")[1] ?? id,
     rank,
+    created: (m.createdAt ?? "").slice(0, 10) || null,
+    modified: (m.lastModified ?? m.updatedAt ?? "").slice(0, 10) || null,
     task: m.task ?? null,
     modality: modality(m.task ?? ""),
     params,
     bucket: bucket(params),
+    // Pirate Face sends no tags, and these three are read off tags. A guess
+    // would filter models into the wrong facet, which is worse than a row
+    // that simply does not answer that filter.
+    arch: null,
+    languages: [],
+    library: null,
     family: family(id),
     format: m.format ? m.format.toUpperCase() : "Other",
     license: m.license ?? null,
     revision: m.revision ?? null,
+    // A file list is what this hub builds from a release it has read. Nothing
+    // here has been read, so there is no count to give.
+    files: null,
     weightBytes: m.sizeBytes ?? null,
+    gated: false,
     state: "listed",
     sources: m.seeded ? ["pirateface"] : [],
     seeders: m.seed ?? 0,
     // Another host's traffic, named as such, the way the hub's own rows do it.
     observed: { source: PF, date: new Date().toISOString().slice(0, 10), downloads: m.downloads ?? 0, likes: m.likes ?? 0 },
+    avatar: null,
   };
 }
 
@@ -97,7 +117,7 @@ for await (const m of catalog()) {
   if (!all && !m.seeded) continue;
   const r = row(m, kept + 1);
   kept += 1;
-  const name = shardOf(m.id);
+  const name = swarmKeyOf(m.id);
   if (!byShard.has(name)) byShard.set(name, []);
   byShard.get(name).push(r);
   ranked.push(r);

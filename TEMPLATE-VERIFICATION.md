@@ -1463,3 +1463,69 @@ anchored on `record = {` followed by a newline, which the one-line upgrade
 cannot match. The planted defect was re-run after the anchor moved -
 `the origin's resolve base must be built from HF, not written out` - because an
 anchor change is exactly what can make a gate vacuous while leaving it green.
+
+### One rule in two files is a shard nobody can find
+
+The swarm catalog is about 300 MB of rows, so the page reads one shard for a
+search and no other. Which shard is decided twice: `tools/swarm-catalog.mjs`
+chose where to write a row, and `web/hub.mjs` chose where to look for one.
+They did not agree. The builder keyed on the model's name, so
+`DavidAU/Llama-3.2-8X3B-MOE-Dark-Champion-Instruct-uncensored-abliterated-18.4B-GGUF`
+went to `ll`; the page keyed on the first two characters of whatever was
+typed, so a reader searching `llama` asked for `ll` and found it, while one
+pasting the id asked for `me`, `da` or `qw` and was told the swarm holds
+nothing. The builder also guarded its key with `[a-z0-9_.-]` and the page with
+nothing, so the two disagreed again on any name starting outside that set.
+
+Neither was wrong on its own. Both were the same claim written twice, which
+`R1` forbids for exactly this reason: nothing fails, rows simply stop being
+findable, and no amount of checking either file catches it. The rule now lives
+in `web/swarmkey.mjs` and both import it. `web/` is published whole by
+`pages.yml`, so one file serves a build-time tool and a browser.
+
+`HK-21` is the claim, `index_hk_21` reads both files and fails if either grows
+its own copy, and `tests/index/swarm-catalog.mjs` holds the built shards to it
+by recomputing every row's key from the artifact.
+
+### The gate that proves the other gates were not enough
+
+`tests/index/swarm-catalog.mjs` was written against a catalog built with the
+shard key replaced by the model's *organisation* - a single-token change in
+the builder. Every other check still passed: the shards matched their hashes,
+the root's counts matched the shards, every row carried its fields, the rank
+pages were in order. Only `every row is in the shard the page will look in`
+failed, naming the row, the shard it was in and the shard it belonged in:
+
+    FAIL every row is in the shard the page will look in:
+      adventists-ai/Sophon-Realtime-v1 is filed under ad,
+      but its name belongs in so
+
+That is the shape of the defect this gate exists for. A catalog can be
+internally consistent, correctly signed, and completely unsearchable, and the
+hash checks cannot tell the difference. The builder was restored and the
+checks pass again.
+
+Two smaller things the same run found. Pirate Face sends `params: 0` for a
+model whose size it does not know, and `??` let the zero through, so a row
+claimed a model with no parameters rather than a model whose size is unknown;
+it is `||` now. And `tests/runner/kernel.mjs` shipped with the runner in `#8`
+and was in no workflow, so it had never run in CI - it is in `runner.yml` now,
+and passes against the published kernel.
+
+### What this change was proved at
+
+The model moved: `HK-21` is a new claim, and the site model gained the words
+the page draws a listed row with. So the attestation moved with it, which is
+the signal the ledger above says to expect from a real model change.
+
+`just vv` in the image `prismpm.lock` selects, 25 modules canonical,
+`lexlean.lock` current, `cargo deny` clean, every conformance test passing
+including `index_hk_21`:
+
+    verified attestation: 7f11795bab18886e7321642c825d68347edcf4f92956a51d3cf6dab09ae5a354
+    vv: the acceptance gate passed
+
+An earlier run of the same tree verified `6e0cc8d6f8593efc3a4a2457d4dc34b023e79eb0315ac965a4c4b3245a373251`
+before the site model was reworked. It is recorded here only so that the two
+hashes in this session's history are not mistaken for an unexplained drift:
+the model between them changed, and the second is the one this change ships.

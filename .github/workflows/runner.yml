@@ -40,6 +40,12 @@ jobs:
       - name: A tensor address follows its bytes
         shell: bash
         run: node tests/runner/uor.mjs
+      - name: The kernel still answers the way the runner is built around
+        # Lean proves these for every input; this pins the answers for the
+        # handful the runner depends on, against the kernel the hub is
+        # serving. It shipped with the runner and was never run.
+        shell: bash
+        run: node tests/runner/kernel.mjs https://hologram-technologies.github.io/hub/app/app.holo
       - name: Every address a record carries is checked, and none is invented
         shell: bash
         run: node tests/runner/check.mjs https://hologram-technologies.github.io/hub/app/app.holo

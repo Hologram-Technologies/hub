@@ -80,6 +80,13 @@ jobs:
       - name: Every shard is the bytes the root names
         shell: bash
         run: node tests/index/swarm-shards.mjs "$RUNNER_TEMP/swarm"
+      - name: A row is in the shard the page will look in, and claims no more than a listing
+        # The page reads one shard for a search and no other, so a row filed
+        # by a different rule than the one the page resolves with is a row
+        # nobody can find. Both sides import `web/swarmkey.mjs`; this holds
+        # the built shards to it.
+        shell: bash
+        run: node tests/index/swarm-catalog.mjs "$RUNNER_TEMP/swarm/catalog"
       - name: Keep it where anyone can see what was written
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

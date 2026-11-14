@@ -141,3 +141,9 @@ id = "HK-20"
 level = "build"
 suite = "index"
 statement = "A release record names where its own bytes come from, and the edge sends a client to that same place, so a reader who is not the edge can fetch and check a file without knowing which hub built the record"
+
+[[id]]
+id = "HK-21"
+level = "build"
+suite = "index"
+statement = "A swarm catalog row is filed under the shard key the page resolves a query with, and says it is a listing rather than a checked record, so a search reads one shard and what it draws is not mistaken for proof"

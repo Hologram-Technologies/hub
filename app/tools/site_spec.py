@@ -212,6 +212,41 @@ SCREENS = {
             "unsigned": "Unsigned listing",
             "detail": "{n} models, {shards} shards, {rules}",
         },
+        # Models the swarm lists that this hub does not index. They are read
+        # a slice at a time - the whole catalog is about 300 MB and the page
+        # loads shards it names and hashes them, so it reads only the one
+        # whose prefix a search matches. Nothing here is checked by this hub,
+        # and the words say so rather than leaving a reader to assume the row
+        # carries the same weight as a signed one.
+        # Models Pirate Face lists. They are rows in the same grid as every
+        # other model, with the same card and the same model page, and they
+        # are told apart by what each row says of itself - its status is
+        # `listed`, its source is Pirate Face - rather than by being put
+        # somewhere else on the page. A reader filters by source like any
+        # other facet.
+        #
+        # The catalog is far larger than this hub's index and is never loaded
+        # whole: the most seeded page is read at first paint and a search
+        # reads the one shard its query begins with. `partial` is how the page
+        # says so instead of letting a count imply the whole catalog.
+        "swarm": {
+            # What a reader calls it. The wire name stays `pirateface`: it is a path
+            # in `/via/<source>` and the name of a source slot, and a space in
+            # either would be a different change.
+            "source": "Pirate Face",
+            "seeders": "{n} seeding",
+            "partial": "Showing {n} of the {total} models {source} lists. Search by name to reach the rest.",
+            "get": "This hub has not checked these bytes. A local runner fetches them from the swarm and checks each file against an address of its own:",
+            # The address row and the command name the same endpoint, because
+            # they are the same claim about where this model can be got.
+            "host": "127.0.0.1:8788",
+            "command": "HF_ENDPOINT=http://{host} hf download {id}",
+        },
+        # What a reader calls each source. The kinds themselves stay as they
+        # are: they are paths in `/via/<source>` and the names of source
+        # slots, and a space in one would be a different change.
+        "sourceNames": [["huggingface.co", "Hugging Face"], ["modelscope.cn", "ModelScope"],
+                        ["ipfs", "IPFS"], ["pirateface", "Pirate Face"]],
         "searchParam": "search",
         "pageParam": "p",
         "tabs": [["main", "Main", "sliders"], ["libraries", "Libraries", "box"], ["languages", "Languages", "globe"],
@@ -244,7 +279,7 @@ SCREENS = {
         # labels, `num_parameters=6B,32B`, and reads the same.
         "stops": [[0, "< 1B"], [6, "6B"], [12, "12B"], [32, "32B"], [128, "128B"], [500, "> 500B"]],
         "parameterRange": "Parameters, {low} to {high}",
-        "statuses": [["addressed", "Verified"], ["pending", "Queued"], ["skipped", "Unverified"]],
+        "statuses": [["addressed", "Verified"], ["pending", "Queued"], ["skipped", "Unverified"], ["listed", "Listed only"]],
         "recency": [["Last 30 days", 30], ["90 days", 90], ["6 months", 183], ["1 year", 365]],
         "newDays": 14,
         "new": "New",
