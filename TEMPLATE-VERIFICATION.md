@@ -956,6 +956,24 @@ field ignored entirely. The test therefore moves one record's origin to
 that is the check that can actually fail. A gate that cannot distinguish the
 implementation from its absence is not evidence, however green it reads.
 
+### A claim can need no new proof, and the attestation is how you know
+
+`HK-20` registered an id, a scenario and two tests, and moved a record format,
+an edge code path and a CI step. It added no theorem. So `app/src/`,
+`app/tools/vectors.json` and `app/lexlean.lock` came out byte for byte the
+same, and `just vv` verified the same attestation as the run before it,
+`8678abcd344fc1ee1eb6c35e6475ba696c620e3abf8a0285aab5a22d6ffacd48`.
+
+That is worth recording because the natural assumption is the opposite: that a
+new claim means a new proof, and that an unchanged attestation after a day's
+work means something was not rebuilt. Here it is the confirmation. An id lives
+in `model/ids.toml` and in the `CASES` table in `app/tools/write_tests.py`, and
+`gen_kernel.py` names invariants by module rather than by id, so nothing about
+registering `HK-20` could reach the Lean. The gate agreeing by not moving is
+the cheapest available check that the change was the kind of change it was
+believed to be - and an attestation that *had* moved would have been the signal
+to stop and find out why.
+
 ### A cached target directory can make a test read a different repository
 
 `crates/model`'s `repo_root()` is `env!("CARGO_MANIFEST_DIR")`, resolved when
