@@ -273,22 +273,35 @@ settled below.
 
 ## How much of it the site can publish
 
-All of it, without the file names, in 1,024 shards. That is 185 MB, eighteen
+All of it, without the file names, in 2,048 shards. That is 367 MB, thirty-six
 per cent of what GitHub Pages allows, and it answers any lookup in one fetch of
-51 kB.
+65 kB. `tools/roll.mjs` builds it; measured 2026-11-14, a day of the Hub is
+3,969 models from four calls in a few seconds.
 
 ### What a record costs
 
-Measured on 1,000 real rows, written as one JSON array per line:
+These figures replace an earlier estimate in this document that was wrong by
+about a factor of two, and the reason is worth keeping. The estimate was taken
+from a sample of listing rows fetched *without* `full=true`, so every row's
+`sha` was absent and serialised as `null` - four characters where a real row
+carries a forty-character hash. On a sixty-byte record that is a thirty-six
+byte error. The numbers below come from running `tools/roll.mjs` over a real
+day, 3,969 models, rather than from projecting a sample.
 
-| Record | Raw | Gzipped | 3.08 million, raw | Gzipped |
+| | Raw | Gzipped | 3.08 million, raw | Gzipped |
 | --- | --- | --- | --- | --- |
-| `[id, sha, created]` | 58 B | 17 B | 178 MB | 51 MB |
-| plus state and last seen | 60 B | 17 B | 185 MB | 52 MB |
-| plus the file names | 2,683 B | 476 B | 8.3 GB | 1.5 GB |
+| a roll line, measured | 119.1 B | 42.9 B | 367 MB | 132 MB |
+| the earlier estimate | 60 B | 17 B | 185 MB | 52 MB |
+| with the file names | 2,683 B | 476 B | 8.3 GB | 1.5 GB |
+
+A line is `[id, revision, created, first seen, last seen, state]`; measured mean
+id length in that day was 36.9 characters, and the forty-character revision is
+the single largest field.
 
 Sorting by id rather than creation order changes the compressed size by less
-than one per cent, so sorting is free and worth doing for the lookup.
+than one per cent, so sorting is free and worth doing for the lookup. It also
+makes a build deterministic: the shard's bytes are a function of its rows and
+not of the order they were met in.
 
 The file names are the whole difference, and they settle their own question:
 8.3 GB is eight times the published-site limit. They belong in the index, where
@@ -306,35 +319,44 @@ there is a soft bandwidth limit of 100 GB a month; and the soft limit of ten
 builds an hour "does not apply if you build and publish your site with a custom
 GitHub Actions workflow", which `pages.yml` is.
 
-So 185 MB is 18.1 per cent of the hard limit, next to the 2.4 MB the index
-publishes today. The bandwidth limit is the one that binds in practice: 100 GB
-a month is about 1,910 downloads of the whole roll, or about 1.96 million
+So 367 MB is 35.8 per cent of the hard limit, next to the 2.4 MB the index
+publishes today. It fits, with room, but not with the margin the first estimate
+suggested. The bandwidth limit is the one that binds in practice: 100 GB a
+month is about 760 downloads of the whole roll, or about 1.5 million
 single-model lookups if the roll is sharded. That is the argument for sharding,
 rather than cache-friendliness.
 
 ### How many shards
 
-Measured arithmetic, not a measurement: a shard holds 3.08 million over the
-shard count at 17 B compressed a row, and the root names each shard by path and
-SHA-256, which is about 78 B an entry and compresses to roughly a third.
+Arithmetic over the measured row size: a shard holds 3.08 million over the
+shard count at 42.9 B compressed a row, and the root names each shard by path
+and SHA-256, measured at 115 B an entry, compressing to roughly a third.
 
 | Shards | Shard, gzipped | Root, gzipped | Cold lookup | Warm lookup |
 | --- | --- | --- | --- | --- |
-| 256 | 205 kB | 7 kB | 212 kB | 205 kB |
-| 512 | 102 kB | 14 kB | 116 kB | 102 kB |
-| **1,024** | **51 kB** | **28 kB** | **79 kB** | **51 kB** |
-| 2,048 | 26 kB | 56 kB | 81 kB | 26 kB |
-| 4,096 | 13 kB | 112 kB | 125 kB | 13 kB |
+| 256 | 517 kB | 10 kB | 527 kB | 517 kB |
+| 512 | 258 kB | 21 kB | 279 kB | 258 kB |
+| 1,024 | 129 kB | 41 kB | 170 kB | 129 kB |
+| **2,048** | **65 kB** | **82 kB** | **147 kB** | **65 kB** |
+| 4,096 | 32 kB | 165 kB | 197 kB | 32 kB |
 
-1,024 is the minimum for a cold lookup, and the curve is flat between 1,024 and
-2,048, so the choice is not delicate. Fewer shards and the shard dominates; more
-and the root does, because every reader fetches the root first.
+2,048 is the minimum for a cold lookup, and the curve is flat between 1,024 and
+4,096, so the choice is not delicate. Fewer shards and the shard dominates; more
+and the root does, because every reader fetches the root first. The correction
+to the row size moved this optimum from 1,024 to 2,048, which is the one place
+the earlier error changed a decision rather than only a number.
 
-Key by the first ten bits of the SHA-256 of the model id, which gives 1,024
-buckets of about 3,008 rows each, evenly filled whatever the distribution of
+Key by the first eleven bits of the SHA-256 of the model id, which gives 2,048
+buckets of about 1,504 rows each, evenly filled whatever the distribution of
 owner names. Each shard is named in the signed root by the hash of its bytes, so
 a reader checks a shard before believing a row of it - the same rule the browse
 shards already follow, and the same kernel accept rule (`HK-10`) judges it.
+
+Measured caution for anyone reproducing this: a shard's compression ratio
+depends on how full it is. In a day-sized build each shard holds about two rows
+and compresses to 76 B a row; at three million the shards hold 1,504 rows each
+and compress like the whole roll, at 42.9 B. The table uses the latter, which
+is the figure that applies when the roll is complete.
 
 ### The alternative, which also works
 
