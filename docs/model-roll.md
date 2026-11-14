@@ -377,6 +377,34 @@ exists here, with a signed root and a kernel rule that judges it.
 Worth keeping in mind for the edge rather than the browser: a runner that has
 already verified a shard can serve ranges out of it.
 
+## What runs on its own, and what does not yet
+
+The hub is meant to track Hugging Face. Until 2026-11-14 nothing here did:
+`pages.yml` ran on a push to main and on a manual dispatch, so the published
+catalogue moved when somebody committed and not when Hugging Face published.
+That is now a `schedule:` of `17 */6 * * *` - four runs a day, at seventeen
+minutes past, offset from the hour because GitHub's scheduler is busiest there.
+
+Six hours rather than something shorter, for a measured reason: a run of that
+workflow took 19 to 33 minutes over the five runs before that date, and
+`concurrency: pages` does not cancel a run in progress, so a shorter period
+would queue runs behind one another rather than refresh anything sooner.
+
+Staleness in the published index is therefore a floor of about six hours, plus
+whatever GitHub's scheduler adds, which under load can be considerable. It does
+not need to be better than that, and this is the part worth understanding: the
+published index is a cache, not the only path. A model it does not hold is
+still answered, because `edge/edge.mjs` asks Hugging Face for anything it
+cannot answer from the index. The cadence decides how often an answer is cheap,
+not whether it is right.
+
+What does not run on its own yet is the roll. `tools/roll.mjs` exists and is
+gated, but nothing publishes its output, because 367 MB would ride in every
+deploy of the site whether or not a shard changed, and the Pages action uploads
+the whole artifact each time. The open decision is where the roll lives: in
+this site, accepting slower deploys; or on a site of its own with its own
+schedule, which the edge would read by URL the way it already reads the index.
+
 ## Sources
 
 Everything above marked measured was obtained with `curl` and `node` against
