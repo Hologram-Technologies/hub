@@ -44,7 +44,7 @@ const LISTED = 0, GONE = 1, WITHHELD = 2;
 const args = process.argv.slice(2);
 const out = args[0];
 if (!out || out.startsWith("--")) {
-  console.error("usage: node tools/roll.mjs <out dir> [--from <ISO>] [--to <ISO>] [--sweep]");
+  console.error("usage: node tools/roll.mjs <out dir> [--from <ISO>] [--to <ISO>] [--sweep | --tail]");
   process.exit(64);
 }
 const flag = (name) => {
@@ -164,6 +164,15 @@ const before = rows.size;
 const to = flag("to") ?? new Date(Date.now() + 60_000).toISOString();
 let from = flag("from");
 if (!from) {
+  // `--tail` refuses to sweep rather than quietly doing one. A sweep is about
+  // an hour of listing, and the job that asks for a tail is one whose timeout
+  // assumes minutes. A cold cache should stop that job loudly, not run it for
+  // an hour and then be killed with nothing published.
+  if (args.includes("--tail") && !root) {
+    console.error("roll: --tail was asked for and there is no roll in the output directory to continue from."
+      + " Run a sweep first; this would have walked the whole history.");
+    process.exit(69);
+  }
   if (args.includes("--sweep") || !root) from = ORIGIN;
   // A tail run starts a little before the newest row the roll already holds,
   // because a page boundary is not a moment: two models can share a second.

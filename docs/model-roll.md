@@ -389,7 +389,7 @@ exists here, with a signed root and a kernel rule that judges it.
 Worth keeping in mind for the edge rather than the browser: a runner that has
 already verified a shard can serve ranges out of it.
 
-## What runs on its own, and what does not yet
+## What runs on its own
 
 The hub is meant to track Hugging Face. Until 2026-11-14 nothing here did:
 `pages.yml` ran on a push to main and on a manual dispatch, so the published
@@ -410,12 +410,39 @@ still answered, because `edge/edge.mjs` asks Hugging Face for anything it
 cannot answer from the index. The cadence decides how often an answer is cheap,
 not whether it is right.
 
-What does not run on its own yet is the roll. `tools/roll.mjs` exists and is
-gated, but nothing publishes its output, because 367 MB would ride in every
-deploy of the site whether or not a shard changed, and the Pages action uploads
-the whole artifact each time. The open decision is where the roll lives: in
-this site, accepting slower deploys; or on a site of its own with its own
-schedule, which the edge would read by URL the way it already reads the index.
+The roll runs on the same schedule, by the same workflow. A deploy restores
+the cached roll and walks only what is new, which is two calls; the sweep that
+fills it the first time is a separate workflow, because an hour of listing
+cannot sit inside a job with a 60-minute timeout. The next section says how.
+## How it is published
+
+On this repository's own Pages site, under `data/roll/`, beside the index at
+`data/index/`. Considered and rejected: a repository of its own. It would keep
+the roll's 367 MB out of every deploy of the interface, but it costs a second
+repository, a second Pages site, a second schedule and a URL that has to be
+carried in the edge's defaults and in signed roots. One site is simpler, and
+the measured cost of carrying the roll is an upload, not a rebuild.
+
+The sweep and the catch-up are separated by the clock, not by taste. A sweep is
+about 3,076 listing calls paced at one a second, so a little over an hour, and
+the deploy's build job has a 60-minute timeout it should keep. So:
+
+- `.github/workflows/roll-sweep.yml` walks the whole history and leaves the
+  result in the Actions cache. Run by hand, and in practice once.
+- `pages.yml` restores that cache and runs `tools/roll.mjs --tail`, which walks
+  only what is new. Measured 2026-11-14: two calls and a few seconds to pick up
+  a day's 1,007 models.
+
+`--tail` exits 69 rather than sweeping when there is nothing to continue from.
+Without that a cold cache would quietly start an hour's walk inside a job with
+a 60-minute timeout, and be killed with nothing published. The deploy treats a
+missing roll as a notice and publishes the site without one, so losing the
+cache costs the roll until the next sweep and costs the interface nothing.
+
+`tests/roll/published.mjs` runs before the bytes leave the runner: every shard
+hashes to what the root names, every shard on disk is named by the root, and
+the root's counts equal the rows. Nothing is published that a reader could not
+check, and nothing is published that the root does not account for.
 
 ## Sources
 
