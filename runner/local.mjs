@@ -418,7 +418,7 @@ async function serveFile(request, via, repo, revision, path, onNote) {
 //
 // A file with neither is refused. Nothing passes for want of something to
 // check it against.
-async function check(kernel, file, { address, size, blobId, entry }) {
+export async function check(kernel, file, { address, size, blobId, entry }) {
   const info = await stat(file);
   if (!address && !blobId) return { ok: false, why: "the record names no address for this file at all" };
   if (entry === 2 && !address) return { ok: false, why: "the record names no digest for a file it calls large" };
@@ -426,8 +426,15 @@ async function check(kernel, file, { address, size, blobId, entry }) {
   // One pass over the bytes for both digests. The git blob prefix carries the
   // length actually read, so a file of the wrong size fails it without a
   // separate comparison.
+  // `gitSha1` is the git blob of whatever git holds for the file, and for an
+  // LFS entry git holds a 134-byte pointer rather than the bytes. Measured on
+  // `openai-community/gpt2`: `64-8bits.tflite` is 125,162,496 bytes and its
+  // `gitSha1` hashes the pointer. So it checks the content only where the file
+  // is not LFS - which is exactly where Hugging Face publishes no SHA-256 and
+  // the git blob is the only address there is.
+  const whole = entry !== 2 && Boolean(blobId);
   const sha = createHash("sha256");
-  const blob = blobId ? createHash("sha1").update(`blob ${info.size}\0`) : null;
+  const blob = whole ? createHash("sha1").update(`blob ${info.size}\0`) : null;
   for await (const chunk of createReadStream(file)) {
     sha.update(chunk);
     blob?.update(chunk);

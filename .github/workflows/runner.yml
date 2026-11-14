@@ -40,6 +40,9 @@ jobs:
       - name: A tensor address follows its bytes
         shell: bash
         run: node tests/runner/uor.mjs
+      - name: Every address a record carries is checked, and none is invented
+        shell: bash
+        run: node tests/runner/check.mjs https://hologram-technologies.github.io/hub/app/app.holo
       - name: Finding a model and being able to check it are different questions
         shell: bash
         run: node tests/runner/discover.mjs

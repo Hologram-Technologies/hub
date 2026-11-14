@@ -1203,6 +1203,52 @@ keeps the bytes and loses the models. Reading one gives a file with a SHA-256
 an LFS entry and a file with only a git blob identity a small entry, so
 `HK-08` hands back the ETag it would have.
 
+## A fixture that agreed with the mistake
+
+Checking every address a record carries shipped with a defect that refused
+every weight file, and it reached main because the test that should have
+caught it was written from the same misunderstanding as the code.
+
+`gitSha1` is the git blob of whatever git holds for a file. For a file git
+holds whole that is the content. For an LFS file git holds a 134-byte pointer,
+so `gitSha1` hashes the pointer and says nothing about the bytes. Measured on
+`openai-community/gpt2`: `64-8bits.tflite` is 125,162,496 bytes, its record
+entry carries `gitSha1 90e59f00f62c654b1a88a5f127dff14df4611cdc` and
+`pointerSize 134`, and fetching `/raw/<revision>/64-8bits.tflite` returns 134
+bytes whose git blob is exactly that `gitSha1`. The pointer, not the content.
+
+The new `check` compared the git blob whenever the record carried one, so for
+every LFS file it hashed 125 MB of content and compared it to the hash of a
+134-byte pointer. Every weight file would have been refused - the whole
+capability, on main, for about twenty minutes.
+
+`tests/runner/serve.mjs` passed throughout, because its LFS fixture set
+`gitSha1` to the git blob of the content. The fixture was not wrong about the
+code; it was wrong about Hugging Face, in the same way the code was, so the
+two agreed. Rewriting the fixture to carry the pointer's hash reproduced the
+failure immediately: the first case went from 200 to 503.
+
+`check` now compares the git blob only where `entry` is not 2, which is
+exactly where Hugging Face publishes no SHA-256 and the git blob is the only
+address there is. Restored, a real LFS file and a real small file both serve:
+125,162,496 bytes of `64-8bits.tflite` hashing to
+`c966da3b74697803352ca7c6f2f220e7090a557b619de9da0c6b34d89f7825c1`, and
+`config.json` at 665 bytes, with nothing refused.
+
+The dual-address property moved to `tests/runner/check.mjs`, which exercises
+`check` directly, because it cannot be reached through a record: a witness
+address never lands in `files[].sha256`, so a small file with a SHA-256 beside
+its git blob identity has no serve-path representation. Seven checks, covering
+both addresses agreeing, each one disagreeing while the other agrees, the LFS
+pointer case, a file with no address, a large file with no digest, and a file
+of the right length holding other bytes.
+
+The lesson is narrower than "test against reality". A fixture written by
+whoever wrote the code tests that the code does what its author meant, and
+that is worth something, but it cannot test whether the author understood the
+format. The only thing that caught this was reading a real record and then
+fetching the pointer to see what the field actually hashed.
+
 ## Prism accounts: the remembered passkey
 
 The sign-in page (`identity/id.mjs`) remembers which passkey this device last
