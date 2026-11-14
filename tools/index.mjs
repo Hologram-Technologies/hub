@@ -12,12 +12,17 @@
 // downloads and likes - nobody can, so they are kept under `observed`, with
 // the host that measured them and the day they were read.
 //
-// Three lists name what is indexed: the hub's own catalog of trending models,
-// the witnessed models in `manifests/models.txt`, and the owners in
+// Three lists name what is indexed: the catalog of trending models, the
+// witnessed models in `manifests/models.txt`, and the owners in
 // `manifests/owners.txt`, each of which is indexed whole - every public model
 // Hugging Face lists under that name. The build line says how many records
 // each list contributed. `[limit]` caps the catalog only; the other two lists
 // are indexed entire, because a list a person wrote is not a ranking to cut.
+//
+// All three lists, and every fact in a record, come from Hugging Face. The one
+// thing still asked of gethologram.ai is which other sources hold a release's
+// bytes, because nobody else has hashed them; a release it does not answer for
+// is indexed with no second source.
 //
 //   node tools/index.mjs <out dir> [limit]
 //
@@ -35,7 +40,6 @@ if (!out) {
   console.error("usage: node tools/index.mjs <out dir> [limit]");
   process.exit(64);
 }
-const CATALOG = "https://gethologram.ai/api/models?limit=500";
 // A second witness: Pirate Face publishes a SHA-256 per weight file for the
 // models it indexes. Hugging Face publishes one only for LFS files, so this
 // fills the gaps for small files and gives a second opinion on the rest.
@@ -43,9 +47,35 @@ const CATALOG = "https://gethologram.ai/api/models?limit=500";
 // the witness that gave it and the day it was read, and only when the witness
 // names the same revision the release does.
 const WITNESS = "https://pirateface.co/api/torrents";
-const SOURCES = "https://gethologram.ai/data/files";
 const HF = "https://huggingface.co";
 const limit = Number(limitArg ?? 500);
+if (!Number.isInteger(limit) || limit < 1 || limit > 1000) {
+  console.error(`index: the limit is a whole number from 1 to 1000, not ${JSON.stringify(limitArg)}`);
+  process.exit(64);
+}
+// The models to index: Hugging Face's own trending list, asked of Hugging
+// Face. It used to be asked of gethologram.ai, which reports the same list,
+// and that made this hub's index a copy of the hub it means to replace.
+// Measured 2026-11-14: the two lists agree on 367 of 500 ids and on the whole
+// head of the order, and Hugging Face carries `sha` on all 500 rows against
+// gethologram.ai's 399, so the seed is a longer one as well as a first-hand
+// one. `full=true` is what carries `sha`; without it no row does.
+const CATALOG = `${HF}/api/models?sort=trendingScore&direction=-1&limit=${limit}&full=true`;
+// Which other sources hold a release's bytes. This is the one thing the build
+// still asks of the live hub, because nothing here re-derives it: a claim that
+// ModelScope or IPFS holds the same bytes has to be made by whoever hashed
+// them. A release it does not answer for is indexed with no second source,
+// which costs the model page its cross-source check and nothing else.
+//
+// Seeding from Hugging Face rather than from the live hub makes that a third
+// of the catalog rather than a handful. That is a decision taken on
+// 2026-11-14, not an oversight, and these are the numbers it was taken on:
+// the two 500-row lists agree on 367 ids, and of 20 sampled ids both hold, 20
+// have a record here, against none of 20 that only Hugging Face holds. So
+// about 133 rows arrive with no second source. What was weighed was 399
+// records nearly all with one, against about 500 of which roughly 73 per cent
+// can have one.
+const SOURCES = "https://gethologram.ai/data/files";
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -99,9 +129,15 @@ async function hfList(path) {
 const listable = (m) => !m.gated && !m.private && m.sha && /^[\w.-]+\/[\w.-]+$/.test(m.id);
 const named = async (file) => (await readFile(new URL(`../manifests/${file}`, import.meta.url), "utf8"))
   .split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
-const asRow = (m) => ({ id: m.id, sha: m.sha, author: m.author, tags: m.tags, pipeline_tag: m.pipeline_tag, library_name: m.library_name, createdAt: m.createdAt, likes: m.likes, downloads: m.downloads });
+// A catalog row is this hub's own shape, not whatever the list it came from
+// happened to carry: the root names the catalog by the hash of its bytes, so
+// those bytes are decided here. Hugging Face's `full=true` also returns every
+// file of every model, which the record already holds, so this drops it.
+const CATALOG_FIELDS = ["id", "sha", "author", "tags", "pipeline_tag", "library_name", "createdAt", "lastModified",
+  "likes", "downloads", "trendingScore", "gated", "private"];
+const asRow = (m) => Object.fromEntries(CATALOG_FIELDS.map((k) => [k, m[k] ?? null]));
 
-const rows = (await json(CATALOG, 60000)).filter(listable).slice(0, limit);
+const rows = (await json(CATALOG, 60000)).filter(listable).slice(0, limit).map(asRow);
 // Which list named each row, so the build line can say where the index came
 // from. A model two lists name is indexed once, under the first that named it.
 const from = new Map(rows.map((m) => [m.id, "the catalog"]));
@@ -110,9 +146,8 @@ const add = (m, source) => { if (!from.has(m.id)) { rows.push(asRow(m)); from.se
 // Witnessed models are always indexed, trending or not.
 const witnessed = await named("models.txt");
 for (const repo of witnessed.filter((r) => !from.has(r))) {
-  const found = (await json(`https://gethologram.ai/api/models?search=${encodeURIComponent(repo.split("/")[1])}&limit=50`)).find((m) => m.id === repo);
-  if (found?.sha) { rows.push(found); from.set(found.id, "witnessed"); continue; }
-  // The catalog's search does not reach every model, so ask Hugging Face directly.
+  // Asked of Hugging Face by name. The live hub's search used to come first
+  // and this was its fallback; the search did not reach every model anyway.
   add(await hf(`/api/models/${repo}`), "witnessed");
 }
 const missing = witnessed.filter((r) => !from.has(r));

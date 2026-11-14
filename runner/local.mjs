@@ -234,7 +234,7 @@ async function serveFile(request, via, repo, revision, path, onNote) {
   const method = request.method;
   const info = await edge.release(repo, revision);
   const commitKind = /^[0-9a-f]{7,40}$/.test(revision) ? 1 : 0;
-  const held = info.state === 0 && info.revision ? await edge.holders(repo, info) : null;
+  const held = info.state === 0 && info.revision ? edge.holders(info) : null;
   const sibling = info.siblings?.get(path);
   const lfs = sibling?.lfs;
   const entry = info.state === 0 && info.revision ? (sibling ? (lfs ? 2 : 1) : 0) : 0;
