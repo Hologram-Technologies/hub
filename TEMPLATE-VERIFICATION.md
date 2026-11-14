@@ -322,6 +322,112 @@ hosted verifier also verified every module of the previous revision
 root of the Pages site and the proof page under `app/`, so the interface
 reads the holo, the runtime and the brand tokens from beside it.
 
+## A promise to another program (HK-18)
+
+The engine being built on this hub (prism-hologram-ai) asked which fields of a
+release record it may depend on, so that a rename here does not break it
+silently. The answer agreed with its coordinator session on 2026-11-14: the
+repository, the revision, every file's `path`, `size` and `gitSha1`, `sha256`
+where the source publishes one, and `sources[]`. Everything else in a record -
+`info`, `observed`, `config`, `cardData`, `safetensors`, `witnesses` - is still
+moving and was named as such.
+
+A Lean proof cannot catch a field being renamed in JavaScript, so this claim is
+a test and says so. `crates/conformance/tests/index.rs` reads
+`tools/index.mjs`, strips its comments so a field named only in a comment
+cannot satisfy it, finds the record literal the builder writes and the file
+entries it maps, and fails unless each promised field is there. Reading the
+whole file would let a mention anywhere pass; the promise is about that object.
+
+Planted defect: rename one field in the file mapping.
+
+    path: f.path, size: f.size, blobId: f.oid,   // was gitSha1
+
+    $ cargo test -p repo-conformance --test index
+    thread 'index_hk_18' panicked at crates/conformance/tests/index.rs:65:9:
+    every file entry must carry gitSha1:
+    test result: FAILED. 0 passed; 1 failed
+
+Restored, it passes. Registered with `cargo xtask new-capability HK-18 build
+index`, which wrote the row, the scenario and a failing test in the order
+`AGENTS.md` sets out, before the assertion was written.
+
+## A second witness, and what to do when two disagree (HK-17)
+
+The browse page said VERIFIED for records nobody had re-hashed, and the model
+page could offer Verify on only the files Hugging Face publishes a SHA-256
+for. For `openai-community/gpt2` that is eleven of twenty-six: the other
+fifteen are small files whose address the hub copied out of an LFS pointer
+that does not exist for them. The smallest file a reader could check was
+hundreds of megabytes.
+
+Pirate Face publishes a SHA-256 per file for the models it indexes.
+`docs/pirateface-integration.md` assessed six ways to use it and recommended
+this one. Measured again by hand on 2026-11-14 before building on it:
+`https://pirateface.co/api/torrents?repo=openai-community/gpt2` names the same
+revision the hub's record does; of the eleven files both parties address, all
+eleven agree and none conflict; fourteen files the hub cannot address, it can.
+Three of those fourteen were checked against the bytes - `tokenizer_config.json`,
+`onnx/special_tokens_map.json` and `onnx/generation_config.json` were
+downloaded from Hugging Face at that revision and hashed here, and all three of
+Pirate Face's values are right.
+
+Agreement on the eleven is weak evidence, because both numbers may descend from
+the same LFS pointer. The fourteen are the finding: Hugging Face publishes no
+address for them, so another party hashed bytes to get one.
+
+The kernel decides what two witnesses add up to. Operation 7 takes four bytes -
+`07`, whether the release names an address, whether the other witness does, and
+whether the two are the same - and answers 1 use it, both agree; 2 one witness
+alone named it, and the page says which; 3 they disagree, so the file has no
+address; 0 neither named one. `concurHolds` (`app/src/Proofs/Concur.lex.tex`)
+proves no input reaches `breaksConcur`: never "use it" while both named one and
+they differed, never "use it" while neither did, never "one alone" while both
+or neither did, and never "none" while one did.
+
+The second witness is kept out of `files[].sha256` on purpose. `edge/edge.mjs`
+reads that field to decide whether a file is an LFS file, which decides which
+ETag `HK-08` hands a Hugging Face client; writing addresses there would change
+the ETag for fourteen of gpt2's twenty-six files and break the wire the edge
+tests pin. It goes in a `witnesses` block, with the party that gave it and the
+day it was read, and the record format is `hologram.hub.release/v3` so a cached
+v2 record is rebuilt rather than reused.
+
+Measured on a six-record index built from this tree: four releases gained a
+second witness, 48 addresses were filled, and no two witnesses disagreed. On
+the model page for `openai-community/gpt2`:
+
+    25 of 26 files carry an address a reader can check.
+    11 agreed by gethologram.ai and pirateface.co
+    14 from pirateface.co alone
+    1 with no address
+    pirateface.co, read 2026-11-14
+
+One parameter name had to change. `first` is a glossary term, so
+`(first =? 1)` parsed as an application and LexLean refused `=?` as not a term
+(`LLP2001`). The parameters are `ours`, `theirs` and `same`.
+
+### The gate, and the defect that proves it fails
+
+Planted defect: make `concur` use the address whenever both witnesses name
+one, agreement or not, in the generator and in its reference implementation
+together, so the acceptance vectors agree with the lie and only the proof can
+catch it.
+
+    ("((ours =? 1) && (theirs =? 1))", "1"),   // was: if same then 1 else 3
+
+    $ just app
+    LLV7002: Lean rejected `HologramHubKernel.Proofs.Concur` (error):
+      omega could not prove the goal: No usable constraints found.
+    PP5001: LexLean verification failed
+    error: recipe `app` failed with exit code 1
+
+Restored, the gate passes. Worth recording how this had to be measured:
+`prismpm build` published the defective kernel without complaint, because
+build compiles the guest and does not run the proofs. Only `prismpm verify`,
+which `just vv` reaches through `just app`, refuses it. A green build is not a
+green proof.
+
 ## The listing, with Hugging Face switched off
 
 With Hugging Face unreachable the hub answered `/api/models` with fifty rows
@@ -961,3 +1067,55 @@ commits and against mirrors served with `PRISM_TEMPLATE_RAW`:
 | a mirror's lock names a file its frame does not | refused: the lock's list against the frame's; nothing written |
 | a mirror's frame and lock both add `.github/workflows/x.yml` | refused: `names files outside the page`; nothing written |
 | an untouched mirror | pinned |
+
+## Indexing an owner whole
+
+`manifests/owners.txt` names owners, not repositories; `tools/index.mjs` reads
+it beside `manifests/models.txt` and indexes every public model Hugging Face
+lists under each name (`GET /api/models?author=<owner>&full=true`, the Link
+header followed to the next page, the same one-call-a-second throttle and the
+same reuse of a record already written for the same revision). `HOLOGRAMTECH`
+is the first owner listed.
+
+Measured on 2026-11-14. `node tools/index.mjs <dir> 2` built 20 records: 2 from
+the catalog, 3 witnessed, 15 from `HOLOGRAMTECH`, 4 of the 20 complete. The
+owner's listing is case sensitive: `author=hologramtech` answers 200 with an
+empty array, `author=HOLOGRAMTECH` answers 15 models.
+
+| Gate | Planted defect | Result |
+| --- | --- | --- |
+| `node tools/index.mjs <dir> 2` with the new owner list | `HOLOGRAMTECH` misspelled as `HologramTech` in `manifests/owners.txt` | refused: `index: HologramTech lists no public model with a release; check the name in manifests/owners.txt`; restored, 15 models indexed under the owner |
+
+`HOLOGRAMTECH/q-ternary-bonsai-1.7b` was the model this list was added for. It
+is on Hugging Face and not on the live hub, so its record's `sources` is empty:
+`https://gethologram.ai/data/files/HOLOGRAMTECH/q-ternary-bonsai-1.7b.json`
+answers 404, and `https://gethologram.ai/api/models/HOLOGRAMTECH/q-ternary-bonsai-1.7b`
+answers 404 `RepoNotFound`. That is not a defect. An empty `sources` leaves
+Hugging Face as the only slot that holds the file, and the kernel's source
+choice (`HK-05`, `HK-06`) does the rest. Measured against the published holo
+with the local index adopted unsigned:
+
+| Request | Answer |
+| --- | --- |
+| `GET /api/models/HOLOGRAMTECH/q-ternary-bonsai-1.7b`, Hugging Face off | 200, `X-Hub-Partial: pipelineTag,libraryName,safetensors` |
+| the same, Hugging Face reachable | asked of Hugging Face, no partial header (operation 6 plan 2) |
+| `HEAD /HOLOGRAMTECH/q-ternary-bonsai-1.7b/resolve/main/q-ternary-bonsai-1.7b.v1.holo` | 302 to `huggingface.co`, `X-Hub-Source: huggingface.co`, ETag `acf0b5ad…`, size 424013749 |
+| the same pinned `/via/modelscope.cn/` | 404 `SourceHasNotGotIt` |
+
+So a user can fetch the file through the hub, not merely see it listed; what an
+empty `sources` costs is the second copy, and with it the page's cross-source
+check, which has nothing to compare.
+
+The record carries 7 of the ten fields operation 6 names: revision, files,
+tags, config, cardData, lastModified and gated. It is missing `pipeline_tag`,
+`library_name` and `safetensors`, which the publisher has not set - the
+repository ships one `.holo` file, not safetensors weights. The edge names
+exactly those three in `X-Hub-Partial` with Hugging Face off, and asks Hugging
+Face when it can. Nothing was filled in to make the record look complete.
+
+Two things this change leaves as they are. A record with no source already
+describes 147 of the 400 models in the live index, and the model page shows
+its Verify button for all of them although there is nothing to compare, so the
+button does nothing when clicked; that is older than this change.
+`tools/web-routes.mjs` builds its model pages from the live hub's catalog, so
+an owner's models have no prerendered page and open through `404.html`.

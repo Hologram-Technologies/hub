@@ -147,6 +147,8 @@ def ref_dispatch(b):
         return bytes([ref_trust(*b[1:])])
     if len(b) == 12 and b[0] == 6:
         return bytes([ref_complete(list(b[1:11]), b[11])])
+    if len(b) == 4 and b[0] == 7:
+        return bytes([ref_concur(b[1], b[2], b[3])])
     return bytes([0, 4, 0])
 
 
@@ -169,6 +171,20 @@ def ref_trust(present, *rest):
         if kind == 1:
             return 1
     return 3
+
+
+# Operation 7 (concur), exactly 4 bytes: `07 first second agree`. Two
+# witnesses may each name an address for a file: `first` and `second` are 1
+# when that witness named one, and `agree` is 1 when both named the same one.
+# The answer is one byte: 1 the address may be used and two witnesses agree,
+# 2 one witness named it and the page says so, 3 they disagree so the file has
+# no address, 0 neither named one.
+def ref_concur(first, second, agree):
+    if first == 1 and second == 1:
+        return 1 if agree == 1 else 3
+    if first == 1 or second == 1:
+        return 2
+    return 0
 
 
 # Operation 6 (complete), exactly 12 bytes: `06 f0..f9 passthrough`. One byte
@@ -282,6 +298,13 @@ VECTORS = [
     bytes([6, 0] + [1] * 9 + [1]),
     bytes([6] + [0] * 10 + [0]),
     bytes([6] + [1] * 10),
+    bytes([7, 1, 1, 1]),
+    bytes([7, 1, 1, 0]),
+    bytes([7, 1, 0, 0]),
+    bytes([7, 0, 1, 0]),
+    bytes([7, 0, 0, 0]),
+    bytes([7, 1, 0, 1]),
+    bytes([7, 1, 1]),
 ]
 assert len(set(VECTORS)) == len(VECTORS), "requests must be unique"
 assert max(len(v) for v in VECTORS) == 128, "one request is exactly guestAllocationMaximum bytes"
@@ -488,6 +511,13 @@ def kernel_module():
         ("(recordHolds %s)" % " ".join(RECORD_FIELDS), "1"),
         ("(passthrough =? 1)", "2"),
     ], "3")))
+    # Two witnesses and one file. The runner measures who named an address and
+    # whether the two are the same; the kernel decides whether the address may
+    # be used, and says when only one witness named it.
+    k.append(defn("concur", "ours : Nat, theirs : Nat, same : Nat", "Nat", chain([
+        ("((ours =? 1) && (theirs =? 1))", chain([("(same =? 1)", "1")], "3")),
+        ("((ours =? 1) || (theirs =? 1))", "2"),
+    ], "0")))
     k.append(defn("encodeVerdict", "code : Nat", "Bytes", chain(
         [("(code =? %d)" % i, hx(bytes([i]))) for i in (1, 2, 3)], "0x00")))
     # A source and an ETag are named only when the file is delivered, so every
@@ -506,7 +536,10 @@ def kernel_module():
                   "(byteNat value 3) (byteNat value 4))) else (if (((Foundation.Bytes::byteLength value) =? 11) && "
                   "((byteNat value 0) =? 5)) then (encodeVerdict (trust %s)) else "
                   "(if (((Foundation.Bytes::byteLength value) =? 12) && ((byteNat value 0) =? 6)) then "
-                  "(encodeVerdict (complete %s)) else 0x000400))))))"
+                  "(encodeVerdict (complete %s)) else "
+                  "(if (((Foundation.Bytes::byteLength value) =? 4) && ((byteNat value 0) =? 7)) then "
+                  "(encodeVerdict (concur (byteNat value 1) (byteNat value 2) (byteNat value 3))) "
+                  "else 0x000400)))))))"
                   % (" ".join("(byteNat value %d)" % i for i in range(1, 11)),
                      " ".join("(byteNat value %d)" % i for i in range(1, 12))), AX))
     vec = "(nil %sAcceptanceVector)" % T
@@ -613,6 +646,17 @@ INVARIANTS = [
      "((((r0 =? 21) || (r1 =? 21)) || ((r2 =? 21) || (r3 =? 21))) && "
      "(not (((Kernel::verdict r0 r1 r2 r3) =? 2) || ((Kernel::verdict r0 r1 r2 r3) =? 0)))))",
      [q("verdict"), q("resultValid")]),
+    # An address with two witnesses is used only when they agree: the kernel
+    # never says use it while both named one and the two differed, never says
+    # use it while neither named one, and never says one witness alone while
+    # both or neither did.
+    ("Concur", "breaksConcur", "concurHolds", "ours : Nat, theirs : Nat, same : Nat", "ours theirs same",
+     "(((((Kernel::concur ours theirs same) =? 1) && (((ours =? 1) && (theirs =? 1)) && (not (same =? 1)))) || "
+     "(((Kernel::concur ours theirs same) =? 1) && (not ((ours =? 1) && (theirs =? 1))))) || "
+     "((((Kernel::concur ours theirs same) =? 2) && (((ours =? 1) && (theirs =? 1)) || "
+     "((not (ours =? 1)) && (not (theirs =? 1))))) || "
+     "(((Kernel::concur ours theirs same) =? 0) && ((ours =? 1) || (theirs =? 1)))))",
+     [q("concur")]),
     # An answer is built from the record only when the record holds every
     # field that answer names; where a field is missing the source dialect is
     # asked, and where it cannot be asked the answer says it is partial.
@@ -671,7 +715,7 @@ def proof_module(name, declarations, imports="Kernel"):
 # The axioms Lean observes for each proof (`#print axioms`, measured): `omega`
 # reaches `Classical.choice` when a split leaves an `if` over a disjunction.
 # LexLean refuses a proof whose declared set differs (LLV7005).
-CLASSICAL = {"Complete", "Delivery", "Etag", "Healthy", "Sound", "Trust"}
+CLASSICAL = {"Complete", "Concur", "Delivery", "Etag", "Healthy", "Sound", "Trust"}
 
 
 def proof_modules():

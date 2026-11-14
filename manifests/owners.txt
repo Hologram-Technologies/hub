@@ -1,0 +1,6 @@
+# Owners the hub indexes whole: every public model Hugging Face lists under
+# each name is indexed, trending or not. tools/index.mjs reads this list.
+# The name is Hugging Face's own, letter for letter: `author=` is case
+# sensitive and an owner that matches nothing is a build failure, not a quiet
+# empty result.
+HOLOGRAMTECH

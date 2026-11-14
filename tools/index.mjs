@@ -12,6 +12,13 @@
 // downloads and likes - nobody can, so they are kept under `observed`, with
 // the host that measured them and the day they were read.
 //
+// Three lists name what is indexed: the hub's own catalog of trending models,
+// the witnessed models in `manifests/models.txt`, and the owners in
+// `manifests/owners.txt`, each of which is indexed whole - every public model
+// Hugging Face lists under that name. The build line says how many records
+// each list contributed. `[limit]` caps the catalog only; the other two lists
+// are indexed entire, because a list a person wrote is not a ranking to cut.
+//
 //   node tools/index.mjs <out dir> [limit]
 //
 // A record already in <out dir> for the same revision is reused, so a cache of
@@ -29,6 +36,13 @@ if (!out) {
   process.exit(64);
 }
 const CATALOG = "https://gethologram.ai/api/models?limit=500";
+// A second witness: Pirate Face publishes a SHA-256 per weight file for the
+// models it indexes. Hugging Face publishes one only for LFS files, so this
+// fills the gaps for small files and gives a second opinion on the rest.
+// Nothing here is believed on its own: a value is kept only with the name of
+// the witness that gave it and the day it was read, and only when the witness
+// names the same revision the release does.
+const WITNESS = "https://pirateface.co/api/torrents";
 const SOURCES = "https://gethologram.ai/data/files";
 const HF = "https://huggingface.co";
 const limit = Number(limitArg ?? 500);
@@ -41,8 +55,27 @@ async function json(url, timeout = 30000) {
   return r.json();
 }
 
+// One call per release. A witness that names a different revision is ignored
+// outright: its hashes would be for other bytes.
+async function secondWitness(repo, revision) {
+  try {
+    const answer = await json(`${WITNESS}?repo=${encodeURIComponent(repo)}`, 20000);
+    const entry = Array.isArray(answer) ? answer[0] : answer;
+    if (!entry || entry.revision !== revision) return [];
+    const addresses = (entry.files ?? [])
+      .filter((f) => f.path && /^[0-9a-f]{64}$/.test(f.sha256 ?? ""))
+      .map((f) => ({ path: f.path, sha256: f.sha256 }));
+    if (!addresses.length) return [];
+    return [{ source: "pirateface.co", date: new Date().toISOString().slice(0, 10), revision: entry.revision, addresses }];
+  } catch {
+    // A witness that cannot be reached is simply absent; the release still
+    // carries what Hugging Face published.
+    return [];
+  }
+}
+
 let lastHf = 0;
-async function hf(path) {
+async function hfFetch(path) {
   const wait = lastHf + 1100 - Date.now();
   if (wait > 0) await pause(wait);
   lastHf = Date.now();
@@ -50,23 +83,58 @@ async function hf(path) {
     const r = await fetch(`${HF}${path}`, { signal: AbortSignal.timeout(30000) });
     if (r.status === 429 && attempt < 4) { await pause(Number(r.headers.get("retry-after") ?? 30) * 1000); continue; }
     if (!r.ok) throw new Error(`${path}: ${r.status}`);
-    return r.json();
+    return r;
   }
 }
-
-const rows = (await json(CATALOG, 60000)).filter((m) => !m.gated && !m.private && m.sha && /^[\w.-]+\/[\w.-]+$/.test(m.id)).slice(0, limit);
-// Witnessed models are always indexed, trending or not.
-const witnessed = (await readFile(new URL("../manifests/models.txt", import.meta.url), "utf8"))
-  .split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
-for (const repo of witnessed.filter((r) => !rows.some((m) => m.id === r))) {
-  const found = (await json(`https://gethologram.ai/api/models?search=${encodeURIComponent(repo.split("/")[1])}&limit=50`)).find((m) => m.id === repo);
-  if (found?.sha) { rows.push(found); continue; }
-  // The catalog's search does not reach every model, so ask Hugging Face directly.
-  const m = await hf(`/api/models/${repo}`);
-  rows.push({ id: m.id, sha: m.sha, author: m.author, tags: m.tags, pipeline_tag: m.pipeline_tag, library_name: m.library_name, createdAt: m.createdAt, likes: m.likes, downloads: m.downloads });
+const hf = async (path) => (await hfFetch(path)).json();
+// A listing answers one page and names the next in a Link header. The link is
+// followed, so an owner with more models than one page holds is indexed whole
+// rather than silently cut at the page size.
+async function hfList(path) {
+  const r = await hfFetch(path);
+  const next = /<([^>]+)>;\s*rel="next"/.exec(r.headers.get("link") ?? "")?.[1];
+  return { rows: await r.json(), next: next?.startsWith(HF) ? next.slice(HF.length) : null };
 }
-const missing = witnessed.filter((r) => !rows.some((m) => m.id === r));
+
+const listable = (m) => !m.gated && !m.private && m.sha && /^[\w.-]+\/[\w.-]+$/.test(m.id);
+const named = async (file) => (await readFile(new URL(`../manifests/${file}`, import.meta.url), "utf8"))
+  .split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+const asRow = (m) => ({ id: m.id, sha: m.sha, author: m.author, tags: m.tags, pipeline_tag: m.pipeline_tag, library_name: m.library_name, createdAt: m.createdAt, likes: m.likes, downloads: m.downloads });
+
+const rows = (await json(CATALOG, 60000)).filter(listable).slice(0, limit);
+// Which list named each row, so the build line can say where the index came
+// from. A model two lists name is indexed once, under the first that named it.
+const from = new Map(rows.map((m) => [m.id, "the catalog"]));
+const add = (m, source) => { if (!from.has(m.id)) { rows.push(asRow(m)); from.set(m.id, source); } };
+
+// Witnessed models are always indexed, trending or not.
+const witnessed = await named("models.txt");
+for (const repo of witnessed.filter((r) => !from.has(r))) {
+  const found = (await json(`https://gethologram.ai/api/models?search=${encodeURIComponent(repo.split("/")[1])}&limit=50`)).find((m) => m.id === repo);
+  if (found?.sha) { rows.push(found); from.set(found.id, "witnessed"); continue; }
+  // The catalog's search does not reach every model, so ask Hugging Face directly.
+  add(await hf(`/api/models/${repo}`), "witnessed");
+}
+const missing = witnessed.filter((r) => !from.has(r));
 if (missing.length) throw new Error(`index: witnessed models without a release: ${missing.join(", ")}`);
+
+// Owners the hub indexes whole. Hugging Face lists an owner's models under
+// `author`, which is its own spelling letter for letter, and `full=true`
+// carries the release commit, so one call lists however many models a page
+// holds. An owner that lists nothing fails the build: an empty answer is a
+// misspelled owner far more often than an owner with no model, and indexing
+// nothing quietly would read as though the owner had been indexed.
+const owners = await named("owners.txt");
+for (const owner of owners) {
+  let path = `/api/models?author=${encodeURIComponent(owner)}&full=true&limit=100`;
+  let listed = 0;
+  while (path) {
+    const page = await hfList(path);
+    for (const m of page.rows.filter(listable)) { listed += 1; add(m, owner); }
+    path = page.next;
+  }
+  if (!listed) throw new Error(`index: ${owner} lists no public model with a release; check the name in manifests/owners.txt`);
+}
 const records = [];
 let fetched = 0;
 for (const row of rows) {
@@ -74,7 +142,7 @@ for (const row of rows) {
   let record = null;
   try {
     const kept = JSON.parse(await readFile(path, "utf8"));
-    if (kept.revision === row.sha && kept.format === "hologram.hub.release/v2") record = kept;
+    if (kept.revision === row.sha && kept.format === "hologram.hub.release/v3") record = kept;
   } catch {}
   if (!record) {
     try {
@@ -92,12 +160,13 @@ for (const row of rows) {
       const files = tree.filter((f) => f.type === "file").map((f) => ({
         path: f.path, size: f.size, gitSha1: f.oid, ...(f.lfs ? { sha256: f.lfs.oid, pointerSize: f.lfs.pointerSize } : {}),
       }));
+      const second = await secondWitness(row.id, row.sha);
       // The card is not copied into the record. The record names the file and
       // the address its bytes must have, so a reader fetches it from any
       // source and checks it for itself.
       const card = files.find((f) => f.path.toLowerCase() === "readme.md");
       record = {
-        format: "hologram.hub.release/v2",
+        format: "hologram.hub.release/v3",
         repo: row.id,
         revision: row.sha,
         info: {
@@ -116,6 +185,11 @@ for (const row of rows) {
         card: card ? { path: card.path, gitSha1: card.gitSha1 } : null,
         safetensors: about.safetensors ?? null,
         transformersInfo: about.transformersInfo ?? null,
+        // What a second witness says about the same release. Addresses stay
+        // out of `files[].sha256`: the edge reads that field to decide
+        // whether a file is an LFS file, and so which ETag a Hugging Face
+        // client is given, and that wire must not move.
+        witnesses: second,
         // Measurements of another host's traffic, named as such.
         observed: {
           source: HF,
@@ -139,6 +213,7 @@ for (const row of rows) {
 }
 
 const catalog = JSON.stringify(rows.filter((r) => records.some((x) => x.repo === r.id)));
+
 await writeFile(join(out, "catalog.json"), catalog);
 
 // The browse shards: what the page lists, derived once from the records by
@@ -178,9 +253,31 @@ const whole = (r) => Boolean(r.revision && r.files?.length && r.info?.tags && r.
   && r.info?.library_name && r.config && r.cardData && r.safetensors && r.info?.lastModified
   && r.info?.gated !== undefined);
 let complete = 0;
+// What the second witness was worth, counted rather than claimed: how many
+// releases it covered, how many addresses it gave to files that had none, and
+// where the two witnesses named different bytes for the same file.
+let secondWitnessed = 0;
+let filled = 0;
+let conflicts = 0;
 for (const { repo } of records) {
   try {
-    if (whole(JSON.parse(await readFile(join(out, "models", `${repo}.json`), "utf8")))) complete += 1;
+    const r = JSON.parse(await readFile(join(out, "models", `${repo}.json`), "utf8"));
+    if (whole(r)) complete += 1;
+    const addresses = new Map((r.witnesses ?? []).flatMap((w) => w.addresses.map((a) => [a.path, a.sha256])));
+    if (!addresses.size) continue;
+    secondWitnessed += 1;
+    for (const f of r.files ?? []) {
+      const theirs = addresses.get(f.path);
+      if (!theirs) continue;
+      if (!f.sha256) filled += 1;
+      else if (f.sha256 !== theirs) conflicts += 1;
+    }
   } catch {}
 }
-console.log(`index: ${records.length} records (${fetched} fetched, ${records.length - fetched} reused), ${complete} complete, ${browse.length} browse shards holding ${ordered.length} rows`);
+const counted = (source) => records.filter((r) => from.get(r.repo) === source).length;
+const where = ["the catalog", "witnessed", ...owners]
+  .map((s) => (s === "witnessed" ? `${counted(s)} witnessed` : `${counted(s)} from ${s}`)).join(", ");
+console.log(`index: ${records.length} records (${where}; ${fetched} fetched, ${records.length - fetched} reused), ${complete} complete, `
+  + `${secondWitnessed} with a Pirate Face witness filling ${filled} addresses (${conflicts} disagreements), `
+  + `${browse.length} browse shards holding ${ordered.length} rows`);
+

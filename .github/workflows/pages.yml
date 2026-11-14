@@ -177,8 +177,8 @@ jobs:
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ${{ runner.temp }}/index
-          key: index-${{ hashFiles('tools/index.mjs', 'manifests/models.txt') }}-${{ github.run_id }}
-          restore-keys: index-${{ hashFiles('tools/index.mjs', 'manifests/models.txt') }}-
+          key: index-${{ hashFiles('tools/index.mjs', 'manifests/models.txt', 'manifests/owners.txt') }}-${{ github.run_id }}
+          restore-keys: index-${{ hashFiles('tools/index.mjs', 'manifests/models.txt', 'manifests/owners.txt') }}-
       - name: Index the catalog's models
         shell: bash
         run: |
@@ -320,6 +320,11 @@ jobs:
             const out = process.argv[1];
             const root = await (await fetch(base + "root.json")).json();
             root.records = root.records.slice(0, 2);
+            // The copy carries records, not the listing: the edge checks every
+            // shard the root names against its hash, so a root that named a
+            // shard this copy does not hold would refuse to open at all.
+            // `tests/index/shards.mjs` is what covers the shards.
+            root.browse = [];
             await writeFile(join(out, "root.json"), JSON.stringify(root));
             for (const r of root.records) {
               const path = join(out, "models", r.repo + ".json");

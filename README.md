@@ -121,6 +121,24 @@ link copied from huggingface.co with the host changed opens the same view
 here. The hub's own facets carry a `hub_` prefix and cannot collide with one.
 `HK-16` proves every facet maps to one parameter and back.
 
+A program that reads this index may depend on part of a record. `HK-18` holds
+that part fixed: the repository, the revision, every file's `path`, `size` and
+`gitSha1`, `sha256` where the source publishes one, and the sources that hold
+it. The rest of a record is still moving. The claim is a test rather than a
+proof, because a proof cannot catch a field being renamed in JavaScript, and
+the test reads the builder itself.
+
+A file may have more than one witness. Hugging Face publishes a SHA-256 only
+for LFS files, so `tools/index.mjs` also reads Pirate Face's per-file hashes
+for the same revision and keeps them in a `witnesses` block, with the party
+that gave each and the day it was read, never in `files[].sha256`, which the
+edge reads to decide a client's ETag. The kernel decides what two witnesses
+add up to (`HK-17`): an address is used when both name it and agree, the page
+says so when one names it alone, and a file whose witnesses disagree has no
+address at all. On `openai-community/gpt2` that takes the files a reader can
+check from eleven of twenty-six to twenty-five, so Verify picks a file of a
+few hundred bytes rather than a few hundred megabytes.
+
 A release record carries ten fields, and the kernel decides whether they are
 enough. `tools/index.mjs` writes the revision, every file, the tags as
 published, the task, the library, the config, the card's front matter and the
@@ -155,6 +173,19 @@ digest and the statement type), and the kernel's trust rule (`HK-14`, request
 `05` and ten facts) decides the label. The Tensors tab lists every tensor's
 address.
 
+An owner can be indexed whole. `manifests/owners.txt` names owners rather than
+repositories, and every public model Hugging Face lists under that name is
+indexed, trending or not; `HOLOGRAMTECH`, the Hologram Technologies
+organization, is the first. The name is Hugging Face's own spelling, letter
+for letter, and an owner that lists nothing fails the build rather than
+indexing nothing quietly. A model reaching the index this way is listed,
+browsable and downloadable through the hub, but the hub holds no mirror of it:
+the live hub has never seen it, so its `sources` are empty and the kernel has
+only Hugging Face to send a file request to. The file still arrives, addressed
+and with the index's own ETag and size, and a request pinned to another source
+is refused `SourceHasNotGotIt` rather than guessed at (`HK-05`, `HK-06`). What
+is missing is a second copy, not the file.
+
 With Hugging Face switched off the edge answers the listing from the browse
 shards: the same eleven-field row, the accepted sorts, `filter`, `author`,
 `full`, `config`, `expand[]` and a cursor in a `Link` header, and the same
@@ -188,8 +219,9 @@ its identities and replays its examples.
   the same results; `.github/workflows/edge.yml` runs it on every push.
 
 The edge answers first from the hub's signed index (`tools/index.mjs`, built and
-signed at each deploy): one record per model in the catalog and every
-witnessed model (its release commit, each file's size, git and SHA-256 hashes,
+signed at each deploy): one record per model in the catalog, every
+witnessed model and every model of an indexed owner (its release commit, each
+file's size, git and SHA-256 hashes,
 and which sources hold it), a catalog, and a root naming every record by
 SHA-256. Only the root is signed (Sigstore, keyless, statement type
 `https://hologram.foundation/hub/index/v1`, pinned in the model); the edge
