@@ -1954,3 +1954,31 @@ contradict either.
 That is a different class of check from everything `just vv` runs, and the
 repository has no name for it. The post-deploy jobs in `pages.yml` are the
 closest thing, because they run against the published index rather than a copy.
+
+### Widening the request broke the edge against the kernel it is serving
+
+CI refused the first push of this, and the reason is written at the top of
+`.github/workflows/edge.yml`: the edge is deployed apart from the kernel, so it
+must start against a holo older than itself. A 105-byte resolve request is one
+the published kernel does not understand, so it answered invalid and a Hugging
+Face client got `The request is not one the hub understands` for
+`config.json`. Every file, not an edge case.
+
+The workflow said so in a comment, and `tests/edge/older-kernel.mjs` existed for
+exactly this - but it checks that the edge starts, opens the index and answers
+health, and never resolves a file. So the gate for the constraint did not cover
+the operation the constraint was about, and it passed while the thing it
+guards was broken.
+
+The edge and the runner now ask the kernel which width it understands, once,
+from its own answer rather than from a version string: a kernel that calls the
+105-byte request invalid and the 104-byte one valid is an older kernel, and it
+then decides as it always did - which for the swarm means weights only, exactly
+the behaviour that preceded this change. Measured against the published holo
+after the fix: `config.json` 302s with its git blob ETag and
+`64-8bits.tflite` with its SHA-256.
+
+This is the same shape as the `docs.record` fallback recorded earlier: a guest
+and a host that ship separately cannot assume each other's age. The difference
+is that this time the repository had already learned it, written it down, and
+built a test for it, and the test was narrower than the lesson.

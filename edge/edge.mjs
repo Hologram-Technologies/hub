@@ -226,16 +226,31 @@ export function report(source, ok) {
 }
 
 const enc = new TextEncoder();
-function resolveRequest({ repo, revisionKind, refFound, requested, commit, entry, addressed, pin, slots }) {
-  const b = new Uint8Array(105);
+// The edge is deployed apart from the kernel it loads, so it has to work
+// against one built before `addressed` existed, which refuses a 105-byte
+// request outright. Asked once, from the kernel's own answer rather than from
+// a version string: a kernel that calls the longer request invalid and the
+// shorter one valid is an older kernel, and it then decides as it always did.
+let resolveWidth = 105;
+async function decide(facts) {
+  const plan = await kernel.dispatch(resolveRequest(facts, resolveWidth));
+  if (plan[0] !== 0 || resolveWidth === 104) return plan;
+  const older = await kernel.dispatch(resolveRequest(facts, 104));
+  if (older[0] === 0) return plan;
+  resolveWidth = 104;
+  return older;
+}
+function resolveRequest({ repo, revisionKind, refFound, requested, commit, entry, addressed, pin, slots }, width) {
+  const b = new Uint8Array(width);
   b.set([1, 0, repo, revisionKind, refFound, revisionKind === 1 ? requested.length : 0, entry, pin]);
   slots.forEach((s, i) => b.set([s.holds, s.healthy, s.vetted, s.failed], 8 + 4 * i));
   if (revisionKind === 1) b.set(enc.encode(requested).subarray(0, 40), 24);
   if (commit) b.set(enc.encode(commit).subarray(0, 40), 64);
   // Whether the record addresses this file, which decides which sources may
   // serve it. `entry` at byte 6 decides the ETag instead; the two coincided
-  // only while both came from the LFS pointer.
-  b[104] = addressed;
+  // only while both came from the LFS pointer. A kernel from before this field
+  // existed is asked the shorter request and answers as it used to.
+  if (width > 104) b[104] = addressed;
   return b;
 }
 
@@ -272,7 +287,7 @@ async function resolve(method, via, repo, revision, path) {
   });
   slots.push({ kind: null, holds: 0, healthy: 0, vetted: 0, failed: 0 });
   const pin = via === null ? 0 : SOURCES.indexOf(via) >= 0 ? SOURCES.indexOf(via) + 1 : 5;
-  const plan = await kernel.dispatch(resolveRequest({
+  const plan = await decide({
     repo: info.state,
     revisionKind: commitKind,
     refFound: info.revision ? 1 : 0,
@@ -282,7 +297,7 @@ async function resolve(method, via, repo, revision, path) {
     addressed: checkable(info.record, path) ? 1 : 0,
     pin,
     slots,
-  }));
+  });
   const [answer, slot, etagKind] = plan;
   if (answer !== 1) return refuse(answer, method);
   const source = slots[slot].kind;

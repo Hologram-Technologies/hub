@@ -114,16 +114,29 @@ const swarmHost = () => (settings.piratefaceHost ? { host: settings.piratefaceHo
 const match = (found, revision) => (found && revision && found.revision === revision ? found : null);
 
 const enc = new TextEncoder();
-function resolveRequest({ repo, revisionKind, refFound, requested, commit, entry, addressed, pin, slots }) {
-  const b = new Uint8Array(105);
+// Same discovery the edge makes, for the same reason: this runner can be
+// newer than the holo it loads.
+let resolveWidth = 105;
+async function decide(kernel, facts) {
+  const plan = await kernel.dispatch(resolveRequest(facts, resolveWidth));
+  if (plan[0] !== 0 || resolveWidth === 104) return plan;
+  const older = await kernel.dispatch(resolveRequest(facts, 104));
+  if (older[0] === 0) return plan;
+  resolveWidth = 104;
+  return older;
+}
+function resolveRequest({ repo, revisionKind, refFound, requested, commit, entry, addressed, pin, slots }, width) {
+  const b = new Uint8Array(width);
   // Byte 1 is the runner: 1 says this one serves bytes rather than redirecting.
   b.set([1, 1, repo, revisionKind, refFound, revisionKind === 1 ? requested.length : 0, entry, pin]);
   slots.forEach((s, i) => b.set([s.holds, s.healthy, s.vetted, s.failed], 8 + 4 * i));
   if (revisionKind === 1) b.set(enc.encode(requested).subarray(0, 40), 24);
   if (commit) b.set(enc.encode(commit).subarray(0, 40), 64);
   // Byte 104 is whether the record addresses this file, which is what decides
-  // whether the swarm may serve it. Byte 6 decides the ETag instead.
-  b[104] = addressed;
+  // whether the swarm may serve it. Byte 6 decides the ETag instead. A kernel
+  // from before that field is asked the shorter request and decides as it did,
+  // which for the swarm means weights only.
+  if (width > 104) b[104] = addressed;
   return b;
 }
 
@@ -303,11 +316,11 @@ async function serveFile(request, via, repo, revision, path, onNote) {
   // it, and `HK-05` then keeps the kernel from choosing it again.
   for (let attempt = 0; attempt < SOURCES.length; attempt += 1) {
     const slots = build();
-    const plan = await kernel.dispatch(resolveRequest({
+    const plan = await decide(kernel, {
       repo: info.state, revisionKind: commitKind, refFound: info.revision ? 1 : 0,
       requested: revision, commit: info.sha ?? "", entry,
       addressed: edge.checkable(info.record, path) ? 1 : 0, pin, slots,
-    }));
+    });
     const [answer, slot, etagKind] = plan;
     // HK-03 proves a local runner is never told to redirect, for every input.
     if (answer !== 2) return refuse(answer, method);
