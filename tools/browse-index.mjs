@@ -21,9 +21,17 @@
 // `Content-Range` over the uncompressed length. Nothing fetches the whole
 // catalogue, so nothing has to hold it.
 //
-// Facet postings are not here. This is the half that makes paging work at all;
-// filtering over three million rows is the half after it, and it belongs in
-// its own change with its own gate.
+// Filtering works the same way. For each sort and each facet value there is a
+// list of positions in that sort's order, ascending. Two filters are the
+// intersection of two ascending lists, which is a walk, and the page is a
+// slice of the result. The lists are delta-coded varints, so a value nothing
+// has costs almost nothing and a value everything has costs about a byte a
+// row.
+//
+// The parameter and recency filters are ranges in the interface and buckets
+// here, cut at the stops the interface already draws, because a range over a
+// bucketed facet is a union of buckets and a union of ascending lists is
+// another walk. Nothing else would be gained by storing the numbers.
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -57,6 +65,52 @@ const trend = (r) => {
   const age = Math.max(1, (Date.now() / 1000 - r.created) / DAY);
   return ((r.b?.[LIKES] ?? 0) * 10 + (r.b?.[DOWNLOADS] ?? 0)) / Math.sqrt(age);
 };
+
+// The stops the interface draws, from `app/tools/site_spec.py`. A parameter
+// count is put in the bucket of the largest stop it reaches, and a release in
+// the first recency band it falls inside, so the interface's own ranges are
+// unions of these and nothing has to be recomputed per request.
+const PARAM_STOPS = [0, 6e9, 12e9, 32e9, 128e9, 500e9];
+const RECENCY_DAYS = [30, 90, 183, 365];
+const paramBucket = (n) => {
+  if (n == null) return null;
+  let b = 0;
+  for (const [i, stop] of PARAM_STOPS.entries()) if (n >= stop) b = i;
+  return b;
+};
+const recencyBucket = (modifiedDays) => {
+  if (modifiedDays == null) return null;
+  const age = Math.floor(Date.now() / 86400000) - modifiedDays;
+  for (const [i, days] of RECENCY_DAYS.entries()) if (age <= days) return i;
+  return RECENCY_DAYS.length;
+};
+
+// Which facets are indexed, and how a row answers each. `many` says a row can
+// hold more than one value, which only languages does.
+const FACETS = [
+  { key: "task", of: (r) => r.b?.[TASK] ?? null },
+  { key: "library", of: (r) => r.b?.[LIBRARY] ?? null },
+  { key: "license", of: (r) => r.b?.[LICENSE] ?? null },
+  { key: "language", of: (r) => r.b?.[LANGUAGES] ?? [], many: true },
+  { key: "parameters", of: (r) => paramBucket(r.b?.[PARAMS]) },
+  { key: "recency", of: (r) => recencyBucket(r.b?.[MODIFIED]) },
+];
+
+// A varint, little end first, seven bits at a time. Positions in a sort's
+// order only ever increase, so what is written is the gap from the last one:
+// a facet half the catalogue holds costs about a byte a row, and a rare one
+// costs a handful of bytes in total.
+function varints(values) {
+  const out = [];
+  let previous = 0;
+  for (const v of values) {
+    let gap = v - previous;
+    previous = v;
+    while (gap >= 0x80) { out.push((gap & 0x7f) | 0x80); gap >>>= 7; }
+    out.push(gap);
+  }
+  return Buffer.from(out);
+}
 
 // ------------------------------------------------------------------- read
 const root = JSON.parse(await readFile(join(rollDir, "root.json"), "utf8"));
@@ -105,7 +159,22 @@ await writeFile(join(out, "rows.idx"), Buffer.from(idx.buffer));
 // One file per sort: the row numbers, in that order, four bytes each. Page k
 // of a sort is the 168 bytes at offset k*42*4 - one ranged read, whatever the
 // catalogue's size.
+// Which rows hold each facet value, once, since it does not depend on a sort.
+const members = Object.fromEntries(FACETS.map((f) => [f.key, new Map()]));
+for (const [n, row] of rows.entries()) {
+  for (const facet of FACETS) {
+    const got = facet.of(row);
+    for (const v of facet.many ? got : [got]) {
+      if (v == null) continue;
+      const m = members[facet.key];
+      if (!m.has(v)) m.set(v, []);
+      m.get(v).push(n);
+    }
+  }
+}
+
 const orders = {};
+const postings = {};
 for (const [name, compare] of Object.entries(SORTS)) {
   const numbers = rows.map((_, n) => n).sort((x, y) => compare(rows[x], rows[y]));
   const buf = new DataView(new ArrayBuffer(numbers.length * 4));
@@ -113,6 +182,40 @@ for (const [name, compare] of Object.entries(SORTS)) {
   const bytes = Buffer.from(buf.buffer);
   await writeFile(join(out, "order", `${name}.u32`), bytes);
   orders[name] = { path: `order/${name}.u32`, rows: numbers.length, sha256: sha256(bytes) };
+
+  // Where each row sits in this order, so a member list becomes a position
+  // list and a filtered page is a slice rather than a search.
+  const at = new Uint32Array(rows.length);
+  numbers.forEach((n, i) => { at[n] = i; });
+
+  await mkdir(join(out, "postings", name), { recursive: true });
+  postings[name] = {};
+  for (const facet of FACETS) {
+    const values = [...members[facet.key].keys()].sort((a, b) => a - b);
+    const top = values.length ? values[values.length - 1] + 1 : 0;
+    // One file a facet, not one a value: a value is a ranged read into it, and
+    // thirty thousand small files would be a worse site than a large one.
+    // Header is the value count, then an offset for each value and one past
+    // the end, so a reader takes the pair it needs and asks for that range.
+    const blocks = [];
+    const offsets = new Uint32Array(top + 1);
+    let cursor = 0;
+    for (let v = 0; v < top; v++) {
+      offsets[v] = cursor;
+      const held = members[facet.key].get(v);
+      if (held) {
+        const block = varints(held.map((n) => at[n]).sort((a, b) => a - b));
+        blocks.push(block);
+        cursor += block.length;
+      }
+    }
+    offsets[top] = cursor;
+    const header = Buffer.alloc(4);
+    header.writeUInt32LE(top, 0);
+    const bytes = Buffer.concat([header, Buffer.from(offsets.buffer), ...blocks]);
+    await writeFile(join(out, "postings", name, `${facet.key}.bin`), bytes);
+    postings[name][facet.key] = { path: `postings/${name}/${facet.key}.bin`, values: top, sha256: sha256(bytes) };
+  }
 }
 
 await writeFile(join(out, "root.json"), JSON.stringify({
@@ -126,11 +229,19 @@ await writeFile(join(out, "root.json"), JSON.stringify({
   // this file's source to understand its output.
   fields: ["modified", "task", "library", "license", "languages", "parameters", "downloads", "likes"],
   pageSize: 42,
+  // The buckets the parameter and recency filters are cut at, so a reader
+  // turns the interface's range back into a union of values without guessing.
+  buckets: { parameters: PARAM_STOPS, recencyDays: RECENCY_DAYS },
   rows: { count: rows.length, body: "rows.ndjson", index: "rows.idx", bodySha256: sha256(body), indexSha256: sha256(Buffer.from(idx.buffer)) },
   orders,
+  postings,
 }));
 
 const mb = (n) => `${(n / 1e6).toFixed(1)} MB`;
+const orderBytes = rows.length * 4 * Object.keys(orders).length;
+let postingBytes = 0;
+for (const sort of Object.values(postings)) for (const f of Object.values(sort)) postingBytes += (await readFile(join(out, f.path))).length;
+const values = Object.values(postings[Object.keys(postings)[0]]).reduce((a, f) => a + f.values, 0);
 console.log(`browse-index: ${rows.length} rows | body ${mb(body.length)} | index ${mb(idx.byteLength)} `
-  + `| ${Object.keys(orders).length} orders ${mb(rows.length * 4 * Object.keys(orders).length)} `
-  + `| total ${mb(body.length + idx.byteLength + rows.length * 4 * Object.keys(orders).length)}`);
+  + `| ${Object.keys(orders).length} orders ${mb(orderBytes)} | postings ${mb(postingBytes)} over ${values} values `
+  + `| total ${mb(body.length + idx.byteLength + orderBytes + postingBytes)}`);

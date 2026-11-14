@@ -37,3 +37,17 @@ jobs:
       - name: A gone model keeps its line, and an unnamed shard is refused
         shell: bash
         run: node tests/roll/tombstone.mjs
+
+      # The browse index is what lets the interface page through a roll it
+      # could never hold, so what it must prove is that a page read through it
+      # is the page the interface would have drawn from the whole catalogue.
+      # An hour of the Hub is one call and enough rows to intersect.
+      - name: A page read through the browse index is the page itself
+        shell: bash
+        run: |
+          set -euo pipefail
+          from=$(node -e 'console.log(new Date(Date.now() - 2 * 3600e3).toISOString())')
+          to=$(node -e 'console.log(new Date(Date.now() - 300e3).toISOString())')
+          node tools/roll.mjs "$RUNNER_TEMP/roll-browse" --from "$from" --to "$to"
+          node tools/browse-index.mjs "$RUNNER_TEMP/roll-browse" "$RUNNER_TEMP/browse"
+          node tests/browse/page.mjs "$RUNNER_TEMP/browse"
