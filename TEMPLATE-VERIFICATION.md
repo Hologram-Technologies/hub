@@ -1581,3 +1581,42 @@ allows, which still fits, and moved the cheapest shard count from 1,024 to
 2,048. The lesson is narrower than "measure rather than estimate": the sample
 has to be the shape the thing will really have, and a flag that changes whether
 a field is present changes its size.
+
+## What a change to the site costs to regenerate
+
+`app/tools/site_spec.py` is authoring input: `python app/tools/gen_kernel.py`
+turns it into `app/src/Site.lex.tex`, and the acceptance vectors are computed
+from it by the reference implementation in the same script. So a change to the
+hub's words is a change to generated, proved artifacts, and it is worth knowing
+in advance how far it reaches.
+
+Measured on 2026-11-14, moving the API's host out of eleven hardcoded URLs into
+a constant: three files change. `app/src/Site.lex.tex`, because the screens are
+its content. `app/tools/vectors.json`. And exactly one line of
+`app/src/Kernel.lex.tex`, line 428, where the acceptance vectors are a single
+record holding the screen bodies. No proof module is added or removed, so
+`lexlean.toml`'s entrypoints do not move and `app/tools/write_tests.py` does not
+come into it - which is also why `cargo fmt --all` is not needed afterwards, as
+it is when `write_tests.py` emits Rust for a claim that gained a theorem.
+
+The generator needs no SDK image: it imports only `json`, `os` and `sys`, and
+writes with `newline="\n"`. Copying `app/tools` and `app/src` into a scratch
+directory, running it there and diffing is a cheap way to see what a spec change
+costs before it touches the tree, and it does not disturb a gate run holding
+`app/target`.
+
+That generated files are generated also settles what to do when one of them
+conflicts, which is not what the instinct says. Measured on 2026-11-14,
+rebasing the change above onto a branch that had itself moved: the only
+conflict was `app/src/Kernel.lex.tex`, and reading its diff would have meant
+merging two acceptance-vector blobs by hand. The answer is to take the new
+base's copy whole and run `gen_kernel.py` again. A generated file has no
+merge, only a regeneration, and the generator is the thing that decides what
+is correct.
+
+This is one of four results about what needs a re-proof. An id renumbering
+moves nothing. A screens-only change moves three files and adds no module. A
+claim that adds a theorem moves everything, the attestation included. And a
+claim that adds no theorem moves nothing either, where the attestation
+standing still is the confirmation rather than a surprise - recorded under
+HK-20 above.
