@@ -1,0 +1,23 @@
+\begin{lexlean}{Proofs.Concur}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksConcur,
+  parameters: [ours : Nat, theirs : Nat, same : Nat],
+  result: Bool,
+  body: (((((Kernel::concur ours theirs same) =? 1) && (((ours =? 1) && (theirs =? 1)) && (not (same =? 1)))) || (((Kernel::concur ours theirs same) =? 1) && (not ((ours =? 1) && (theirs =? 1))))) || ((((Kernel::concur ours theirs same) =? 2) && (((ours =? 1) && (theirs =? 1)) || ((not (ours =? 1)) && (not (theirs =? 1))))) || (((Kernel::concur ours theirs same) =? 0) && ((ours =? 1) || (theirs =? 1)))))
+}
+
+theorem{
+  name: concurHolds,
+  parameters: [ours : Nat, theirs : Nat, same : Nat],
+  statement: ((breaksConcur ours theirs same) = false),
+  proof: linear_arithmetic{definitions: [Kernel::concur, breaksConcur]},
+  axioms: [Classical.choice, Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

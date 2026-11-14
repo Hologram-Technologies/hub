@@ -238,6 +238,34 @@ fn kernel_hk_09() {
     );
 }
 
+/// `HK-17`: An address with two witnesses is used only when they agree; where one witness alone names it the page says so, and where they disagree the file has no address
+#[test]
+fn kernel_hk_17() {
+    pinned(
+        "Concur",
+        "breaksConcur",
+        "(((((Kernel::concur ours theirs same) =? 1) && (((ours =? 1) && (theirs =? 1)) && (not (same =? 1)))) || (((Kernel::concur ours theirs same) =? 1) && (not ((ours =? 1) && (theirs =? 1))))) || ((((Kernel::concur ours theirs same) =? 2) && (((ours =? 1) && (theirs =? 1)) || ((not (ours =? 1)) && (not (theirs =? 1))))) || (((Kernel::concur ours theirs same) =? 0) && ((ours =? 1) || (theirs =? 1)))))",
+        "concurHolds",
+        "ours theirs same",
+        "Classical.choice, Quot.sound, propext",
+    );
+    dispatch_decides_by("(encodeVerdict (concur (byteNat value 1)");
+}
+
+/// `HK-16`: Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state
+#[test]
+fn kernel_hk_16() {
+    pinned(
+        "Query",
+        "breaksQuery",
+        "((facet <? (Site::facetCount)) && ((not ((Site::facetParam facet) <? (Site::paramCount))) || (((not (facet =? 0)) && ((Site::facetParam facet) =? 12)) || (((not (facet =? 1)) && ((Site::facetParam facet) =? 11)) || (((not (facet =? 2)) && ((Site::facetParam facet) =? 9)) || (((not (facet =? 3)) && ((Site::facetParam facet) =? 8)) || (((not (facet =? 4)) && ((Site::facetParam facet) =? 10)) || (((not (facet =? 5)) && ((Site::facetParam facet) =? 0)) || (((not (facet =? 6)) && ((Site::facetParam facet) =? 7)) || (((not (facet =? 7)) && ((Site::facetParam facet) =? 6)) || (((not (facet =? 8)) && ((Site::facetParam facet) =? 3)) || (((not (facet =? 9)) && ((Site::facetParam facet) =? 2)) || (((not (facet =? 10)) && ((Site::facetParam facet) =? 1)) || (((not (facet =? 11)) && ((Site::facetParam facet) =? 4)) || ((not (facet =? 12)) && ((Site::facetParam facet) =? 5))))))))))))))))",
+        "queryHolds",
+        "facet",
+        "Quot.sound, propext",
+    );
+    dispatch_decides_by("(Site::screen (byteNat value 1))");
+}
+
 /// `HK-11`: Every header item and every link that stays in the hub opens a screen the kernel renders
 #[test]
 fn kernel_hk_11() {
@@ -280,6 +308,76 @@ fn kernel_hk_12() {
         "Quot.sound, propext",
     );
     dispatch_decides_by("(Site::screen (byteNat value 1))");
+}
+
+/// `HK-13`: The page says Verified only when at least one source delivered and none sent other bytes, and any source that sent other bytes makes the verdict a mismatch
+#[test]
+fn kernel_hk_13() {
+    pinned(
+        "Verdict",
+        "breaksVerdict",
+        "((((Kernel::verdict r0 r1 r2 r3) =? 1) && ((((r0 =? 21) || (r1 =? 21)) || ((r2 =? 21) || (r3 =? 21))) || (not (((r0 =? 20) || (r1 =? 20)) || ((r2 =? 20) || (r3 =? 20)))))) || ((((r0 =? 21) || (r1 =? 21)) || ((r2 =? 21) || (r3 =? 21))) && (not (((Kernel::verdict r0 r1 r2 r3) =? 2) || ((Kernel::verdict r0 r1 r2 r3) =? 0)))))",
+        "verdictHolds",
+        "r0 r1 r2 r3",
+        "Quot.sound, propext",
+    );
+    dispatch_decides_by("(encodeVerdict (verdict (byteNat value 1)");
+}
+
+/// `HK-15`: An answer is built from the index only when the record holds every field that answer names; where one is missing the source dialect is asked, and where it cannot be asked the answer says it is partial
+#[test]
+fn kernel_hk_15() {
+    pinned(
+        "Complete",
+        "breaksComplete",
+        "((((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 1) && (not (Kernel::recordHolds revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated))) || ((((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 2) && (not (passthrough =? 1))) || ((((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 3) && (passthrough =? 1)) || (not ((((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 1) || ((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 2)) || ((Kernel::complete revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough) =? 3))))))",
+        "completeHolds",
+        "revision siblings tags pipelineTag libraryName config cardData safetensors lastModified gated passthrough",
+        "Classical.choice, Quot.sound, propext",
+    );
+    dispatch_decides_by("(encodeVerdict (complete (byteNat value 1)");
+}
+
+/// `HK-14`: A model page says Witnessed or Published only when every signature check passed, says Published only for a publisher's signature from the namespace owner, and never shows a witness's signature as a publisher's
+#[test]
+fn kernel_hk_14() {
+    pinned(
+        "Trust",
+        "breaksTrust",
+        "((((((Kernel::trust present chain time log signature identity subject predicate kind owner) =? 1) || ((Kernel::trust present chain time log signature identity subject predicate kind owner) =? 2)) && (not ((present =? 1) && ((chain =? 1) && ((time =? 1) && ((log =? 1) && ((signature =? 1) && ((identity =? 1) && ((subject =? 1) && (predicate =? 1)))))))))) || (((Kernel::trust present chain time log signature identity subject predicate kind owner) =? 2) && (not ((kind =? 2) && (owner =? 1))))) || ((kind =? 1) && ((Kernel::trust present chain time log signature identity subject predicate kind owner) =? 2)))",
+        "trustHolds",
+        "present chain time log signature identity subject predicate kind owner",
+        "Classical.choice, Quot.sound, propext",
+    );
+    dispatch_decides_by("(encodeVerdict (trust (byteNat value 1)");
+}
+
+/// `HK-19`: A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served
+#[test]
+fn kernel_hk_19() {
+    pinned(
+        "Addressed",
+        "breaksAddressed",
+        "((((Kernel::select facts) =? 0) && ((not ((project facts vetted0) =? 1)) && (not ((project facts addressed) =? 1)))) || ((((Kernel::select facts) =? 1) && ((not ((project facts vetted1) =? 1)) && (not ((project facts addressed) =? 1)))) || ((((Kernel::select facts) =? 2) && ((not ((project facts vetted2) =? 1)) && (not ((project facts addressed) =? 1)))) || (((Kernel::select facts) =? 3) && ((not ((project facts vetted3) =? 1)) && (not ((project facts addressed) =? 1)))))))",
+        "addressedHolds",
+        "facts",
+        "Quot.sound, propext",
+    );
+    dispatch_decides_by("(select facts)");
+}
+
+/// `HK-22`: A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts
+#[test]
+fn kernel_hk_22() {
+    pinned(
+        "Servable",
+        "breaksServable",
+        "((((((project facts runner) =? 1) && ((project facts addressed) =? 1)) && (((project facts holds0) =? 1) && ((project facts failed0) =? 0))) && (not (Kernel::eligible0 facts))) || ((((((project facts runner) =? 1) && ((project facts addressed) =? 1)) && (((project facts holds1) =? 1) && ((project facts failed1) =? 0))) && (not (Kernel::eligible1 facts))) || ((((((project facts runner) =? 1) && ((project facts addressed) =? 1)) && (((project facts holds2) =? 1) && ((project facts failed2) =? 0))) && (not (Kernel::eligible2 facts))) || (((((project facts runner) =? 1) && ((project facts addressed) =? 1)) && (((project facts holds3) =? 1) && ((project facts failed3) =? 0))) && (not (Kernel::eligible3 facts))))))",
+        "servableHolds",
+        "facts",
+        "Classical.choice, Quot.sound, propext",
+    );
+    dispatch_decides_by("(select facts)");
 }
 
 /// `HK-10`: Received bytes are delivered exactly when their digest and size equal the expected digest and size

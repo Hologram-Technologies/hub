@@ -22,11 +22,17 @@ import site_spec  # noqa: E402
 SRC = os.path.join(HERE, "..", "src")
 PREFIX = "HologramHubKernel"
 
-# Request layout, operation 1 (resolve), exactly 104 bytes:
+# Request layout, operation 1 (resolve), exactly 105 bytes:
 #   0 op=1 | 1 runner (0 edge, 1 local) | 2 repo state | 3 revision kind
 #   4 named ref found | 5 revision length | 6 entry (0 missing, 1 small, 2 large)
 #   7 pin (0 none, 1..4 source slot) | 8..23 four sources x (holds, healthy, vetted, failed)
 #   24..63 revision bytes as requested | 64..103 the release's 40-hex commit
+#   104 addressed (1 when the record names an address for this file)
+# `entry` and `addressed` are separate facts. `entry` decides the ETag a
+# Hugging Face client is given, and only an LFS file has a SHA-256 there.
+# `addressed` decides which sources may serve the file, and a second witness
+# can address a file Hugging Face never did. They coincided while both came
+# from the LFS pointer; they are not the same question.
 # Request layout, operation 2 (accept), exactly 81 bytes:
 #   0 op=2 | 1..32 expected digest | 33..64 observed digest
 #   65..72 expected size (u64 BE) | 73..80 observed size (u64 BE)
@@ -48,19 +54,21 @@ ANSWERS = [
     ("answerQuarantine", 21),
 ]
 SOURCE_FIELDS = ("holds", "healthy", "vetted", "failed")
-FIELDS = ["runner", "repo", "revision", "entry", "pin"] + [
+FIELDS = ["runner", "repo", "revision", "entry", "addressed", "pin"] + [
     k + str(i) for i in range(4) for k in SOURCE_FIELDS
 ]
 
 
 # ---------------------------------------------------------------- reference
-def ref_eligible(runner, holds, vetted, failed):
-    return holds == 1 and failed == 0 and (runner == 1 or vetted == 1)
+def ref_eligible(runner, holds, vetted, failed, addressed):
+    addressable = vetted == 1 or (runner == 1 and addressed == 1)
+    return holds == 1 and failed == 0 and addressable
 
 
 def ref_select(f):
     el = [
-        ref_eligible(f["runner"], f["holds%d" % i], f["vetted%d" % i], f["failed%d" % i])
+        ref_eligible(f["runner"], f["holds%d" % i], f["vetted%d" % i], f["failed%d" % i],
+                     f["addressed"])
         for i in range(4)
     ]
     us = [el[i] and f["healthy%d" % i] == 1 for i in range(4)]
@@ -112,7 +120,7 @@ def ref_revision(kind, ref_found, length, matched):
 
 
 def ref_dispatch(b):
-    if len(b) == 104 and b[0] == 1:
+    if len(b) == 105 and b[0] == 1:
         ln = b[5]
         matched = 1
         for i in range(ln):
@@ -124,6 +132,7 @@ def ref_dispatch(b):
             repo=b[2],
             revision=ref_revision(b[3], b[4], ln, matched),
             entry=b[6],
+            addressed=b[104],
             pin=b[7],
         )
         for i in range(4):
@@ -139,7 +148,78 @@ def ref_dispatch(b):
         return bytes([20 if ok else 21, 4, 0])
     if len(b) == 2 and b[0] == 3 and b[1] < len(site_spec.ROUTES):
         return gen_site.screen_json(site_spec.ROUTES[b[1]])
+    if len(b) == 5 and b[0] == 4:
+        return bytes([ref_verdict(list(b[1:]))])
+    if len(b) == 11 and b[0] == 5:
+        return bytes([ref_trust(*b[1:])])
+    if len(b) == 12 and b[0] == 6:
+        return bytes([ref_complete(list(b[1:11]), b[11])])
+    if len(b) == 4 and b[0] == 7:
+        return bytes([ref_concur(b[1], b[2], b[3])])
     return bytes([0, 4, 0])
+
+
+# Operation 5 (trust), exactly 11 bytes: `05 present chain time log signature
+# identity subject predicate kind owner`. The eight checks are 0 or 1, as the
+# page's Sigstore check measured them; kind is 1 witness or 2 publisher; owner
+# is 1 when the signer owns the model's namespace. The answer is one byte:
+# 0 not signed, 1 witnessed, 2 published, 3 does not check out.
+TRUST_CHECKS = 7
+TRUST_NAMES = ["present", "chain", "time", "log", "signature", "identity", "subject", "predicate", "kind", "owner"]
+
+
+def ref_trust(present, *rest):
+    checks, kind, owner = rest[:TRUST_CHECKS], rest[TRUST_CHECKS], rest[TRUST_CHECKS + 1]
+    if present == 0:
+        return 0
+    if present == 1 and all(c == 1 for c in checks):
+        if kind == 2 and owner == 1:
+            return 2
+        if kind == 1:
+            return 1
+    return 3
+
+
+# Operation 7 (concur), exactly 4 bytes: `07 first second agree`. Two
+# witnesses may each name an address for a file: `first` and `second` are 1
+# when that witness named one, and `agree` is 1 when both named the same one.
+# The answer is one byte: 1 the address may be used and two witnesses agree,
+# 2 one witness named it and the page says so, 3 they disagree so the file has
+# no address, 0 neither named one.
+def ref_concur(first, second, agree):
+    if first == 1 and second == 1:
+        return 1 if agree == 1 else 3
+    if first == 1 or second == 1:
+        return 2
+    return 0
+
+
+# Operation 6 (complete), exactly 12 bytes: `06 f0..f9 passthrough`. One byte
+# per field of a release record, in the order `site_spec` lists them, 1 when
+# the record holds it and 0 when it does not, then 1 when the source dialect
+# can be asked and 0 when it cannot. The answer is one byte: 1 answer from the
+# index, 2 ask the source dialect, 3 answer from the index and say so.
+RECORD_FIELDS = [f[0] for f in site_spec.SCREENS["docs"]["record"]["fields"]]
+
+
+def ref_complete(fields, passthrough):
+    if all(f == 1 for f in fields):
+        return 1
+    return 2 if passthrough == 1 else 3
+
+
+# Operation 4 (verdict), exactly 5 bytes: `04 r0 r1 r2 r3`, one byte per source
+# a page checked: 0 unreachable, 20 delivered (accept said the bytes match),
+# 21 quarantined (they do not). The answer is one byte: 1 verified, 2 mismatch,
+# 3 unreachable, 0 invalid.
+def ref_verdict(results):
+    if any(r not in (0, 20, 21) for r in results):
+        return 0
+    if 21 in results:
+        return 2
+    if 20 in results:
+        return 1
+    return 3
 
 
 # ------------------------------------------------------------------ vectors
@@ -149,13 +229,17 @@ NONE = (0, 0, 0, 0)
 
 
 def resolve(runner=0, repo=0, kind=0, ref=1, ln=0, entry=2, pin=0,
-            src=(GOOD, NONE, NONE, NONE), rev=b"", commit=COMMIT):
-    b = bytearray(104)
+            src=(GOOD, NONE, NONE, NONE), rev=b"", commit=COMMIT, addressed=None):
+    b = bytearray(105)
     b[0:8] = bytes([1, runner, repo, kind, ref, ln, entry, pin])
     for i, s in enumerate(src):
         b[8 + 4 * i:12 + 4 * i] = bytes(s)
     b[24:24 + len(rev)] = rev
     b[64:104] = commit
+    # A file the record addresses, which is every file with an address of any
+    # kind. Unless a vector says otherwise, so the existing vectors keep
+    # meaning what they meant: an LFS file was addressed before this field.
+    b[104] = (1 if entry == 2 else 0) if addressed is None else addressed
     return bytes(b)
 
 
@@ -171,6 +255,15 @@ VECTORS = [
     resolve(entry=1),
     resolve(entry=2),
     resolve(runner=1, src=((1, 1, 0, 0), NONE, NONE, NONE)),
+    resolve(runner=1, entry=1, src=((1, 1, 0, 0), NONE, NONE, NONE)),
+    resolve(entry=1, src=((1, 1, 0, 0), NONE, NONE, NONE)),
+    # The two facts pulled apart. A small file a second witness addressed is
+    # now servable by a local runner from a source nobody vetted, which it was
+    # not while eligibility read `entry`; and a large file the record does not
+    # address is not, which `entry` alone could never have refused.
+    resolve(runner=1, entry=1, addressed=1, src=((1, 1, 0, 0), NONE, NONE, NONE)),
+    resolve(runner=1, entry=2, addressed=0, src=((1, 1, 0, 0), NONE, NONE, NONE)),
+    resolve(entry=1, addressed=1, src=((1, 1, 0, 0), NONE, NONE, NONE)),
     resolve(src=((1, 1, 0, 0), GOOD, NONE, NONE)),
     resolve(src=((1, 1, 1, 1), (1, 0, 1, 0), NONE, NONE)),
     resolve(src=((1, 0, 1, 0), NONE, GOOD, NONE)),
@@ -196,11 +289,41 @@ VECTORS = [
     accept(D1, D2, 548105171, 548105171),
     accept(D1, D1, 548105171, 548105170),
     resolve()[:103],
+    resolve()[:104],  # the length a resolve request was before `addressed`
     resolve() + b"\x00",
     b"",
     bytes([3]) + resolve()[1:],
     bytes([1]) + accept(D1, D1, 1, 1)[1:],
     bytes(128),
+    bytes([4, 20, 20, 20, 0]),
+    bytes([4, 20, 0, 0, 0]),
+    bytes([4, 20, 21, 20, 0]),
+    bytes([4, 0, 0, 0, 21]),
+    bytes([4, 0, 0, 0, 0]),
+    bytes([4, 20, 7, 0, 0]),
+    bytes([4, 20, 20, 20]),
+    bytes([5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]),
+    bytes([5, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1]),
+    bytes([5, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0]),
+    bytes([5, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0]),
+    bytes([5, 1, 1, 1, 1, 1, 0, 1, 1, 2, 1]),
+    bytes([5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+    bytes([5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
+    bytes([5, 2, 1, 1, 1, 1, 1, 1, 1, 1, 0]),
+    bytes([6] + [1] * 10 + [1]),
+    bytes([6] + [1] * 10 + [0]),
+    bytes([6] + [1] * 9 + [0] + [1]),
+    bytes([6] + [1] * 9 + [0] + [0]),
+    bytes([6, 0] + [1] * 9 + [1]),
+    bytes([6] + [0] * 10 + [0]),
+    bytes([6] + [1] * 10),
+    bytes([7, 1, 1, 1]),
+    bytes([7, 1, 1, 0]),
+    bytes([7, 1, 0, 0]),
+    bytes([7, 0, 1, 0]),
+    bytes([7, 0, 0, 0]),
+    bytes([7, 1, 0, 1]),
+    bytes([7, 1, 1]),
 ]
 assert len(set(VECTORS)) == len(VECTORS), "requests must be unique"
 assert max(len(v) for v in VECTORS) == 128, "one request is exactly guestAllocationMaximum bytes"
@@ -243,9 +366,17 @@ def nest(op, xs):
     return out
 
 
+def parameters(params):
+    # `lexlean fmt` puts one parameter per line when the list passes 100 columns.
+    line = "  parameters: [%s]," % params
+    if len(line) <= 100:
+        return line
+    return "  parameters: [\n%s\n  ]," % ",\n".join("    " + p.strip() for p in params.split(","))
+
+
 def defn(name, params, result, body, axioms=None, rec=None):
-    s = "definition{\n  name: %s,\n  parameters: [%s],\n  result: %s,\n  body: %s" % (
-        name, params, result, body)
+    s = "definition{\n  name: %s,\n%s\n  result: %s,\n  body: %s" % (
+        name, parameters(params), result, body)
     if axioms:
         s += ",\n  axioms: [%s]" % ", ".join(axioms)
     if rec:
@@ -266,11 +397,11 @@ def kernel_module():
     k.append(structure("Digest", [("w%d" % i, "Nat") for i in range(4)]))
     k.append(structure("Check", [("expected", "Digest"), ("observed", "Digest"),
                                  ("expectedSize", "Nat"), ("observedSize", "Nat")]))
-    k.append(defn("eligible", "runner : Nat, holds : Nat, vetted : Nat, failed : Nat", "Bool",
-                  "(((holds =? 1) && (failed =? 0)) && ((runner =? 1) || (vetted =? 1)))"))
+    k.append(defn("eligible", "runner : Nat, holds : Nat, vetted : Nat, failed : Nat, addressed : Nat", "Bool",
+                  "(((holds =? 1) && (failed =? 0)) && ((vetted =? 1) || ((runner =? 1) && (addressed =? 1))))"))
     for i in range(4):
-        k.append(defn("eligible%d" % i, "facts : Facts", "Bool", "(eligible %s %s %s %s)" % (
-            pf("runner"), pf("holds%d" % i), pf("vetted%d" % i), pf("failed%d" % i))))
+        k.append(defn("eligible%d" % i, "facts : Facts", "Bool", "(eligible %s %s %s %s %s)" % (
+            pf("runner"), pf("holds%d" % i), pf("vetted%d" % i), pf("failed%d" % i), pf("addressed"))))
     for i in range(4):
         k.append(defn("usable%d" % i, "facts : Facts", "Bool",
                       "((eligible%d facts) && (%s =? 1))" % (i, pf("healthy%d" % i))))
@@ -352,6 +483,7 @@ def kernel_module():
         "revision := (revisionDecision (byteNat value 3) (byteNat value 4) (byteNat value 5) "
         "(prefixEqual value 24 64 (byteNat value 5)))",
         "entry := (byteNat value 6)",
+        "addressed := (byteNat value 104)",
         "pin := (byteNat value 7)",
     ]
     o = 8
@@ -366,6 +498,48 @@ def kernel_module():
         [("(index =? %d)" % i, hx(bytes([i]))) for i in range(4)], "0x04")))
     k.append(defn("encodeEtag", "kind : Nat", "Bytes", chain(
         [("(kind =? 1)", "0x01"), ("(kind =? 2)", "0x02")], "0x00")))
+    # The verdict a page shows after checking up to four sources. Every
+    # condition is a positive formula over the four results (see `answer`).
+    rs = ["r0", "r1", "r2", "r3"]
+    params = "r0 : Nat, r1 : Nat, r2 : Nat, r3 : Nat"
+    k.append(defn("resultValid", "r : Nat", "Bool", "(((r =? 0) || (r =? 20)) || (r =? 21))"))
+    k.append(defn("verdict", params, "Nat", chain([
+        (nest("&&", ["(resultValid %s)" % r for r in rs]), chain([
+            (nest("||", ["(%s =? 21)" % r for r in rs]), "2"),
+            (nest("||", ["(%s =? 20)" % r for r in rs]), "1"),
+        ], "3")),
+    ], "0")))
+    # The label a page shows for a model's signature. The checks are facts the
+    # page measured; the kernel decides what they add up to.
+    tparams = ", ".join("%s : Nat" % n for n in TRUST_NAMES)
+    k.append(defn("trustChecks", tparams, "Bool", nest("&&", ["(%s =? 1)" % n for n in TRUST_NAMES[:8]])))
+    k.append(defn("trust", tparams, "Nat", chain([
+        ("(present =? 0)", "0"),
+        ("(trustChecks %s)" % " ".join(TRUST_NAMES), chain([
+            ("((kind =? 2) && (owner =? 1))", "2"),
+            ("(kind =? 1)", "1"),
+        ], "3")),
+    ], "3")))
+    # Whether an answer may be built from the record the index holds. Every
+    # field is a fact the runner measured about its own record; the kernel
+    # decides, so the page and the edge cannot differ about what counts as
+    # complete.
+    cparams = ", ".join("%s : Nat" % f for f in RECORD_FIELDS) + ", passthrough : Nat"
+    k.append(defn("recordHolds", ", ".join("%s : Nat" % f for f in RECORD_FIELDS), "Bool",
+                  nest("&&", ["(%s =? 1)" % f for f in RECORD_FIELDS])))
+    k.append(defn("complete", cparams, "Nat", chain([
+        ("(recordHolds %s)" % " ".join(RECORD_FIELDS), "1"),
+        ("(passthrough =? 1)", "2"),
+    ], "3")))
+    # Two witnesses and one file. The runner measures who named an address and
+    # whether the two are the same; the kernel decides whether the address may
+    # be used, and says when only one witness named it.
+    k.append(defn("concur", "ours : Nat, theirs : Nat, same : Nat", "Nat", chain([
+        ("((ours =? 1) && (theirs =? 1))", chain([("(same =? 1)", "1")], "3")),
+        ("((ours =? 1) || (theirs =? 1))", "2"),
+    ], "0")))
+    k.append(defn("encodeVerdict", "code : Nat", "Bytes", chain(
+        [("(code =? %d)" % i, hx(bytes([i]))) for i in (1, 2, 3)], "0x00")))
     # A source and an ETag are named only when the file is delivered, so every
     # refusal is the answer byte followed by `04 00`, whatever the sources hold.
     k.append(defn("plan", "facts : Facts", "Bytes",
@@ -373,11 +547,21 @@ def kernel_module():
                   "(prim append (encodeSlot (select facts)) (encodeEtag (etagKind facts)) : Bytes) : Bytes) "
                   "else (prim append (encodeAnswer (answer facts)) 0x0400 : Bytes))"))
     k.append(defn("dispatch", "value : Bytes", "Bytes",
-                  "(if (((Foundation.Bytes::byteLength value) =? 104) && ((byteNat value 0) =? 1)) then "
+                  "(if (((Foundation.Bytes::byteLength value) =? 105) && ((byteNat value 0) =? 1)) then "
                   "(plan (observeFacts value)) else (if (((Foundation.Bytes::byteLength value) =? 81) && "
                   "((byteNat value 0) =? 2)) then (if (accepts (observeCheck value)) then 0x140400 else 0x150400) "
                   "else (if (((Foundation.Bytes::byteLength value) =? 2) && ((byteNat value 0) =? 3)) then "
-                  "(Site::screen (byteNat value 1)) else 0x000400)))", AX))
+                  "(Site::screen (byteNat value 1)) else (if (((Foundation.Bytes::byteLength value) =? 5) && "
+                  "((byteNat value 0) =? 4)) then (encodeVerdict (verdict (byteNat value 1) (byteNat value 2) "
+                  "(byteNat value 3) (byteNat value 4))) else (if (((Foundation.Bytes::byteLength value) =? 11) && "
+                  "((byteNat value 0) =? 5)) then (encodeVerdict (trust %s)) else "
+                  "(if (((Foundation.Bytes::byteLength value) =? 12) && ((byteNat value 0) =? 6)) then "
+                  "(encodeVerdict (complete %s)) else "
+                  "(if (((Foundation.Bytes::byteLength value) =? 4) && ((byteNat value 0) =? 7)) then "
+                  "(encodeVerdict (concur (byteNat value 1) (byteNat value 2) (byteNat value 3))) "
+                  "else 0x000400)))))))"
+                  % (" ".join("(byteNat value %d)" % i for i in range(1, 11)),
+                     " ".join("(byteNat value %d)" % i for i in range(1, 12))), AX))
     vec = "(nil %sAcceptanceVector)" % T
     for r, e in reversed(list(zip(VECTORS, EXPECTED))):
         vec = "(cons (record %sAcceptanceVector {request := %s, response := %s}) %s)" % (T, hx(r), hx(e), vec)
@@ -389,7 +573,7 @@ def kernel_module():
         'cargoHomepage := "https://github.com/Hologram-Technologies/hub", '
         'libraryRoots := (cons "%s.Kernel.dispatch" (nil String)), acceptanceVectors := %s, '
         'entryRoot := "%s.Kernel.dispatch", coreContract := "hologram:guest/core-wasm@1", '
-        'requestMaximum := (104 : UInt32), responseMaximum := (%d : UInt32), guestAllocationMaximum := (128 : UInt32), '
+        'requestMaximum := (105 : UInt32), responseMaximum := (%d : UInt32), guestAllocationMaximum := (128 : UInt32), '
         'capabilitiesEmpty := true, fatArchive := true, primaryLayer := (0 : UInt8), viewLayer := (1 : UInt8), '
         'view := (record %sTextView {title := "Hub kernel", heading := "Hub kernel", inputLabel := "Request facts", '
         'submitLabel := "Decide", outputLabel := "Plan", inputError := "Invalid request", '
@@ -443,6 +627,20 @@ INVARIANTS = [
      "((not (%s =? 1)) && %s)" % (kf("runner"), nest("||", [
          "(((Kernel::select facts) =? %d) && (not (%s =? 1)))" % (i, kf("vetted%d" % i)) for i in range(4)])),
      SELECT_DEFS),
+    # A source nobody vetted is chosen only for a file the record addresses, so
+    # bytes from an untrusted source are always checkable before they are
+    # served.
+    ("Addressed", "breaksAddressed", "addressedHolds", FACTS, "facts", nest("||", [
+        "(((Kernel::select facts) =? %d) && ((not (%s =? 1)) && (not (%s =? 1))))"
+        % (i, kf("vetted%d" % i), kf("addressed")) for i in range(4)]), SELECT_DEFS),
+    # And the other side of the same separation: a file whose address is known
+    # may be served from a source nobody vetted, even where the source dialect
+    # published no address of its own. This was false for every small file while
+    # eligibility read `entry`, however well a second witness addressed it.
+    ("Servable", "breaksServable", "servableHolds", FACTS, "facts", nest("||", [
+        "((((%s =? 1) && (%s =? 1)) && ((%s =? 1) && (%s =? 0))) && (not (Kernel::eligible%d facts)))"
+        % (kf("runner"), kf("addressed"), kf("holds%d" % i), kf("failed%d" % i), i)
+        for i in range(4)]), ELIGIBLE_DEFS),
     # A delivered file always has a source ...
     ("Sourced", "breaksSourced", "sourcedHolds", FACTS, "facts",
      "((Kernel::delivers facts) && ((Kernel::select facts) =? 4))", DELIVERS_DEFS),
@@ -468,6 +666,47 @@ INVARIANTS = [
      "kind refFound length matched",
      "((((kind =? 1) && ((length <? 7) || (40 <? length))) || ((kind =? 1) && (not (matched =? 1)))) && "
      "((Kernel::revisionDecision kind refFound length matched) =? 1))", [q("revisionDecision")]),
+    # Verified needs at least one source that delivered and none that sent other
+    # bytes; and any source that sent other bytes makes the verdict a mismatch.
+    ("Verdict", "breaksVerdict", "verdictHolds", "r0 : Nat, r1 : Nat, r2 : Nat, r3 : Nat", "r0 r1 r2 r3",
+     "((((Kernel::verdict r0 r1 r2 r3) =? 1) && ((((r0 =? 21) || (r1 =? 21)) || ((r2 =? 21) || (r3 =? 21))) || "
+     "(not (((r0 =? 20) || (r1 =? 20)) || ((r2 =? 20) || (r3 =? 20)))))) || "
+     "((((r0 =? 21) || (r1 =? 21)) || ((r2 =? 21) || (r3 =? 21))) && "
+     "(not (((Kernel::verdict r0 r1 r2 r3) =? 2) || ((Kernel::verdict r0 r1 r2 r3) =? 0)))))",
+     [q("verdict"), q("resultValid")]),
+    # An address with two witnesses is used only when they agree: the kernel
+    # never says use it while both named one and the two differed, never says
+    # use it while neither named one, and never says one witness alone while
+    # both or neither did.
+    ("Concur", "breaksConcur", "concurHolds", "ours : Nat, theirs : Nat, same : Nat", "ours theirs same",
+     "(((((Kernel::concur ours theirs same) =? 1) && (((ours =? 1) && (theirs =? 1)) && (not (same =? 1)))) || "
+     "(((Kernel::concur ours theirs same) =? 1) && (not ((ours =? 1) && (theirs =? 1))))) || "
+     "((((Kernel::concur ours theirs same) =? 2) && (((ours =? 1) && (theirs =? 1)) || "
+     "((not (ours =? 1)) && (not (theirs =? 1))))) || "
+     "(((Kernel::concur ours theirs same) =? 0) && ((ours =? 1) || (theirs =? 1)))))",
+     [q("concur")]),
+    # An answer is built from the record only when the record holds every
+    # field that answer names; where a field is missing the source dialect is
+    # asked, and where it cannot be asked the answer says it is partial.
+    ("Complete", "breaksComplete", "completeHolds",
+     ", ".join("%s : Nat" % f for f in RECORD_FIELDS) + ", passthrough : Nat",
+     " ".join(RECORD_FIELDS) + " passthrough",
+     "((((Kernel::complete {a}) =? 1) && (not (Kernel::recordHolds {b}))) || "
+     "((((Kernel::complete {a}) =? 2) && (not (passthrough =? 1))) || "
+     "((((Kernel::complete {a}) =? 3) && (passthrough =? 1)) || "
+     "(not ((((Kernel::complete {a}) =? 1) || ((Kernel::complete {a}) =? 2)) || "
+     "((Kernel::complete {a}) =? 3))))))".format(
+         a=" ".join(RECORD_FIELDS) + " passthrough", b=" ".join(RECORD_FIELDS)),
+     [q("complete"), q("recordHolds")]),
+    # A label of witnessed or published needs every check to pass; published
+    # needs a publisher's signature from the namespace owner; a witness's
+    # signature is never shown as a publisher's.
+    ("Trust", "breaksTrust", "trustHolds", ", ".join("%s : Nat" % n for n in TRUST_NAMES), " ".join(TRUST_NAMES),
+     "((((((Kernel::trust %s) =? 1) || ((Kernel::trust %s) =? 2)) && (not %s)) || "
+     "(((Kernel::trust %s) =? 2) && (not ((kind =? 2) && (owner =? 1))))) || "
+     "((kind =? 1) && ((Kernel::trust %s) =? 2)))"
+     % ((" ".join(TRUST_NAMES),) * 2 + (nest("&&", ["(%s =? 1)" % n for n in TRUST_NAMES[:8]]),) + (" ".join(TRUST_NAMES),) * 2),
+     [q("trust"), q("trustChecks")]),
 ]
 
 
@@ -480,13 +719,19 @@ def theorem(name, params, statement, form, defs, axioms):
     else:
         key = lambda d: d
     ordered = sorted(set(defs), key=key)
-    # `lexlean fmt` keeps a proof on one line when it fits in 100 columns.
+    # `lexlean fmt` keeps a proof on one line when it fits in 100 columns;
+    # past that it opens the brace and keeps the list on one line while that
+    # fits; past that again it gives each definition a line of its own.
     proof = "  proof: %s{definitions: [%s]}," % (form, ", ".join(ordered))
     if len(proof) > 100:
-        rows = ",\n".join("      " + d for d in ordered)
-        proof = "  proof: %s{\n    definitions: [\n%s\n    ]\n  }," % (form, rows)
-    return ("theorem{\n  name: %s,\n  parameters: [%s],\n  statement: %s,\n%s\n"
-            "  axioms: [%s]\n}\n" % (name, params, statement, proof, ", ".join(axioms)))
+        inner = "    definitions: [%s]" % ", ".join(ordered)
+        if len(inner) <= 100:
+            proof = "  proof: %s{\n%s\n  }," % (form, inner)
+        else:
+            rows = ",\n".join("      " + d for d in ordered)
+            proof = "  proof: %s{\n    definitions: [\n%s\n    ]\n  }," % (form, rows)
+    return ("theorem{\n  name: %s,\n%s\n  statement: %s,\n%s\n"
+            "  axioms: [%s]\n}\n" % (name, parameters(params), statement, proof, ", ".join(axioms)))
 
 
 def proof_module(name, declarations, imports="Kernel"):
@@ -498,7 +743,7 @@ def proof_module(name, declarations, imports="Kernel"):
 # The axioms Lean observes for each proof (`#print axioms`, measured): `omega`
 # reaches `Classical.choice` when a split leaves an `if` over a disjunction.
 # LexLean refuses a proof whose declared set differs (LLV7005).
-CLASSICAL = {"Delivery", "Etag", "Healthy", "Sound"}
+CLASSICAL = {"Complete", "Concur", "Delivery", "Etag", "Healthy", "Servable", "Sound", "Trust"}
 
 
 def proof_modules():

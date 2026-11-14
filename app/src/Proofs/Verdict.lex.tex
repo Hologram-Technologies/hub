@@ -1,0 +1,23 @@
+\begin{lexlean}{Proofs.Verdict}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksVerdict,
+  parameters: [r0 : Nat, r1 : Nat, r2 : Nat, r3 : Nat],
+  result: Bool,
+  body: ((((Kernel::verdict r0 r1 r2 r3) =? 1) && ((((r0 =? 21) || (r1 =? 21)) || ((r2 =? 21) || (r3 =? 21))) || (not (((r0 =? 20) || (r1 =? 20)) || ((r2 =? 20) || (r3 =? 20)))))) || ((((r0 =? 21) || (r1 =? 21)) || ((r2 =? 21) || (r3 =? 21))) && (not (((Kernel::verdict r0 r1 r2 r3) =? 2) || ((Kernel::verdict r0 r1 r2 r3) =? 0)))))
+}
+
+theorem{
+  name: verdictHolds,
+  parameters: [r0 : Nat, r1 : Nat, r2 : Nat, r3 : Nat],
+  statement: ((breaksVerdict r0 r1 r2 r3) = false),
+  proof: linear_arithmetic{definitions: [Kernel::resultValid, Kernel::verdict, breaksVerdict]},
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

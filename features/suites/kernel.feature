@@ -61,6 +61,18 @@ Feature: kernel
     When the Lean kernel checks revisionHolds in app/src/Proofs/Revision.lex.tex during prismpm verify
     Then no input meets breaksRevision
 
+  @HK-17 @build
+  Scenario: An address with two witnesses is used only when they agree; where one witness alone names it the page says so, and where they disagree the file has no address
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks concurHolds in app/src/Proofs/Concur.lex.tex during prismpm verify
+    Then no input meets breaksConcur
+
+  @HK-16 @build
+  Scenario: Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks queryHolds in app/src/Proofs/Query.lex.tex during prismpm verify
+    Then no input meets breaksQuery
+
   @HK-11 @build
   Scenario: Every header item and every link that stays in the hub opens a screen the kernel renders
     Given the kernel model in app/src/Kernel.lex.tex
@@ -76,6 +88,36 @@ Feature: kernel
     And the Lean kernel checks errorsHold in app/src/Proofs/Errors.lex.tex during prismpm verify
     Then no input meets breaksDialect
     And no input meets breaksErrors
+
+  @HK-13 @build
+  Scenario: The page says Verified only when at least one source delivered and none sent other bytes, and any source that sent other bytes makes the verdict a mismatch
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks verdictHolds in app/src/Proofs/Verdict.lex.tex during prismpm verify
+    Then no input meets breaksVerdict
+
+  @HK-15 @build
+  Scenario: An answer is built from the index only when the record holds every field that answer names; where one is missing the source dialect is asked, and where it cannot be asked the answer says it is partial
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks completeHolds in app/src/Proofs/Complete.lex.tex during prismpm verify
+    Then no input meets breaksComplete
+
+  @HK-14 @build
+  Scenario: A model page says Witnessed or Published only when every signature check passed, says Published only for a publisher's signature from the namespace owner, and never shows a witness's signature as a publisher's
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks trustHolds in app/src/Proofs/Trust.lex.tex during prismpm verify
+    Then no input meets breaksTrust
+
+  @HK-19 @build
+  Scenario: A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks addressedHolds in app/src/Proofs/Addressed.lex.tex during prismpm verify
+    Then no input meets breaksAddressed
+
+  @HK-22 @build
+  Scenario: A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks servableHolds in app/src/Proofs/Servable.lex.tex during prismpm verify
+    Then no input meets breaksServable
 
   @HK-10 @build
   Scenario: Received bytes are delivered exactly when their digest and size equal the expected digest and size

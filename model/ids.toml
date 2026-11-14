@@ -93,3 +93,63 @@ id = "HK-12"
 level = "build"
 suite = "kernel"
 statement = "A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code"
+
+[[id]]
+id = "HK-13"
+level = "build"
+suite = "kernel"
+statement = "The page says Verified only when at least one source delivered and none sent other bytes, and any source that sent other bytes makes the verdict a mismatch"
+
+[[id]]
+id = "HK-14"
+level = "build"
+suite = "kernel"
+statement = "A model page says Witnessed or Published only when every signature check passed, says Published only for a publisher's signature from the namespace owner, and never shows a witness's signature as a publisher's"
+
+[[id]]
+id = "HK-15"
+level = "build"
+suite = "kernel"
+statement = "An answer is built from the index only when the record holds every field that answer names; where one is missing the source dialect is asked, and where it cannot be asked the answer says it is partial"
+
+[[id]]
+id = "HK-16"
+level = "build"
+suite = "kernel"
+statement = "Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state"
+
+[[id]]
+id = "HK-17"
+level = "build"
+suite = "kernel"
+statement = "An address with two witnesses is used only when they agree; where one witness alone names it the page says so, and where they disagree the file has no address"
+
+[[id]]
+id = "HK-18"
+level = "build"
+suite = "index"
+statement = "A release record always carries the fields a client reads: the repository, the revision, every file with its path, size and git blob address, and the sources that hold it"
+
+[[id]]
+id = "HK-19"
+level = "build"
+suite = "kernel"
+statement = "A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served"
+
+[[id]]
+id = "HK-20"
+level = "build"
+suite = "index"
+statement = "A release record names where its own bytes come from, and the edge sends a client to that same place, so a reader who is not the edge can fetch and check a file without knowing which hub built the record"
+
+[[id]]
+id = "HK-21"
+level = "build"
+suite = "index"
+statement = "A swarm catalog row is filed under the shard key the page resolves a query with, and says it is a listing rather than a checked record, so a search reads one shard and what it draws is not mistaken for proof"
+
+[[id]]
+id = "HK-22"
+level = "build"
+suite = "kernel"
+statement = "A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts"

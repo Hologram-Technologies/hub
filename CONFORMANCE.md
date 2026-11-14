@@ -18,6 +18,14 @@ The three honesty levels (R2):
 `cargo xtask audit-limits` fails if any code path returns an error the
 model does not sanction.
 
+## index
+
+| ID | Level | Statement |
+| --- | --- | --- |
+| `HK-18` | `build` | A release record always carries the fields a client reads: the repository, the revision, every file with its path, size and git blob address, and the sources that hold it |
+| `HK-20` | `build` | A release record names where its own bytes come from, and the edge sends a client to that same place, so a reader who is not the edge can fetch and check a file without knowing which hub built the record |
+| `HK-21` | `build` | A swarm catalog row is filed under the shard key the page resolves a query with, and says it is a listing rather than a checked record, so a search reads one shard and what it draws is not mistaken for proof |
+
 ## kernel
 
 | ID | Level | Statement |
@@ -34,6 +42,13 @@ model does not sanction.
 | `HK-10` | `build` | Received bytes are delivered exactly when their digest and size equal the expected digest and size |
 | `HK-11` | `build` | Every header item and every link that stays in the hub opens a screen the kernel renders |
 | `HK-12` | `build` | A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code |
+| `HK-13` | `build` | The page says Verified only when at least one source delivered and none sent other bytes, and any source that sent other bytes makes the verdict a mismatch |
+| `HK-14` | `build` | A model page says Witnessed or Published only when every signature check passed, says Published only for a publisher's signature from the namespace owner, and never shows a witness's signature as a publisher's |
+| `HK-15` | `build` | An answer is built from the index only when the record holds every field that answer names; where one is missing the source dialect is asked, and where it cannot be asked the answer says it is partial |
+| `HK-16` | `build` | Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state |
+| `HK-17` | `build` | An address with two witnesses is used only when they agree; where one witness alone names it the page says so, and where they disagree the file has no address |
+| `HK-19` | `build` | A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served |
+| `HK-22` | `build` | A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts |
 
 ## Cited authorities
 

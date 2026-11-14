@@ -1,0 +1,45 @@
+\begin{lexlean}{Proofs.Trust}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksTrust,
+  parameters: [
+    present : Nat,
+    chain : Nat,
+    time : Nat,
+    log : Nat,
+    signature : Nat,
+    identity : Nat,
+    subject : Nat,
+    predicate : Nat,
+    kind : Nat,
+    owner : Nat
+  ],
+  result: Bool,
+  body: ((((((Kernel::trust present chain time log signature identity subject predicate kind owner) =? 1) || ((Kernel::trust present chain time log signature identity subject predicate kind owner) =? 2)) && (not ((present =? 1) && ((chain =? 1) && ((time =? 1) && ((log =? 1) && ((signature =? 1) && ((identity =? 1) && ((subject =? 1) && (predicate =? 1)))))))))) || (((Kernel::trust present chain time log signature identity subject predicate kind owner) =? 2) && (not ((kind =? 2) && (owner =? 1))))) || ((kind =? 1) && ((Kernel::trust present chain time log signature identity subject predicate kind owner) =? 2)))
+}
+
+theorem{
+  name: trustHolds,
+  parameters: [
+    present : Nat,
+    chain : Nat,
+    time : Nat,
+    log : Nat,
+    signature : Nat,
+    identity : Nat,
+    subject : Nat,
+    predicate : Nat,
+    kind : Nat,
+    owner : Nat
+  ],
+  statement: ((breaksTrust present chain time log signature identity subject predicate kind owner) = false),
+  proof: linear_arithmetic{definitions: [Kernel::trust, Kernel::trustChecks, breaksTrust]},
+  axioms: [Classical.choice, Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

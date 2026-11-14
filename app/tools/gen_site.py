@@ -13,7 +13,11 @@ import re
 import site_spec as S
 
 AX = ["Quot.sound", "propext"]
-SAFE = re.compile(r"[A-Za-z0-9 .\-_/'()?!+=;&]+")
+# Printable ASCII but the backslash: LexLean source strings take these as they
+# are, with `"` written `\"`. Anything else is written as hex. One screen is
+# then a few long strings, not hundreds of pieces (the guest grew to 152 KB
+# with a piece per word, and the proof page's Lighthouse budget failed).
+SAFE = re.compile(r"[\x20-\x5b\x5d-\x7e]+")
 
 
 def defn(name, params, result, body, axioms=None):
@@ -42,7 +46,9 @@ def nest(op, xs):
 
 
 def screen_json(name):
-    return json.dumps(S.SCREENS[name], separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    text = json.dumps(S.SCREENS[name], separators=(",", ":"), ensure_ascii=False)
+    assert "\\" not in text, "a screen may not contain a backslash: LexLean strings cannot hold one"
+    return text.encode("utf-8")
 
 
 def pieces(data):
@@ -52,7 +58,7 @@ def pieces(data):
     for m in SAFE.finditer(text):
         if m.start() > i:
             out.append("0x" + text[i:m.start()].encode("utf-8").hex())
-        out.append('(prim utf8_encode "%s" : Bytes)' % m.group(0))
+        out.append('(prim utf8_encode "%s" : Bytes)' % m.group(0).replace('"', '\\"'))
         i = m.end()
     if i < len(text):
         out.append("0x" + text[i:].encode("utf-8").hex())
@@ -88,6 +94,17 @@ def site_module(head):
     k.append(defn("linkRoute", "link : Nat", "Nat", chain(
         [("(link =? %d)" % j, "(route%s)" % to.capitalize()) for j, (_, _, to) in enumerate(S.LINKS)],
         "(routeCount)")))
+    # The browse page's filters and the query a link carries are one table.
+    # `facetParam` gives each filter the position of its parameter's name in
+    # the sorted list of names, so two filters naming one parameter get one
+    # position between them and `queryHolds` fails.
+    facets = [f[1] for f in S.SCREENS["models"]["facets"]]
+    names = sorted(set(facets))
+    k.append("definition{name: facetCount, parameters: [], result: Nat, body: %d}\n" % len(facets))
+    k.append("definition{name: paramCount, parameters: [], result: Nat, body: %d}\n" % len(names))
+    k.append(defn("facetParam", "facet : Nat", "Nat", chain(
+        [("(facet =? %d)" % i, str(names.index(name))) for i, name in enumerate(facets)],
+        "(paramCount)")))
     statuses = sorted(S.DIALECT.items())
     k.append(defn("hfStatus", "answer : Nat", "Nat", chain(
         [("(answer =? %d)" % a, str(st)) for a, (st, _, _) in statuses], str(S.BAD_REQUEST[0]))))
@@ -118,6 +135,17 @@ SITE_INVARIANTS = [
     ("Links", "breaksLinks", "linksHold", "link : Nat", "link",
      "((link <? (Site::linkCount)) && (not (Site::hasScreen (Site::linkRoute link))))",
      ROUTE_DEFS + [q("linkCount"), q("linkRoute")]),
+    # Every filter the page offers names a parameter of its own: the parameter
+    # exists, and no other filter claims it. So a link carries the whole state
+    # and nothing in it is dropped or read as something else. The comparisons
+    # are against literals, because `omega` cannot see through an `if` whose
+    # scrutinee is itself an `if` chain.
+    ("Query", "breaksQuery", "queryHolds", "facet : Nat", "facet",
+     "((facet <? (Site::facetCount)) && ((not ((Site::facetParam facet) <? (Site::paramCount))) || %s))"
+     % nest("||", [
+         "((not (facet =? %d)) && ((Site::facetParam facet) =? %d))" % (i, sorted(set(f[1] for f in S.SCREENS["models"]["facets"])).index(name))
+         for i, name in enumerate(f[1] for f in S.SCREENS["models"]["facets"])]),
+     [q("facetCount"), q("paramCount"), q("facetParam")]),
     # A tool sees a status below 400 exactly when the kernel delivers.
     ("Dialect", "breaksDialect", "dialectHolds", "answer : Nat", "answer",
      "((((Site::hfStatus answer) <? 400) && (not %s)) || (%s && (not ((Site::hfStatus answer) <? 400))))"
@@ -131,6 +159,8 @@ SITE_INVARIANTS = [
 ]
 
 SITE_CLAIMS = [
+    ("HK-16", "Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state",
+     ["Query"]),
     ("HK-11", "Every header item and every link that stays in the hub opens a screen the kernel renders",
      ["Nav", "Links"]),
     ("HK-12", "A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code",
