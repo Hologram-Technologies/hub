@@ -1086,6 +1086,68 @@ a separate `addressed` fact in the resolve request, which moves it from 104
 bytes to 108 and re-proves every theorem that names the slots. That is a change
 of its own and is not made here.
 
+## An address that outlives the host that gave it
+
+Measured 2026-11-14 against <https://pirateface.co>: 669k models listed,
+25,825 with a magnet, 38,257 seeding, against this hub's 415 indexed. So 3.9
+per cent of the catalog has a torrent and the rest is a link to Hugging Face
+and a checksum, both of which end when Hugging Face does.
+
+`/api/models` is cursor-paginated and hard-capped at 30 rows; `limit`,
+`seeded`, `filter`, `sort` and `hasTorrent` were each passed and each ignored,
+so a full sweep is about 22,300 requests. `sitemap.xml` has 42 entries and
+lists no models. `/s/<query>` returns only models with a magnet, which makes it
+a magnet-only view but a query-driven one.
+
+Indexing that catalog is the wrong goal, and the reason is the one that
+decides the design. A model is self-verifying only against a digest from
+somewhere other than the party serving the bytes, so Pirate Face's own SHA-256
+cannot check bytes from Pirate Face's swarm. `HK-19` already says it in the
+kernel's terms. While Hugging Face answers, the runner asks it for the address
+and the swarm for the bytes and they are different parties; when it stops,
+there is no second independent answer and the swarm is refused.
+
+So two things are built and kept apart. Discovery is answered live -
+`/api/swarm/search?q=` relays the catalog with `claimedBy` naming the party and
+`checked` false - and covers all 669k with no index and nothing to go stale.
+Addressing is written down, because it is the part that expires:
+`tools/swarm-index.mjs` records `{ repo, revision, files: [ { path, size,
+sha256 } ] }` from Hugging Face's tree for the seeded releases. No magnet and
+no infohash, which are fetched live and are not lost.
+
+Measured on a two-page walk: 9 releases scanned, 9 with a torrent, 8 addressed
+across 476 files, none already gone from Hugging Face. Run again against the
+same output, 8 of 8 were reused and nothing was fetched, which is what makes
+the nightly job cost the catalog walk and almost nothing else.
+
+`tests/index/swarm-shards.mjs` is the gate. It checks every shard against the
+root, that the root's count matches what the shards hold, that the snapshot
+names Hugging Face as the source of its addresses, and that every row carries
+a revision and at least one file with a 64-hex SHA-256 and a size - a row with
+no address is useless and a row addressed by the swarm would be worse. The
+planted defect is one byte inside one shard's first `"sha256":"`, which leaves
+the snapshot parsing and describing the same releases; it was refused.
+
+`runner/snapshot.mjs` is used in exactly one place: a release neither the
+signed index nor Hugging Face can describe. `tests/runner/snapshot.mjs` checks
+that such a release stops being answered as missing, that it then reaches the
+question of which source holds it rather than failing before it, that a HEAD
+is answered with the recorded address and revision and the SHA-256 ETag
+`HK-08` gives an addressed file, that a file the snapshot does not list is
+still not found and a repository it does not hold is still missing, and that a
+shard which does not match the root is refused and the release goes back to
+missing. Five checks, no network beyond the holo.
+
+Not established here. The snapshot has only ever been built two pages deep;
+the full walk has not been run, and its first run will take about two hours
+before the reuse above makes it cheap. Nothing is published yet, because the
+nightly workflow has not run, so `pages` finds no snapshot in the cache and
+publishes none - which it is written to tolerate. And the predicate type
+`https://hologram.foundation/hub/swarm/v1` is a constant in
+`runner/snapshot.mjs` rather than a field of the kernel's trust policy: the
+pinned Sigstore roots and the workflow identity are the kernel's, but that one
+string is not, and moving it there is a model change that has not been made.
+
 ## Prism accounts: the remembered passkey
 
 The sign-in page (`identity/id.mjs`) remembers which passkey this device last
