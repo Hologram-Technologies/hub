@@ -1582,6 +1582,89 @@ allows, which still fits, and moved the cheapest shard count from 1,024 to
 has to be the shape the thing will really have, and a flag that changes whether
 a field is present changes its size.
 
+## The browse index, and the page it has to reproduce
+
+The interface reads its catalogue by fetching every browse shard and filtering
+the array in memory. At 440 models that is fine. At the roll's three million it
+is about 474 MB of JSON and near 1.9 GB of heap, against a tab usually capped
+at 2 to 4 GB and a phone far lower: it would not be slow, it would stop.
+
+`tools/browse-index.mjs` moves the ordering into the build. It writes the rows
+once in creation order, a fixed-width table of where each row starts, one file
+per sort holding the row numbers in that order, and, for each sort and each
+facet value, the positions in that order that hold it, delta-coded. A page is
+then a slice of an order and a row at a time by offset, both ranged reads, and
+a filtered page is the intersection of two ascending lists before the slice.
+
+Row numbers are creation order, oldest first, so a number never changes as the
+roll grows. Every order file and every posting list is a list of those numbers.
+
+Measured 2026-11-14 on a week of the Hub, 21,904 listed models, and
+extrapolated to 3.08 million:
+
+| | A week | 3.08 million |
+| --- | --- | --- |
+| `rows.ndjson` | 2.9 MB | 407 MB |
+| `rows.idx` | 0.3 MB | 37 MB |
+| five orders | 0.4 MB | 62 MB |
+| postings over 976 values | 0.4 MB | 61 MB |
+| **total** | **4.0 MB** | **567 MB, 55 per cent of the limit** |
+
+### What the gate checks
+
+`tests/browse/page.mjs` reads the index the way a browser would - a slice of an
+order, a slice of a postings file, a row at a time by offset - and checks the
+answer against the rows filtered and sorted the slow, obvious way. Eleven
+checks, the load-bearing one being that a filtered page **is the page the slow
+way gives**, by id, in order. Also that a row on it holds the facet, that the
+total matches counting by hand, that two filters intersect to no more than
+either, that the second page continues the first and repeats none of it, and
+that an unfiltered page still sorts.
+
+**The planted defect.** In the postings loop, write the row numbers where the
+positions belong - `varints([...held].sort(...))` instead of
+`varints(held.map((n) => at[n]).sort(...))`. It is the mistake the design
+invites, because both are arrays of small integers about the same rows, and
+nothing about the shape of the output says which one it holds.
+
+Failing command: `node tests/browse/page.mjs <index>`. Diagnostic:
+
+    FAIL every row on it holds the facet: a row did not
+    FAIL it is the page the slow way gives: Comfy-Org/MiniMax-H3-Image
+         against ErtasAI/MedErtas-v0.1-31B-LS
+    FAIL two filters intersect: a row did not hold both
+
+Exit 1 with the defect, exit 0 restored. Eight of the eleven checks passed
+either way - the page still came back, still had rows, still sorted, and still
+paged. A gate that checked only that a page arrives would have stayed green on
+a catalogue that answers every filter with the wrong models.
+
+### What is not in it
+
+Wiring `web/hub.mjs` to read any of this, and the facets the roll does not
+carry: format, family, architecture, modality, source and status are derived by
+`tools/facets.mjs` from tags and a model's files, and the roll keeps neither.
+They remain available for the addressed catalogue and absent for the rest,
+which is the honest state rather than a silently narrower panel.
+
+### The trending order is Hugging Face's, not a near miss of it
+
+Until 2026-11-14 the browse index derived a trending score from likes and
+downloads against a model's age, because the listing the roll read did not
+carry one. It does: `trendingScore` is one of the twenty-six `expand[]`
+options, and naming it returns the real number. Measured that day, the top of
+the trending order reads 4,428 for `xtools-at/DeepSeek-V4-Pro-...`, 997 for
+`MiniMaxAI/MiniMax-H3-Image`, 426 for `Lightricks/LTX-2.5`.
+
+So the roll carries it as given, beside the downloads and the likes, and under
+the same rule: it is a measurement of somebody else's traffic, named as such,
+not a fact this hub re-derives. The sort is now their order rather than a
+plausible-looking approximation of it, which is the difference between a
+catalogue a reader can compare with Hugging Face and one they cannot.
+
+The postings header also gained a count per value, which is what the filter
+panel puts beside a chip: a reader takes it without touching a single posting.
+
 ## Pirate Face's models, drawn as models
 
 ### One rule in two files is a shard nobody can find
