@@ -1753,3 +1753,61 @@ An earlier run of the same tree verified `6e0cc8d6f8593efc3a4a2457d4dc34b023e79e
 before the site model was reworked. It is recorded here only so that the two
 hashes in this session's history are not mistaken for an unexplained drift:
 the model between them changed, and the second is the one this change ships.
+
+## A digest that is not a digest
+
+The first real run of `swarm` failed, and what it caught is the reason that
+snapshot exists at all.
+
+Hugging Face answers for a gated repository with the shape of a digest and
+none of it: sixty-four asterisks where the LFS oid goes. `tools/swarm-index.mjs`
+took `f.lfs?.oid` as an address without looking at it, so 983 files in that
+run were written down as addressed when nothing had been addressed. Locally,
+960 of 16,848 on a 25-page sample.
+
+A row like that is worse than a row with no address. The whole purpose of the
+snapshot is to hold a digest from someone other than the party serving the
+bytes; a masked one holds nothing while reading as though it holds something,
+and a runner checking against it would refuse every copy of a file that was
+never wrong.
+
+So the oid is matched against the shape of an address before it is kept, and a
+file whose digest Hugging Face will not give has no address here. That is the
+true answer rather than a gap: for a gated model there is no second
+independent digest to be had, and the right record of that is silence. The
+builder now reports the count it left unaddressed - 949 on the sample after
+the fix - so the number is visible rather than inferred from a total that
+quietly shrank.
+
+An LFS file falls back to nothing rather than to `oid`. For an LFS file git
+holds a 134-byte pointer and `oid` is the hash of that pointer, which is the
+same trap recorded earlier in this file under the pointer bug: a plausible
+hash of the wrong bytes is the failure mode that survives every check that
+only asks whether a hash is present.
+
+`tests/index/swarm-shards.mjs` is what refused it, with no change needed. It
+is worth saying plainly that this gate was not planted against for this case
+and caught it anyway, on real data, the first time the workflow ran.
+
+### Zero is a size
+
+Found while reading the same failure. The test required `size > 0`, and an
+empty file - `.gitkeep`, `.nojekyll`, an empty `__init__.py` - is addressable
+like any other: git gives every empty file the same blob hash. Eighteen of
+them on the sample. The check is now a whole number of bytes, and a new one
+holds an empty file to carrying `e69de29b...`, which is what the old check was
+reaching for and did not say.
+
+### A failed step discards a good artifact
+
+`actions/cache` declares `post-if: success()`, so the run that failed saved
+nothing - including the catalog, which had been built correctly and verified
+nothing against it. The address sweep's failure threw away forty minutes of
+good catalog.
+
+The two artifacts are now each checked immediately after they are written, so
+a run fails on the one that is wrong rather than after the other has been
+built. That makes the waste smaller; it does not make the two independent,
+because one cache save still covers both. Recorded rather than fixed: making
+them separately cacheable is a change to how `pages` restores them, and it
+belongs with that rather than wedged in here.

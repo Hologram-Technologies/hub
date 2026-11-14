@@ -48,9 +48,21 @@ check("every release names a revision and at least one addressed file", shapes.l
 // address at all is the one thing a snapshot must never carry, because the
 // runner would have nothing to check its bytes against.
 const digests = out.flatMap((r) => r.files);
-const bad = digests.filter((f) => !(f.size > 0)
+// A size of zero is a size. An empty file - `.gitkeep`, `.nojekyll`, an empty
+// `__init__.py` - is addressable like any other, and git gives it the one
+// blob hash every empty file has, so what is required is a size that is a
+// whole number of bytes rather than one above zero.
+const EMPTY_BLOB = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
+const bad = digests.filter((f) => !Number.isInteger(f.size) || f.size < 0
   || !(/^[0-9a-f]{64}$/.test(f.sha256 ?? "") || /^[0-9a-f]{40}$/.test(f.gitSha1 ?? "")));
 check("every file carries an address and a size", bad.length === 0, `${bad.length} do not`);
+// The size and the address have to agree, which is what the old check was
+// reaching for. An empty file whose address is not git's empty blob is a
+// record of something other than the file it names.
+const empty = digests.filter((f) => f.size === 0);
+const mismatched = empty.filter((f) => f.gitSha1 !== EMPTY_BLOB);
+check("an empty file carries the address an empty file has", mismatched.length === 0,
+  `${mismatched.length} of ${empty.length} do not`);
 const large = digests.filter((f) => f.sha256).length;
 console.log(`     ${out.length} releases, ${digests.length} addressed files (${large} by SHA-256, ${digests.length - large} by git blob)`);
 

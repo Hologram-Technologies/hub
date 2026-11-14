@@ -49,6 +49,8 @@ const SHARDS = 256;
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 const shardOf = (repo) => sha256(repo).slice(0, 2);
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+const SHA256 = /^[0-9a-f]{64}$/;
+const SHA1 = /^[0-9a-f]{40}$/;
 
 // Hugging Face allows anonymous clients 500 calls per 5 minutes; this makes at
 // most one a second and backs off when told to.
@@ -98,6 +100,7 @@ for (let i = 0; i < SHARDS; i += 1) {
 const rows = new Map();
 let seen = 0;
 let seeded = 0;
+let masked = 0;
 let reused = 0;
 let fetched = 0;
 let gone = 0;
@@ -133,11 +136,27 @@ for await (const row of catalog()) {
   // once it stops answering. Recording an address nothing acts on yet costs a
   // few bytes; not recording it means a later decision cannot be acted on
   // backwards.
+  //
+  // What is recorded has to be an address. Hugging Face answers for a gated
+  // repository with the shape of a digest and none of the digest - sixty-four
+  // asterisks where the LFS oid goes - and written down unchecked that is a
+  // row claiming an address this hub can never verify anything against. So
+  // the oid is matched before it is kept, and a file whose digest Hugging
+  // Face will not give has no address here. That is the true answer: for a
+  // gated model there is no second independent digest to have.
+  //
+  // An LFS file falls back to nothing rather than to `oid`, because for an
+  // LFS file git holds a 134-byte pointer and `oid` is the hash of that
+  // pointer, not of the bytes anyone wants to check.
   const files = tree
-    .filter((f) => f.type === "file" && (f.lfs?.oid || f.oid))
-    .map((f) => (f.lfs?.oid
-      ? { path: f.path, size: f.size, sha256: f.lfs.oid }
-      : { path: f.path, size: f.size, gitSha1: f.oid }));
+    .filter((f) => f.type === "file")
+    .map((f) => {
+      if (SHA256.test(f.lfs?.oid ?? "")) return { path: f.path, size: f.size, sha256: f.lfs.oid };
+      if (!f.lfs && SHA1.test(f.oid ?? "")) return { path: f.path, size: f.size, gitSha1: f.oid };
+      masked += 1;
+      return null;
+    })
+    .filter(Boolean);
   if (!files.length) continue;
   rows.set(row.id, { repo: row.id, revision: row.revision, files });
   fetched += 1;
@@ -169,3 +188,4 @@ const root = {
 await writeFile(join(out, "root.json"), JSON.stringify(root));
 console.log(`swarm-index: ${rows.size} models addressed in ${shards.length} shards`);
 console.log(`swarm-index: ${seen} scanned, ${seeded} with a torrent, ${reused} reused, ${fetched} fetched, ${gone} no longer on Hugging Face`);
+console.log(`swarm-index: ${masked} file(s) left unaddressed because Hugging Face would not give a digest for them`);
