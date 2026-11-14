@@ -6,11 +6,18 @@ from any source, and every decision the hub makes about a request taken by a
 Prism application whose rules Lean proves. A user sets `HF_ENDPOINT` and
 `huggingface_hub`, transformers, vLLM and llama.cpp keep working unchanged.
 
-What exists today: the hub kernel and the hub's interface, below. No runner in
-this repository serves Hugging Face requests yet; the catalog the interface
-shows is read from the live hub at gethologram.ai, which is still the one in
-`hologram-live`. The plan is in [docs/brief.md](docs/brief.md); what was
-measured before building is in [docs/phase1-study.md](docs/phase1-study.md).
+What exists today: the hub kernel, the hub's interface and the edge runner,
+below. No runner of this repository's is deployed yet, so nothing here answers
+`HF_ENDPOINT` for the public; the live hub is still the one in `hologram-live`,
+at gethologram.ai. What this repository builds itself from is Hugging Face:
+which models to index, and every fact in a release record, are Hugging Face's
+own answers, and the edge calls no hub but this repository's signed index. Two
+things are still read from the live hub at build time, because nothing here
+re-derives them: which other sources hold a release's bytes, and the registry
+and apps lists the two screens of that name show. The plan is in
+[docs/brief.md](docs/brief.md); what was measured before building is in
+[docs/phase1-study.md](docs/phase1-study.md), and how the work here reaches the
+live site is in [docs/live-deployment.md](docs/live-deployment.md).
 
 This repository was created from the
 [UOR Prism template](https://github.com/UOR-Foundation/template), so its gate,
@@ -81,9 +88,10 @@ holo.
 1. The page loads `app/app.holo` with `prism-code`'s browser runtime, which
    checks its identities.
 2. For each screen it sends the guest `03 nn` and draws the JSON it returns.
-3. It reads the catalogue from `data/models.json`, the copy `tools/web-data.mjs`
-   takes at each deploy, and a model's files from the hub's own Hugging Face
-   API (`/api/models/{repo}/tree/{revision}`).
+3. It reads the catalogue from the signed index under `data/index/`, checking
+   each browse shard against the signed root before drawing a row of it, and a
+   model's files from the hub's own Hugging Face API
+   (`/api/models/{repo}/tree/{revision}`).
 4. After first paint it replays every acceptance vector the holo carries and
    says so in the footer.
 5. Verify on a model page fetches the smallest addressed file from each source
@@ -101,6 +109,8 @@ before drawing it, with the kernel's accept rule, and says whether the listing
 it is holding is signed. `tools/web-data.mjs` now copies only what the index
 does not carry: the registry, the apps list, and one avatar per owner, fetched
 from Hugging Face's avatar CDN at the size that CDN stores and copied whole.
+Which owners those are it reads from the index it is assembling beside, not
+from any hub, so a mark never belongs to a row the page does not draw.
 The filters are
 grouped as Hugging Face groups them (Main, Libraries, Languages, Licenses,
 Other), and Parameters is one bar with two handles over the stops the screen
@@ -207,7 +217,12 @@ its identities and replays its examples.
   (the release and file from Hugging Face's API, which sources hold the file
   from the hub's index, each source's health) and sends the kernel's resolve
   request; the answer becomes HTTP through the kernel's own dialect table. It
-  only ever redirects, and only to vetted sources (`HK-03`, `HK-04`).
+  only ever redirects, and only to vetted sources (`HK-03`, `HK-04`). Which
+  sources hold a file is read from the signed index alone, because that is a
+  fact the kernel acts on and those bytes were hashed against the root the edge
+  verified at start; a repository the index does not hold therefore has no
+  second source, and a pinned `/via/<source>` for one is refused rather than
+  answered from somebody else's word.
 - Metadata routes (`/api/models...`, tree, paths-info, refs) are Hugging Face's
   own answers, with next-page links pointing at the edge and the Xet fields
   removed from listings, so a client always asks the edge which source to use.
@@ -240,8 +255,9 @@ run time, which loading a holo needs (Cloudflare's documented restriction, not
 tested here); any host that runs Node 22 does.
 
 `pages.yml` gives every route its own page (`tools/web-routes.mjs`: catalog,
-docs, registry, apps, buckets and each model the catalog lists when the site is
-built), so deep links answer 200. After each deploy a `smoke` job opens every screen in Chromium (`tools/smoke.mjs`) and fails unless each draws its screen
+docs, registry, apps, buckets and each model the signed index holds when the
+site is built, which is the same set the browse page draws and the edge answers
+for), so deep links answer 200. After each deploy a `smoke` job opens every screen in Chromium (`tools/smoke.mjs`) and fails unless each draws its screen
 and replays every example.
 
 ## The local runner

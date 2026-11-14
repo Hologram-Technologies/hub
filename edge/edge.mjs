@@ -10,7 +10,8 @@
 // signed by this repository's workflow, names every model record by SHA-256,
 // so an indexed model is answered with no call to Hugging Face. Only a model
 // the index does not hold is asked of Hugging Face, and not at all when the
-// operator turns that off.
+// operator turns that off. Those two are the only hosts it calls: it reads no
+// other hub, so no unsigned answer from a third host reaches the kernel.
 //
 // The handler is a standard fetch handler: `edge/serve.mjs` runs it on Node,
 // and the same module runs on any runtime with fetch and WebAssembly.
@@ -19,7 +20,6 @@ import { load } from "../try/vendor/prism-code/src/browser.mjs";
 import { verifyBundle } from "../web/sigstore.mjs";
 
 const HF = "https://huggingface.co";
-const SOURCE_INDEX = "https://gethologram.ai/data/files";
 // Source slots, in the order the kernel prefers them when all are healthy.
 export const SOURCES = ["huggingface.co", "modelscope.cn", "ipfs"];
 const TTL = 60_000;
@@ -167,16 +167,14 @@ export async function release(repo, revision) {
   });
 }
 
-export async function holders(repo, info) {
-  if (info.record) return { revision: info.record.revision, sources: info.record.sources };
-  return cached(`index:${repo}`, async () => {
-    try {
-      const r = await fetch(`${SOURCE_INDEX}/${repo}.json`, { signal: AbortSignal.timeout(10000) });
-      return r.ok ? await r.json() : null;
-    } catch {
-      return null;
-    }
-  });
+// Which second sources hold a file is a fact the kernel acts on, so it comes
+// from the signed index and from nowhere else: those bytes were hashed against
+// the root this edge verified at start. A repository the index does not hold
+// has no second source here, and the kernel is left with the one source the
+// client's own dialect names. Exported because the local runner asks the same
+// question of the same index.
+export function holders(info) {
+  return info.record ? { revision: info.record.revision, sources: info.record.sources } : null;
 }
 
 export function healthy(source) {
@@ -222,7 +220,7 @@ const json = (body, status = 200, extra = {}) => new Response(JSON.stringify(bod
 async function resolve(method, via, repo, revision, path) {
   const info = await release(repo, revision);
   const commitKind = /^[0-9a-f]{7,40}$/.test(revision) ? 1 : 0;
-  const held = info.state === 0 && info.revision ? await holders(repo, info) : null;
+  const held = info.state === 0 && info.revision ? holders(info) : null;
   const sibling = info.siblings?.get(path);
   const lfs = sibling?.lfs;
   const slots = SOURCES.map((kind) => {

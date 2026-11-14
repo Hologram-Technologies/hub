@@ -662,8 +662,13 @@ entry draws the same surface. The marks on the cards and on the landing strip
 are the owners' own: Hugging Face names one avatar per owner
 (`/api/organizations/{owner}/avatar`, then `/api/users/{owner}/avatar`), the
 CDN serves one original at 200 px, and `tools/web-data.mjs` copies those bytes
-whole. Measured on 2026-11-13: 500 of 500 catalogue rows have one, 249 files,
-1.3 MB in all.
+whole. Which owners to fetch is read from the signed index the deploy is
+assembling, not from the live hub's catalogue, so a mark is never kept for a
+row the page does not draw. Measured on 2026-11-14 against the published index
+(400 records, 210 distinct owners): 209 marks, 1,121 kB, one owner without a
+mark and keeping its initials. The earlier figure of 249 files and 1.3 MB,
+measured on 2026-11-13, was over the live hub's 500 catalogue rows, which is a
+different and larger set of owners.
 
 The filters are grouped as Hugging Face groups them, and the facet values are
 derived rather than taken, because the hub's API does not carry them. Measured
@@ -1368,6 +1373,68 @@ button does nothing when clicked; that is older than this change.
 `tools/web-routes.mjs` builds its model pages from the live hub's catalog, so
 an owner's models have no prerendered page and open through `404.html`.
 
+The second of those is no longer so, as of the change below: `web-routes.mjs`
+reads the signed index it is assembling beside, which holds every owner's
+models, so each one gets a prerendered page like any other.
+
+## What the hub reads from the live hub
+
+This repository was building itself from the hub it means to replace: the list
+of models to index, the search behind a witnessed model, the model list the two
+page tools worked from, and the edge's run-time source records all came from
+gethologram.ai. Cut on 2026-11-14, with what was measured each time.
+
+| What | Was | Is | Measured |
+| --- | --- | --- | --- |
+| which models to index | `gethologram.ai/api/models?limit=500` | `huggingface.co/api/models?sort=trendingScore&direction=-1&full=true` | the two lists agree on 367 of 500 ids and on the head of the order; Hugging Face carries `sha` on 500 of 500 rows against the live hub's 399 |
+| a witnessed model outside the list | the live hub's search, then Hugging Face | Hugging Face by name | 8 records from a 6-row seed plus the 2 witnessed models |
+| the catalog's bytes | whatever shape the list arrived in | a projection of thirteen named fields | 5,632 bytes for 8 rows, against 2.0 MB for the 500-row `full=true` answer it is cut from |
+| the edge's source records | `gethologram.ai/data/files/{repo}.json` at run time | the signed index alone | see below |
+| the page tools' model list | `gethologram.ai/api/models?limit=500` | the index being assembled beside them | 13 route pages and 8 owner marks from an 8-record index, exactly its 8 repositories |
+
+`full=true` is what carries `sha`; the plain listing carries it on none of its
+500 rows, so the seed cannot be the cheaper call.
+
+The edge's change is the one that alters an answer. `holders()` used to fetch
+an unsigned record from a third host and hand it to the kernel as the fact of
+which sources hold a file. It now reads the signed index, whose bytes were
+hashed against the root the edge verified at start, and nothing else. Measured
+on 2026-11-14 against the published index (400 records):
+
+| Request | Answer |
+| --- | --- |
+| `/via/ipfs/openai-community/gpt2/resolve/main/config.json` | 302 to `ipfs.filebase.io`, `x-hub-source: ipfs` |
+| `/via/modelscope.cn/openai-community/gpt2/resolve/main/config.json` | 302 to `modelscope.cn`, `x-hub-source: modelscope.cn` |
+| the same `/via/ipfs/` on `hf-internal-testing/tiny-random-gpt2`, which the index does not hold | 404, `x-error-code: SourceHasNotGotIt` |
+
+So a pinned source still works for an indexed model and is refused for one the
+index does not name, rather than answered from somebody else's word. The live
+hub answers 404 for that model's source record too, so nothing that worked
+before stops working; what changes is the case of a model the live hub indexed
+and this one did not, which is now refused.
+
+One build-time read is left, named apart from Hugging Face in the index
+signature's predicate: `gethologram.ai/data/files/{repo}.json`, which says
+which other sources hold a release's bytes. Nothing here re-derives it, because
+that claim has to come from whoever hashed those bytes. A release it does not
+answer for is indexed with no second source: measured on an 8-record build,
+5 of 8 records carried one. `docs/live-deployment.md` has the rest.
+
+So the dependency is narrowed rather than cut, and the narrowing has a price
+worth stating. Measured on 2026-11-14, sampling the two 500-row lists: of 20
+ids both lists hold, 20 have a `/data/files` record; of 20 ids only Hugging
+Face's list holds, none do. The non-overlapping third of the new seed is
+therefore a third that can carry no second source until something here derives
+one. What it costs is the model page's cross-source check, not the download: a
+record with an empty `sources[]` still resolves, because the Hugging Face slot
+is filled from the file's presence in the tree and not from that list.
+
+The live row carries a `hologram` block (`manifest`, `files`, `weight_bytes`,
+`parameters`, `context`, `sources`) that the new seed does not. Nothing here
+read it: `tools/index.mjs` takes parameter counts from Hugging Face's
+`safetensors` and sources from `/data/files/{repo}.json`, and neither it nor
+`tools/facets.mjs` mentions `row.hologram` at all. Losing the block costs this
+index nothing it was using.
 ## HK-20: a record says where its own bytes come from
 
 A record addressed every file and named the other places that held them, but

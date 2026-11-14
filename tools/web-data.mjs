@@ -5,11 +5,13 @@
 //
 // The models the browse page lists are NOT here. They come from the signed
 // index (`tools/index.mjs`, `data/index/`), so the page and the wire read one
-// set of facts and a reader can check them.
+// set of facts and a reader can check them. The owners whose marks are fetched
+// are read from that same index rather than asked of the live hub, so the
+// marks match the rows the page draws.
 //
 //   node tools/web-data.mjs <site dir> <hub origin>
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const [site, origin] = process.argv.slice(2);
@@ -34,8 +36,13 @@ async function take(path) {
 // per owner (200px, the size it stores) and that file is copied whole, so the
 // mark is never a re-encoded or scaled copy. The page reads the map by owner.
 const EXT = { "image/webp": "webp", "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/svg+xml": "svg" };
-const catalog = await take("/api/models?limit=500");
-const owners = [...new Set(catalog.data.map((row) => row.id.split("/")[0]))];
+let owners = [];
+try {
+  const { records } = JSON.parse(await readFile(join(site, "data", "index", "root.json"), "utf8"));
+  owners = [...new Set(records.map(({ repo }) => repo.split("/")[0]))];
+} catch (error) {
+  console.warn(`web-data: no owner marks (${error.message}); every owner keeps its initials`);
+}
 await mkdir(join(site, "data", "avatars"), { recursive: true });
 const faces = new Map();
 let bytesWritten = 0;
