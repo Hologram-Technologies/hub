@@ -168,7 +168,7 @@ jobs:
           node bootstrap/screens.mjs site screens
       - name: Keep the screens
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: screens
           path: screens
@@ -176,7 +176,7 @@ jobs:
       - name: Keep witnessed manifests between runs
         # A manifest is reused while its model's revision is unchanged, so an
         # unchanged release is never downloaded and hashed again.
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/manifests
           key: manifests-${{ hashFiles('manifests/models.txt', 'tools/manifest.mjs') }}-${{ github.run_id }}
@@ -196,7 +196,7 @@ jobs:
           show-summary: false
       - name: Keep the index between runs
         # A record is reused while its model's revision is unchanged.
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/index
           key: index-${{ hashFiles('tools/index.mjs', 'manifests/models.txt', 'manifests/owners.txt') }}-${{ github.run_id }}
@@ -220,12 +220,48 @@ jobs:
           # other sources hold its bytes is still the live hub's claim.
           predicate: '{"tool":"tools/index.mjs","releases":"https://huggingface.co","holders":"https://gethologram.ai/data/files"}'
           show-summary: false
+
+      # ---- the roll: every model Hugging Face has ever listed
+      # The index addresses a few hundred models and costs two calls each. The
+      # roll names every one of them and costs about one call per thousand, so
+      # the two are built apart and only the roll is total.
+      # `docs/model-roll.md` has the arithmetic.
+      - name: Keep the roll between runs
+        # Without this a run has nothing to continue from, and the next step
+        # refuses rather than walking three million rows inside a 60-minute
+        # job. Priming it is `roll-sweep.yml`, run by hand, once.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/roll
+          key: roll-${{ hashFiles('tools/roll.mjs') }}-${{ github.run_id }}
+          restore-keys: roll-${{ hashFiles('tools/roll.mjs') }}-
+      - name: Catch the roll up with what Hugging Face has listed since
+        id: roll
+        # `--tail` walks only what is new. Measured 2026-11-14: two calls and a
+        # few seconds to pick up a day's 1,007 models. It exits 69 rather than
+        # sweeping when there is nothing to continue from, so a cold cache
+        # stops this step instead of running for an hour and being killed.
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "$RUNNER_TEMP/roll/root.json" ]; then
+            node tools/roll.mjs "$RUNNER_TEMP/roll" --tail
+            echo "built=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No roll in the cache, so the site is published without one. Run roll-sweep.yml once to prime it."
+            echo "built=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Nothing is published that the roll's root does not name
+        if: steps.roll.outputs.built == 'true'
+        shell: bash
+        run: node tests/roll/published.mjs "$RUNNER_TEMP/roll"
+
       - name: Take the swarm address snapshot the nightly run left
         # Written by `.github/workflows/swarm.yml`, not here: a full catalog
         # walk is about 22,300 requests and must not sit in front of a deploy.
         # A deploy that finds none publishes none, and the runner falls back to
         # asking Hugging Face live.
-        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/swarm
           key: swarm-${{ hashFiles('tools/swarm-index.mjs') }}-
@@ -238,6 +274,13 @@ jobs:
             node tests/index/swarm-shards.mjs "$RUNNER_TEMP/swarm"
           else
             echo "no swarm snapshot in the cache yet; nothing to publish"
+          fi
+          # The catalog is published from the same cache, so it is held to the
+          # same thing here rather than only where it was built.
+          if [ -f "$RUNNER_TEMP/swarm/catalog/root.json" ]; then
+            node tests/index/swarm-catalog.mjs "$RUNNER_TEMP/swarm/catalog"
+          else
+            echo "no swarm catalog in the cache yet; nothing to publish"
           fi
       - name: Sign the snapshot root as this repository's workflow
         id: swarmsig
@@ -270,6 +313,12 @@ jobs:
           # The index goes in before the two page tools run: both read the
           # models from it, so the pages and the browse list name one set.
           cp -r "$RUNNER_TEMP/index" "$RUNNER_TEMP/pages/data/index"
+          # The roll, when there is one. It is the largest thing the site
+          # carries by a wide margin, so the deploy says how large.
+          if [ -f "$RUNNER_TEMP/roll/root.json" ]; then
+            cp -r "$RUNNER_TEMP/roll" "$RUNNER_TEMP/pages/data/roll"
+            echo "roll: $(du -sh "$RUNNER_TEMP/pages/data/roll" | cut -f1) in the published site"
+          fi
           node tools/web-routes.mjs "$RUNNER_TEMP/pages"
           node tools/web-data.mjs "$RUNNER_TEMP/pages" https://gethologram.ai
           node -e '
@@ -297,9 +346,9 @@ jobs:
             ' "$SWARM_BUNDLE" "$RUNNER_TEMP/pages/data/swarm/swarm.sigstore.json"
           fi
       - name: Configure Pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d
       - name: Upload the page
-        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
         with:
           path: ${{ runner.temp }}/pages
 
@@ -317,7 +366,7 @@ jobs:
     steps:
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346
 
   smoke:
     name: open the published pages in a browser
@@ -353,7 +402,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 22
       - name: The edge answers from the signed index alone, with Hugging Face drained

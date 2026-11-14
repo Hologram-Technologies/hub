@@ -128,3 +128,64 @@ fn index_hk_20() {
         );
     }
 }
+
+/// The source of a file in this repository, with comments removed by the same
+/// rule the builder's own source is read by, so a rule named only in a comment
+/// cannot satisfy a check.
+fn without_comments(relative: &str) -> String {
+    let path = repo_model::repo_root().join(relative);
+    assert!(
+        path.is_file(),
+        "{relative} must exist for this test to be reading anything"
+    );
+    let text = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("reading {}: {e}", path.display()));
+    text.lines()
+        .map(|line| match line.find("//") {
+            Some(at) if !line[..at].ends_with(':') => &line[..at],
+            _ => line,
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// `HK-21`: A swarm catalog row is filed under the shard key the page resolves a query with, and says it is a listing rather than a checked record, so a search reads one shard and what it draws is not mistaken for proof
+///
+/// The catalog is about 300 MB of rows, so a search reads one shard and no
+/// other. That only finds anything if the builder's filing rule and the page's
+/// resolving rule are the same rule, which is why there is one of it. This
+/// reads both files and fails if either grows its own copy; that the built
+/// shards obey it is checked against the artifact by
+/// `tests/index/swarm-catalog.mjs`.
+#[test]
+fn index_hk_21() {
+    let builder = without_comments("tools/swarm-catalog.mjs");
+    let page = without_comments("web/hub.mjs");
+    assert!(
+        builder.contains("from \"../web/swarmkey.mjs\""),
+        "the catalog builder must file rows by the shared rule, not its own"
+    );
+    assert!(
+        page.contains("from \"./swarmkey.mjs\""),
+        "the page must resolve a query by the shared rule, not its own"
+    );
+    // A second spelling of the rule is the failure this is guarding against,
+    // and it looks like this: two characters taken off a name and folded to a
+    // safe key. Either file doing that again has stopped sharing.
+    for (name, source) in [("the builder", &builder), ("the page", &page)] {
+        assert!(
+            !source.contains("[^a-z0-9]"),
+            "{name} spells out a shard key rule of its own; there must be only one"
+        );
+    }
+    // The honesty half. A row the swarm listed is not a row this hub checked,
+    // and the page draws these beside signed rows.
+    assert!(
+        builder.contains("state: \"listed\""),
+        "every catalog row must say it is a listing"
+    );
+    assert!(
+        builder.contains("\"pirateface\""),
+        "a catalog row's only source is the swarm that listed it"
+    );
+}

@@ -136,3 +136,71 @@ The search endpoint and the CLI, against the live catalog, with the labelling
 that keeps Pirate Face's claims and this hub's checks apart. That is discovery
 across all 669k models with no index at all, and it is what makes the address
 snapshot worth building afterwards rather than before.
+
+## Browsing it from the published page
+
+The page now draws the swarm's rows among its own. What made that possible
+without loading 300 MB is that a reader is only ever shown a slice: the most
+seeded page at first paint, and the one shard a search's query belongs to.
+
+A catalog row is 468 bytes against the index's 635, measured on a 1,023-row
+sample on 2026-11-14. Shards are keyed by two characters of the model's name,
+and the sample produced 171 of them from 1,023 rows, the largest 116,672
+bytes. That largest shard is what a search costs: one request, hashed against
+the root before a row is drawn, the same accept rule (`HK-10`) that admits a
+browse shard. For comparison, the hub's own 415-model index is a single
+263,532-byte shard that the page loads in full on every visit.
+
+First paint reads `rank/0.json`, the 500 most seeded, which is the same order
+of size as that index shard. Measured in a local preview on 2026-11-14 against
+a 1,233-row sample: 441 indexed models and 410 merged swarm rows, 851 in all,
+with the Source facet reading Hugging Face 441, Pirate Face 424, ModelScope
+237, IPFS 13, and the Status facet reading Verified 440, Listed only 410. A
+note under the filters says how much of the catalog that is -- `Showing 410 of
+the 1.2k models Pirate Face lists` -- so a count is never read as the whole of
+what Pirate Face has.
+
+The rows are not in a section of their own. They are rows in the same grid,
+drawn by the same card, opened by the same model page, and filtered by the
+same facets, because a reader looking for a model should not have to know
+which hub indexed it first. `tools/swarm-catalog.mjs` writes them in the shape
+`tools/facets.mjs` writes an indexed row, with every field Pirate Face cannot
+fill left null rather than guessed.
+
+What tells them apart is what each row says of itself. Its status is `listed`
+where an indexed release is `addressed`, so a card carries a dashed
+`Listed only` tag where another carries `Verified`, and the Status facet
+filters on it. Its only source is Pirate Face, so the Source facet filters on
+that. Its model page names the local runner as the place its bytes can be got,
+because this hub would answer nothing for it, and says in a sentence that
+these bytes have not been checked here. Seeder counts are Pirate Face's own.
+
+Opening one of these pages costs a single extra request: the model's own name
+shard, found by the same `swarmKeyOf` the grid uses, so a link to any model in
+the catalog works whether or not the first page happened to load it.
+
+Which shard a row is in, and which shard a search reads, are now one rule in
+`web/swarmkey.mjs` rather than two spellings of it. `HK-21` registers that,
+with `index_hk_21` reading both files and `tests/index/swarm-catalog.mjs`
+recomputing every row's key from the built artifact. The reason is in
+`TEMPLATE-VERIFICATION.md`: two spellings do not fail, they just make rows
+unfindable, and nothing else in the build notices.
+
+## Every source, named
+
+The Source facet listed `modelscope.cn` and `ipfs` and nothing else. Hugging
+Face was missing because a record's origin was not counted among the places
+that hold it, though it is the one source every record in this hub has. Pirate
+Face was missing because the index asked it whether it witnessed a release and
+then discarded the infohash, which is the part that makes it a place bytes can
+be fetched from rather than a second opinion.
+
+Both are counted now, and the facet, the model page's `Held on` pills and the
+card tooltip read the names a person uses - Hugging Face, ModelScope, IPFS,
+Pirate Face - from `sourceNames` in the model, not from a table in the page.
+The Hugging Face and ModelScope counts come from the published
+index and are real. A Pirate Face count has two parts: the swarm rows merged
+into the list, which are real, and indexed releases that Pirate Face also
+holds, which only appear after `tools/index.mjs` runs a full rebuild, because
+only that rebuild asks Pirate Face for an infohash per release. The preview
+stands that second part in.

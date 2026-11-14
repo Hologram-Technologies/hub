@@ -95,12 +95,17 @@ async function secondWitness(repo, revision) {
     const addresses = (entry.files ?? [])
       .filter((f) => f.path && /^[0-9a-f]{64}$/.test(f.sha256 ?? ""))
       .map((f) => ({ path: f.path, sha256: f.sha256 }));
-    if (!addresses.length) return [];
-    return [{ source: "pirateface.co", date: new Date().toISOString().slice(0, 10), revision: entry.revision, addresses }];
+    if (!addresses.length) return { witnesses: [], infohash: null };
+    return {
+      witnesses: [{ source: "pirateface.co", date: new Date().toISOString().slice(0, 10), revision: entry.revision, addresses }],
+      // A torrent makes it a source, not merely a witness: the bytes can
+      // be fetched from the swarm and not only described by it.
+      infohash: /^[0-9a-f]{40}$/.test(entry.infohash ?? "") ? entry.infohash : null,
+    };
   } catch {
     // A witness that cannot be reached is simply absent; the release still
     // carries what Hugging Face published.
-    return [];
+    return { witnesses: [], infohash: null };
   }
 }
 
@@ -205,6 +210,12 @@ for (const row of rows) {
         path: f.path, size: f.size, gitSha1: f.oid, ...(f.lfs ? { sha256: f.lfs.oid, pointerSize: f.lfs.pointerSize } : {}),
       }));
       const second = await secondWitness(row.id, row.sha);
+      // Pirate Face is a source for this release when it has a torrent of
+      // it. There is no HTTP prefix to put in `resolve`, which is the
+      // point of it: the edge cannot redirect a client to a magnet, so
+      // the entry carries the infohash and a runner that speaks the
+      // protocol finds the rest.
+      if (second.infohash) sources.push({ kind: "pirateface", infohash: second.infohash, missing: [] });
       // The card is not copied into the record. The record names the file and
       // the address its bytes must have, so a reader fetches it from any
       // source and checks it for itself.
@@ -233,7 +244,7 @@ for (const row of rows) {
         // out of `files[].sha256`: the edge reads that field to decide
         // whether a file is an LFS file, and so which ETag a Hugging Face
         // client is given, and that wire must not move.
-        witnesses: second,
+        witnesses: second.witnesses,
         // Measurements of another host's traffic, named as such.
         observed: {
           source: HF,

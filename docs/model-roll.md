@@ -389,7 +389,7 @@ exists here, with a signed root and a kernel rule that judges it.
 Worth keeping in mind for the edge rather than the browser: a runner that has
 already verified a shard can serve ranges out of it.
 
-## What runs on its own, and what does not yet
+## What runs on its own
 
 The hub is meant to track Hugging Face. Until 2026-11-14 nothing here did:
 `pages.yml` ran on a push to main and on a manual dispatch, so the published
@@ -410,12 +410,78 @@ still answered, because `edge/edge.mjs` asks Hugging Face for anything it
 cannot answer from the index. The cadence decides how often an answer is cheap,
 not whether it is right.
 
-What does not run on its own yet is the roll. `tools/roll.mjs` exists and is
-gated, but nothing publishes its output, because 367 MB would ride in every
-deploy of the site whether or not a shard changed, and the Pages action uploads
-the whole artifact each time. The open decision is where the roll lives: in
-this site, accepting slower deploys; or on a site of its own with its own
-schedule, which the edge would read by URL the way it already reads the index.
+The roll runs on the same schedule, by the same workflow. A deploy restores
+the cached roll and walks only what is new, which is two calls; the sweep that
+fills it the first time is a separate workflow, because an hour of listing
+cannot sit inside a job with a 60-minute timeout. The next section says how.
+## How it is published
+
+On this repository's own Pages site, under `data/roll/`, beside the index at
+`data/index/`. Considered and rejected: a repository of its own. It would keep
+the roll's 367 MB out of every deploy of the interface, but it costs a second
+repository, a second Pages site, a second schedule and a URL that has to be
+carried in the edge's defaults and in signed roots. One site is simpler, and
+the measured cost of carrying the roll is an upload, not a rebuild.
+
+The sweep and the catch-up are separated by the clock, not by taste. A sweep is
+about 3,076 listing calls paced at one a second, so a little over an hour, and
+the deploy's build job has a 60-minute timeout it should keep. So:
+
+- `.github/workflows/roll-sweep.yml` walks the whole history and leaves the
+  result in the Actions cache. Run by hand, and in practice once.
+- `pages.yml` restores that cache and runs `tools/roll.mjs --tail`, which walks
+  only what is new. Measured 2026-11-14: two calls and a few seconds to pick up
+  a day's 1,007 models.
+
+`--tail` exits 69 rather than sweeping when there is nothing to continue from.
+Without that a cold cache would quietly start an hour's walk inside a job with
+a 60-minute timeout, and be killed with nothing published. The deploy treats a
+missing roll as a notice and publishes the site without one, so losing the
+cache costs the roll until the next sweep and costs the interface nothing.
+
+`tests/roll/published.mjs` runs before the bytes leave the runner: every shard
+hashes to what the root names, every shard on disk is named by the root, and
+the root's counts equal the rows. Nothing is published that a reader could not
+check, and nothing is published that the root does not account for.
+
+## Listing everything, with the filters kept
+
+The interface can list all 3.08 million and keep its filter panel. An earlier
+reading of this said it could not, and that reading was wrong because it
+measured the wrong row.
+
+The row the interface publishes today is 635 B, which is 1,955 MB for three
+million and does not fit in a GitHub Pages site. But most of that row is either
+derivable from the id, or the same handful of strings written out three million
+times. Stored as indices into dictionaries published once in the root, a roll
+row carrying everything the panel filters on measures 154 B, which is 474 MB -
+46 per cent of the limit. Measured 2026-11-14 on a real day's build of 3,959
+models.
+
+Nothing extra is fetched for it. The listing already carries the task in
+`pipeline_tag`, the library in `library_name`, and the licence and the
+languages inside `tags`. The parameter count needs `expand[]=safetensors`,
+which is also the reason the sweep names its fields rather than asking for
+`full=true`: that flag does not return `safetensors`, and it does return
+`siblings`, every filename of every model, which is most of a 4.08 kB row and
+which the roll does not store.
+
+Dictionaries only ever grow, and are restored before a run walks anything. A
+code is an index, so renumbering would silently change what every existing row
+says - the same number would mean a different licence. Checked on a tail run
+that added 1,163 models: every previous code still means what it meant.
+
+### What the long tail actually looks like
+
+Worth knowing before the interface offers filters over three million rows.
+Measured over one day, 3,959 models: 41 per cent carry a task, 41 per cent a
+library, 48 per cent a licence, 30 per cent a language, 28 per cent a parameter
+count, and 49 per cent have ever been downloaded.
+
+So more than half of what Hugging Face holds is unlabelled, and a filter panel
+over the whole roll is a panel most rows cannot answer. That is a fact about
+the Hub rather than about this hub, and the honest way to show it is to say how
+many rows a filter could not speak for, rather than to quietly drop them.
 
 ## Sources
 

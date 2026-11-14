@@ -1582,6 +1582,450 @@ allows, which still fits, and moved the cheapest shard count from 1,024 to
 has to be the shape the thing will really have, and a flag that changes whether
 a field is present changes its size.
 
+## The browse index, and the page it has to reproduce
+
+The interface reads its catalogue by fetching every browse shard and filtering
+the array in memory. At 440 models that is fine. At the roll's three million it
+is about 474 MB of JSON and near 1.9 GB of heap, against a tab usually capped
+at 2 to 4 GB and a phone far lower: it would not be slow, it would stop.
+
+`tools/browse-index.mjs` moves the ordering into the build. It writes the rows
+once in creation order, a fixed-width table of where each row starts, one file
+per sort holding the row numbers in that order, and, for each sort and each
+facet value, the positions in that order that hold it, delta-coded. A page is
+then a slice of an order and a row at a time by offset, both ranged reads, and
+a filtered page is the intersection of two ascending lists before the slice.
+
+Row numbers are creation order, oldest first, so a number never changes as the
+roll grows. Every order file and every posting list is a list of those numbers.
+
+Measured 2026-11-14 on a week of the Hub, 21,904 listed models, and
+extrapolated to 3.08 million:
+
+| | A week | 3.08 million |
+| --- | --- | --- |
+| `rows.ndjson` | 2.9 MB | 407 MB |
+| `rows.idx` | 0.3 MB | 37 MB |
+| five orders | 0.4 MB | 62 MB |
+| postings over 976 values | 0.4 MB | 61 MB |
+| **total** | **4.0 MB** | **567 MB, 55 per cent of the limit** |
+
+### What the gate checks
+
+`tests/browse/page.mjs` reads the index the way a browser would - a slice of an
+order, a slice of a postings file, a row at a time by offset - and checks the
+answer against the rows filtered and sorted the slow, obvious way. Eleven
+checks, the load-bearing one being that a filtered page **is the page the slow
+way gives**, by id, in order. Also that a row on it holds the facet, that the
+total matches counting by hand, that two filters intersect to no more than
+either, that the second page continues the first and repeats none of it, and
+that an unfiltered page still sorts.
+
+**The planted defect.** In the postings loop, write the row numbers where the
+positions belong - `varints([...held].sort(...))` instead of
+`varints(held.map((n) => at[n]).sort(...))`. It is the mistake the design
+invites, because both are arrays of small integers about the same rows, and
+nothing about the shape of the output says which one it holds.
+
+Failing command: `node tests/browse/page.mjs <index>`. Diagnostic:
+
+    FAIL every row on it holds the facet: a row did not
+    FAIL it is the page the slow way gives: Comfy-Org/MiniMax-H3-Image
+         against ErtasAI/MedErtas-v0.1-31B-LS
+    FAIL two filters intersect: a row did not hold both
+
+Exit 1 with the defect, exit 0 restored. Eight of the eleven checks passed
+either way - the page still came back, still had rows, still sorted, and still
+paged. A gate that checked only that a page arrives would have stayed green on
+a catalogue that answers every filter with the wrong models.
+
+### What is not in it
+
+Wiring `web/hub.mjs` to read any of this, and the facets the roll does not
+carry: format, family, architecture, modality, source and status are derived by
+`tools/facets.mjs` from tags and a model's files, and the roll keeps neither.
+They remain available for the addressed catalogue and absent for the rest,
+which is the honest state rather than a silently narrower panel.
+
+### The trending order is Hugging Face's, not a near miss of it
+
+Until 2026-11-14 the browse index derived a trending score from likes and
+downloads against a model's age, because the listing the roll read did not
+carry one. It does: `trendingScore` is one of the twenty-six `expand[]`
+options, and naming it returns the real number. Measured that day, the top of
+the trending order reads 4,428 for `xtools-at/DeepSeek-V4-Pro-...`, 997 for
+`MiniMaxAI/MiniMax-H3-Image`, 426 for `Lightricks/LTX-2.5`.
+
+So the roll carries it as given, beside the downloads and the likes, and under
+the same rule: it is a measurement of somebody else's traffic, named as such,
+not a fact this hub re-derives. The sort is now their order rather than a
+plausible-looking approximation of it, which is the difference between a
+catalogue a reader can compare with Hugging Face and one they cannot.
+
+The postings header also gained a count per value, which is what the filter
+panel puts beside a chip: a reader takes it without touching a single posting.
+
+## Pirate Face's models, drawn as models
+
+### One rule in two files is a shard nobody can find
+
+The swarm catalog is about 300 MB of rows, so the page reads one shard for a
+search and no other. Which shard is decided twice: `tools/swarm-catalog.mjs`
+chose where to write a row, and `web/hub.mjs` chose where to look for one.
+They did not agree. The builder keyed on the model's name, so
+`DavidAU/Llama-3.2-8X3B-MOE-Dark-Champion-Instruct-uncensored-abliterated-18.4B-GGUF`
+went to `ll`; the page keyed on the first two characters of whatever was
+typed, so a reader searching `llama` asked for `ll` and found it, while one
+pasting the id asked for `me`, `da` or `qw` and was told the swarm holds
+nothing. The builder also guarded its key with `[a-z0-9_.-]` and the page with
+nothing, so the two disagreed again on any name starting outside that set.
+
+Neither was wrong on its own. Both were the same claim written twice, which
+`R1` forbids for exactly this reason: nothing fails, rows simply stop being
+findable, and no amount of checking either file catches it. The rule now lives
+in `web/swarmkey.mjs` and both import it. `web/` is published whole by
+`pages.yml`, so one file serves a build-time tool and a browser.
+
+`HK-21` is the claim, `index_hk_21` reads both files and fails if either grows
+its own copy, and `tests/index/swarm-catalog.mjs` holds the built shards to it
+by recomputing every row's key from the artifact.
+
+### The gate that proves the other gates were not enough
+
+`tests/index/swarm-catalog.mjs` was written against a catalog built with the
+shard key replaced by the model's *organisation* - a single-token change in
+the builder. Every other check still passed: the shards matched their hashes,
+the root's counts matched the shards, every row carried its fields, the rank
+pages were in order. Only `every row is in the shard the page will look in`
+failed, naming the row, the shard it was in and the shard it belonged in:
+
+    FAIL every row is in the shard the page will look in:
+      adventists-ai/Sophon-Realtime-v1 is filed under ad,
+      but its name belongs in so
+
+That is the shape of the defect this gate exists for. A catalog can be
+internally consistent, correctly signed, and completely unsearchable, and the
+hash checks cannot tell the difference. The builder was restored and the
+checks pass again.
+
+Two smaller things the same run found. Pirate Face sends `params: 0` for a
+model whose size it does not know, and `??` let the zero through, so a row
+claimed a model with no parameters rather than a model whose size is unknown;
+it is `||` now. And `tests/runner/kernel.mjs` shipped with the runner in `#8`
+and was in no workflow, so it had never run in CI - it is in `runner.yml` now,
+and passes against the published kernel.
+
+### The source gate rejects a page that stops sharing the rule
+
+`tests/index/swarm-catalog.mjs` holds the built shards to the rule.
+`index_hk_21` holds the two files to having one of it, which is the part no
+artifact can show, so it was planted against too. The defect is the state this
+change was made to leave behind: the page drops the import and spells the key
+itself.
+
+    -import { swarmKeyOf } from "./swarmkey.mjs";
+    -  const shard = (cat?.name ?? []).find((x) => x.prefix === swarmKeyOf(q));
+    +  const key = q.slice(0, 2).toLowerCase().replace(/[^a-z0-9]/g, "_");
+    +  const shard = (cat?.name ?? []).find((x) => x.prefix === key);
+
+    test index_hk_21 ... FAILED
+    panicked at crates/conformance/tests/index.rs:168:5:
+    the page must resolve a query by the shared rule, not its own
+
+The page still runs and a search for `llama` still returns rows, which is why
+this needed a gate rather than a test of behaviour: the damage is to the
+models nobody searches for by bare name. Restored, `index_hk_21` passes.
+
+### What this change was proved at
+
+The model moved: `HK-21` is a new claim, and the site model gained the words
+the page draws a listed row with. So the attestation moved with it, which is
+the signal the ledger above says to expect from a real model change.
+
+`just vv` in the image `prismpm.lock` selects, 25 modules canonical,
+`lexlean.lock` current, `cargo deny` clean, every conformance test passing
+including `index_hk_21`:
+
+    verified attestation: 7f11795bab18886e7321642c825d68347edcf4f92956a51d3cf6dab09ae5a354
+    vv: the acceptance gate passed
+
+An earlier run of the same tree verified `6e0cc8d6f8593efc3a4a2457d4dc34b023e79eb0315ac965a4c4b3245a373251`
+before the site model was reworked. It is recorded here only so that the two
+hashes in this session's history are not mistaken for an unexplained drift:
+the model between them changed, and the second is the one this change ships.
+
+## The reader, and what it costs to draw a page
+
+`web/browse.mjs` is what the interface uses to read the browse index: a slice
+of an order, a slice of a postings file, a row apiece by offset, all ranged
+reads. `tests/browse/reader.mjs` drives it over real HTTP against a server
+answering exactly what GitHub Pages answers - a 206 with `Content-Range` for a
+Range request and a 200 otherwise - because a test that bypassed the ranges
+would be testing something else.
+
+Measured 2026-11-14 against a month of the Hub, 96,629 rows: sixteen checks,
+and **659 requests serving 152 kB in all, out of a 13 MB catalogue**. That is
+the whole point of the index in one number.
+
+The checks worth naming: an unfiltered page is the page sorting the lot would
+give, by id, in order; a filtered page's total is both the count the header
+gave and the count by hand; two chips in one group are a union and two groups
+intersect; the second page follows the first and repeats none of it; a page
+past the end is clamped rather than empty; and a value nothing holds gives
+nothing.
+
+**The planted defect.** Make two facet groups union where they should
+intersect - one character of difference at the call site, and the kind of
+mistake that looks like a widened filter rather than a wrong one.
+
+Failing command: `node tests/browse/reader.mjs <index>`. Diagnostic:
+
+    FAIL two groups intersect: a row did not hold both
+    FAIL and give no more than either alone: 34219 against 14569
+
+Exit 1 with it, exit 0 restored. Fourteen of the sixteen checks passed either
+way: pages still arrived, still sorted, still paged, still clamped, and single
+filters still gave exactly the right totals. Only a check that asked what two
+filters together mean could see it.
+
+### What the reader does not do
+
+Check the bytes. Everywhere else the hub's rule is that a reader hashes what
+it is given and compares with a signed root, and that needs the whole file. A
+ranged read is a few hundred bytes out of 400 MB. So `checked` on the handle
+is false, the interface says so rather than implying otherwise, and the
+checkable artefact remains the roll itself - small shards, named by its root,
+which `tests/roll/published.mjs` refuses to publish unnamed.
+
+## HK-22: what the ETag says and what the sources may serve are different facts
+
+`entry` carried two questions at once. Is this file large, which decides which
+ETag a Hugging Face client is given, because only an LFS file has a SHA-256
+there. And does the record address this file, which decides whether a source
+nobody vetted may serve it. The two coincided while both came from the LFS
+pointer, so nothing showed. A second witness pulls them apart: it addresses
+files Hugging Face never did, and for `openai-community/gpt2` that is fourteen
+of twenty-six. Those files were addressed and still refused, because
+eligibility read `entry`.
+
+So the resolve request is 105 bytes rather than 104, with `addressed` at byte
+104 - appended, not inserted, so every existing offset is unchanged and only
+the length check and the declared maximum moved. `eligible` reads `addressed`;
+`etagKind` still reads `entry`. The `Addressed` invariant now names the fact
+its own statement always named.
+
+### The safety that nearly went the wrong way
+
+Widening eligibility alone would have broken the property it was meant to
+extend. `runner/local.mjs` verifies a file with no SHA-256 by its git blob
+identity, and the comment above that branch says why it is safe: `HK-19` means
+a source nobody vetted is never chosen for such a file. Let the swarm serve a
+witness-addressed file while the runner still took its address from
+`lfs?.sha256`, and the check would have fallen through to a SHA-1 in front of
+an untrusted source. Quietly turning a SHA-256 guarantee into a SHA-1 one is
+worse than refusing the file.
+
+So `addressed` means a SHA-256 is known, and there is one function that answers
+it: `addressOf` in `edge/edge.mjs`, reading the release's own `files[].sha256`
+and then any witness that named the same revision. The edge fills byte 104 from
+it and the runner takes its expected digest from the same call, so the kernel
+cannot permit a file the runner cannot then verify - by construction, not by two
+pieces of code agreeing. `files[].sha256` is still not filled from a witness,
+because that field decides the ETag.
+
+### The planted defect, and what actually objected
+
+| Planted | Refused by | Diagnostic |
+| --- | --- | --- |
+| `eligible` reads `entry =? 2` again, in the generator and the reference implementation together, so the acceptance vectors agree with the lie | Lean, on `HologramHubKernel.Proofs.Addressed` | `LLV7002: omega could not prove the goal` |
+
+The expectation was that `servableHolds` would break, since `HK-22` is what the
+change adds. `addressedHolds` broke first and the run stopped there. Both would
+have: with eligibility reading `entry`, a source nobody vetted can be chosen
+for a file that is not addressed, which is exactly what `Addressed` forbids.
+That the older invariant objects first is the better outcome - the new claim is
+not carrying the safety property on its own.
+
+Restored, the gate passes and verifies attestation
+`d6976b535fb3c4439bf13342fa7258201abb76dae107bdd729375d5563eea953`. It moved,
+where `HK-20`'s did not, because this claim added a proof module and that one
+added none. Two claims hours apart, opposite results, both correct.
+
+### `LLV7005` a third time
+
+`Servable` declared the axioms the generator assumes and Lean observed
+`Classical.choice`, so the first run was refused. `omega` reaches for it when a
+split leaves an `if` over a disjunction, and `breaksServable` is a four-way
+disjunction over the slots, so it was always going to. This is the third module
+to need it after `Complete` and `Concur`. The generator cannot predict which
+proofs will: the measurement comes from Lean and the declaration has to follow,
+which is the whole reason the check exists.
+
+### The first version of this was circular, and a sibling session caught it
+
+The change above was held as a draft before it landed, because `addressed` was
+first computed from any address the record carried, a witness's included. For
+the fourteen `openai-community/gpt2` files only a witness addresses, that made
+the party supplying the bytes also supply the number they are checked against:
+the `pirateface` slot became eligible, the runner fetched from Pirate Face's
+swarm, and `check` compared the result to Pirate Face's own SHA-256. The hub
+would have reported that as verified.
+
+It was worse than circular. `check` guarded its git-blob branch on
+`if (!address)`, so a non-null witness SHA-256 did not add a check, it replaced
+one: the independent SHA-1 stopped being compared at the moment the circular
+SHA-256 started being compared. The first version removed an independent check.
+
+The reasoning that produced it ranked SHA-256 above SHA-1 by hash strength.
+That is the wrong axis, because the adversary these claims exist for is the
+source. A witness's SHA-256 is worth nothing against that witness; the
+release's git blob identity is worth something against it, because the witness
+did not choose it. **Independence dominates strength when the threat is the
+party being checked.**
+
+So `addressed` is `checkable`: true only for the release's own addresses, the
+git blob identity or a SHA-256 the origin published. `addressOf` survives as
+the SHA-256 the runner verifies with, which may come from a witness. They
+answer different questions. And `check` verifies every address the record
+carries in one pass, refusing if any disagrees, so a witness address can
+corroborate and can never be the only thing checked - from both ends rather
+than one.
+
+### A standing condition, recorded because no gate enforces it
+
+The git blob identity is not independent because of anything about the git
+blob. It is independent because the sources the kernel may choose while
+unvetted are never the record's origin. `pirateface` is unvetted and is not
+where a record came from, so the origin's addresses are independent of it.
+
+Point a record's origin at a source that is also unvetted - a record built from
+a swarm index rather than from a source dialect - and `checkable` becomes true
+because of an address that source supplied, with no gate objecting. The fix
+would be for the kernel to know which source a record came from, and
+`origin.kind` is already in the record for the asking. Nothing needs it today.
+It is written here so that whoever widens either end finds it rather than
+discovers it.
+
+### Two things that were true by coincidence
+
+Both surfaced in this change, and neither was caught by a gate; they were
+caught by reading.
+
+A comment in `runner/local.mjs` said the git-blob comparison was safe because
+an unvetted source is never chosen for such a file. That was true when written
+and silently false the moment eligibility widened, because the comment
+described the invariant and the code did not enforce it.
+
+A file the record addresses in neither way was already refused - but only
+because a 40-hex string does not equal `undefined`. One edit to that comparison
+would have turned it into a silent pass. It now checks for the absence and says
+so, and `tests/runner/serve.mjs` pins it with `disputed.bin`, whose SHA-256 is
+correct for the bytes served and whose `gitSha1` is not: refused, 503
+`NoSource`, beside an `agreed.bin` that is served.
+
+In both, two things coincided and the coincidence was doing the work while
+nothing recorded that it was load-bearing. `HK-21` exists to break one such
+coincidence, and breaking it surfaced two more within the same file.
+
+### Which address is the content check depends on the file kind
+
+A sibling session shipped and then found a bug in the other half of this, and
+it narrows a sentence worth stating precisely rather than generally.
+
+`gitSha1` is the git blob of whatever git holds. For a small file that is the
+content. **For an LFS file it is the 134-byte pointer**, so hashing the content
+against it refuses every weight file. Measured on a real record:
+`openai-community/gpt2`'s `64-8bits.tflite` carries
+`gitSha1 90e59f00f62c654b1a88a5f127dff14df4611cdc`, and `/raw/` returns 134
+bytes whose git blob is exactly that.
+
+So the content check is per kind. For a small file it is the git blob identity,
+which is the origin's only address. For an LFS file it is the SHA-256, and the
+git blob describes a pointer and checks nothing about the bytes a client wants.
+Both are the origin's, so `HK-21` survives unchanged - but "the git blob is what
+stands between an unvetted source and a client" is true only of small files.
+
+`checkable` is sound against this without a special case, and the reason is
+worth recording rather than relying on. It is true when the file entry carries a
+`gitSha1` or a `sha256`. The edge builds an `lfs` entry only where `sha256` is
+present, and `entry` is computed from `lfs` in two places that agree, so
+`entry = 2` holds exactly when a SHA-256 exists. A file whose only address is
+the git blob is therefore always a small file, where the git blob is a content
+check.
+
+The condition that breaks it has more than one site, and naming only one would
+send a reader looking for a single place. Today the only builder of an `lfs`
+entry that reaches `entry` is `edge/edge.mjs`; a sibling branch adds a second in
+its snapshot reader, and a third `lfs:` in the edge shapes the tree API's
+response and never reaches `entry` at all. **If any builder of an `lfs` entry
+ever fills it from something other than a SHA-256 the origin published, this
+stops being true.** The snapshot's safety there is by construction rather than
+by care: it writes `sha256` only from `f.lfs.oid` and `gitSha1` only from
+`f.oid`, so the two cannot cross.
+
+### A fixture cannot test whether its author understood the format
+
+The bug passed the serve suite the whole time, because the LFS fixture set
+`gitSha1` to the git blob of the content. The fixture was not wrong about the
+code; it was wrong about Hugging Face in the same way the code was, so the two
+agreed and the suite went green. Only reading a real record and fetching the
+pointer to see what the field actually hashed found it.
+
+That is a third coincidence in this change, and a different kind from the first
+two: not two facts that happened to agree, but one misunderstanding held by
+both the code and the test that checks it. A fixture written by whoever wrote
+the code tests that the code does what its author meant. Nothing written by
+that author can test whether the author read the format correctly. Only a real
+record can.
+
+### The class of check this repository has no name for
+
+Everything caught by reading rather than by a gate tonight came from fetching a
+real artifact: the live record, the `/raw/` pointer showing that `gitSha1` hashes
+134 bytes for an LFS file, the published index. None of it came from `just vv`,
+and none of it could have.
+
+The gates here are unusually good at proving the code does what its author
+intended and structurally unable to prove the author read the upstream format
+correctly. A source-reading gate inherits its author's reading twice over:
+`index_hk_20` confirms the builder writes an `origin` and would pass just as
+happily on a misreading of what `resolve` means. A fixture inherits it once -
+which is how an LFS fixture setting `gitSha1` to the git blob of the content
+kept a suite green over a bug. Only an artifact nobody here wrote can
+contradict either.
+
+That is a different class of check from everything `just vv` runs, and the
+repository has no name for it. The post-deploy jobs in `pages.yml` are the
+closest thing, because they run against the published index rather than a copy.
+
+### Widening the request broke the edge against the kernel it is serving
+
+CI refused the first push of this, and the reason is written at the top of
+`.github/workflows/edge.yml`: the edge is deployed apart from the kernel, so it
+must start against a holo older than itself. A 105-byte resolve request is one
+the published kernel does not understand, so it answered invalid and a Hugging
+Face client got `The request is not one the hub understands` for
+`config.json`. Every file, not an edge case.
+
+The workflow said so in a comment, and `tests/edge/older-kernel.mjs` existed for
+exactly this - but it checks that the edge starts, opens the index and answers
+health, and never resolves a file. So the gate for the constraint did not cover
+the operation the constraint was about, and it passed while the thing it
+guards was broken.
+
+The edge and the runner now ask the kernel which width it understands, once,
+from its own answer rather than from a version string: a kernel that calls the
+105-byte request invalid and the 104-byte one valid is an older kernel, and it
+then decides as it always did - which for the swarm means weights only, exactly
+the behaviour that preceded this change. Measured against the published holo
+after the fix: `config.json` 302s with its git blob ETag and
+`64-8bits.tflite` with its SHA-256.
+
+This is the same shape as the `docs.record` fallback recorded earlier: a guest
+and a host that ship separately cannot assume each other's age. The difference
+is that this time the repository had already learned it, written it down, and
+built a test for it, and the test was narrower than the lesson.
+
 ## What a change to the site costs to regenerate
 
 `app/tools/site_spec.py` is authoring input: `python app/tools/gen_kernel.py`

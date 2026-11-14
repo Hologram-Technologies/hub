@@ -58,6 +58,8 @@ CASES = [
      "(encodeVerdict (trust (byteNat value 1)"),
     ("HK-19", "A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served",
      [("Addressed", "breaksAddressed", "addressedHolds", "facts")], "(select facts)"),
+    ("HK-22", "A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts",
+     [("Servable", "breaksServable", "servableHolds", "facts")], "(select facts)"),
 ]
 HK10 = "Received bytes are delivered exactly when their digest and size equal the expected digest and size"
 

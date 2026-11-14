@@ -7,7 +7,9 @@
 import { load } from "./app/vendor/prism-code/src/browser.mjs";
 import { blake3Hex } from "./app/vendor/prism-code/src/blake3.mjs";
 import { verifyBundle } from "./sigstore.mjs";
+import { openBrowse } from "./browse.mjs";
 import { ICON, art } from "./icons.mjs";
+import { swarmKeyOf } from "./swarmkey.mjs";
 
 const root = new URL(".", import.meta.url);
 const html = document.documentElement;
@@ -52,8 +54,19 @@ const words = (s) => String(s ?? "").replace(/[-_]/g, " ").replace(/^\w/, (c) =>
 // `text-generation`, `en`. The page says it the way a reader would.
 const LANGUAGE = new Intl.DisplayNames(["en"], { type: "language" });
 const titled = (s) => String(s).replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).replace(/\bTo\b/g, "to");
+// The name a reader knows a source by. The screen carries the pairs, so
+// the page invents none: a kind it has no name for is shown as it is.
+let sourceNames;
+function sourceName(kind) {
+  sourceNames ??= new Map(screens.models?.sourceNames ?? []);
+  return sourceNames.get(kind) ?? kind;
+}
+
 function said(key, value) {
   if (key === "task") return titled(value);
+  // A source is shown by the name a reader knows it by, not by the kind the
+  // wire uses. A kind the screen has no name for is shown as it is.
+  if (key === "sources") return sourceName(value);
   if (key === "languages") { try { return titled(LANGUAGE.of(value)); } catch { return value; } }
   return value;
 }
@@ -73,8 +86,69 @@ function catalog() {
 }
 const indexUrl = (path) => new URL(`data/index/${path}`, root);
 
+// ---------------------------------------------------------------- the swarm
+// Models the swarm lists that this hub does not index. There are far more of
+// them than the hub holds - about 300 MB of rows against the index's 263 KB -
+// so they are never all loaded. They are sharded by the first two characters
+// of the model's name and a search reads the one shard its query begins with,
+// about 450 KB. A shard is used only when its bytes are the ones the root
+// names, judged by the same accept rule the browse shards are (`HK-10`).
+//
+// None of it is checked by this hub and the page says so. A row here means
+// the swarm listed it, nothing more.
+const swarmUrl = (path) => new URL(`data/swarm/catalog/${path}`, root);
+let swarmRequest;
+const swarmShards = new Map();
+function swarmCatalog() {
+  swarmRequest ??= (async () => {
+    try {
+      const r = await fetch(swarmUrl("root.json"));
+      if (!r.ok) return null;
+      const json = await r.json();
+      return json?.format === "hologram.hub.swarmcatalog/v1" ? json : null;
+    } catch {
+      return null;
+    }
+  })();
+  return swarmRequest;
+}
+
+
+// One shard, checked against the root before a row of it is used, the same
+// accept rule a browse shard goes through.
+function swarmShard(shard) {
+  if (!swarmShards.has(shard.path)) {
+    swarmShards.set(shard.path, (async () => {
+      const body = new Uint8Array(await (await fetch(swarmUrl(shard.path))).arrayBuffer());
+      if (!(await addressed(body, shard.sha256))) throw new Error(`the swarm shard ${shard.path} does not match its root`);
+      return JSON.parse(new TextDecoder().decode(body));
+    })());
+  }
+  return swarmShards.get(shard.path);
+}
+
+// The most seeded page, read once. This is what a reader sees of the swarm
+// before they have asked for anything, and it is about the size of this hub's
+// own index shard rather than the whole 300 MB catalog.
+async function swarmTop() {
+  const cat = await swarmCatalog();
+  if (!cat?.rank?.length) return [];
+  return swarmShard(cat.rank[0]);
+}
+
+// The shard a query belongs to. `swarmKeyOf` is the builder's own filing
+// rule, imported rather than restated: a shard is only worth reading if it is
+// the one the row was written to, and two spellings of the rule would lose
+// rows silently.
+async function swarmByName(query) {
+  const q = query.trim().toLowerCase();
+  if (q.length < 2) return [];
+  const cat = await swarmCatalog();
+  const shard = (cat?.name ?? []).find((x) => x.prefix === swarmKeyOf(q));
+  return shard ? swarmShard(shard) : [];
+}
+
 async function readIndex() {
-  const s = screens.models;
   const bytes = new Uint8Array(await (await fetch(indexUrl("root.json"))).arrayBuffer());
   const rootJson = JSON.parse(new TextDecoder().decode(bytes));
   listing.rules = rootJson.rules ?? "";
@@ -86,20 +160,111 @@ async function readIndex() {
     rows.push(...JSON.parse(new TextDecoder().decode(body)));
     listing.shards += 1;
   }
+  // Counted before the swarm is merged: this is what the signed root covers,
+  // and the pill that reports it would otherwise claim rows no signature
+  // stands behind.
+  listing.rows = rows.length;
+  // Pirate Face's most seeded, merged in as ordinary rows. A release this hub
+  // has indexed wins: its row is the one with addresses and signatures behind
+  // it, and the swarm's copy of the same id would say less.
+  await mergeSwarm(rows, await swarmTop().catch(() => []));
   const faces = await fetch(new URL("data/avatars/index.json", root)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
-  const now = Date.now();
-  const label = Object.fromEntries(s.statuses);
   for (const m of rows) {
     m.avatar = faces[m.org] ?? null;
-    m.likes = m.observed?.likes ?? 0;
-    m.downloads = m.observed?.downloads ?? 0;
-    m.status = label[m.state] ?? label.pending;
-    const age = m.created ? (now - Date.parse(m.created)) / 864e5 : Infinity;
-    m.recency = s.recency.filter(([, days]) => age <= days).map(([l]) => l);
-    m.isNew = age <= s.newDays;
+    dress(m);
   }
-  listing.rows = rows.length;
   return rows;
+}
+
+// Rows the swarm lists, added to the hub's own. Returns how many were new, so
+// a caller can tell whether anything changed and avoid a redraw that would
+// move the page under someone's cursor.
+const swarmSeen = new Set();
+async function mergeSwarm(rows, found) {
+  const known = new Set(rows.map((m) => m.id.toLowerCase()));
+  let added = 0;
+  for (const m of found) {
+    const key = m.id.toLowerCase();
+    if (known.has(key) || swarmSeen.has(key)) continue;
+    swarmSeen.add(key);
+    rows.push(m);
+    added += 1;
+  }
+  return added;
+}
+
+// What `catalog()` does to every row after loading. A shard read later must
+// go through the same thing, or a row added by a search would be missing the
+// fields the card and the sorts read.
+function dress(m) {
+  const s = screens.models;
+  const label = Object.fromEntries(s.statuses);
+  const now = Date.now();
+  m.likes = m.observed?.likes ?? 0;
+  m.downloads = m.observed?.downloads ?? 0;
+  m.status = label[m.state] ?? label.pending;
+  const age = m.created ? (now - Date.parse(m.created)) / 864e5 : Infinity;
+  m.recency = s.recency.filter(([, days]) => age <= days).map(([l]) => l);
+  m.isNew = age <= s.newDays;
+  return m;
+}
+
+// The whole roll, read a page at a time. The index's browse shards are the
+// addressed models and fit in memory; the roll is every model Hugging Face has
+// ever listed and does not, so when it is published the catalogue comes from
+// there instead and the interface asks for one page at a time.
+//
+// A roll row knows less than an addressed one, and the difference is shown
+// rather than smoothed over: no manifest, no sources, and the status is
+// Unverified, because knowing a model exists is not the same as having
+// checked a byte of it.
+let rollSource;
+async function openRoll() {
+  if (rollSource !== undefined) return rollSource;
+  rollSource = null;
+  try {
+    const index = await openBrowse(new URL("data/browse/", root).href);
+    if (index) rollSource = index;
+  } catch {
+    // No roll published, or it could not be read: the addressed index below
+    // is the catalogue, which is what every deploy before this one shipped.
+  }
+  return rollSource;
+}
+
+// A roll row as the cards and the filters want it. The dictionaries turn the
+// numbers back into the words the panel shows.
+function fromRoll(r, index, faces, s, now) {
+  const [id, revision, created, b] = r;
+  const d = index.dictionaries;
+  const F = index.field;
+  const at = (name, dict) => (b?.[F[name]] == null ? null : dict[b[F[name]]] ?? null);
+  const day = (n) => (n == null ? null : new Date(n * 864e5).toISOString().slice(0, 10));
+  const org = id.slice(0, id.indexOf("/"));
+  const createdAt = new Date(created * 1000).toISOString().slice(0, 10);
+  const age = (now - created * 1000) / 864e5;
+  return {
+    id, org, author: org, name: id.slice(org.length + 1), revision,
+    manifest: null, sources: [], files: 0, weightBytes: 0, gated: false,
+    created: createdAt,
+    modified: day(b?.[F.modified]) ?? createdAt,
+    task: at("task", d.task),
+    library: at("library", d.library),
+    license: at("license", d.license),
+    languages: (b?.[F.languages] ?? []).map((v) => d.language[v]).filter(Boolean),
+    params: b?.[F.parameters] ?? 0,
+    likes: b?.[F.likes] ?? 0,
+    downloads: b?.[F.downloads] ?? 0,
+    trending: b?.[F.trending] ?? 0,
+    // Every facet the roll does not carry is absent rather than guessed.
+    modality: null, arch: null, family: null, format: null, bucket: null,
+    state: "skipped",
+    status: Object.fromEntries(s.statuses).skipped ?? "Unverified",
+    avatar: faces[org] ?? null,
+    isNew: age <= s.newDays,
+    recency: s.recency.filter(([, days]) => age <= days).map(([l]) => l),
+    observed: { source: "https://huggingface.co", downloads: b?.[F.downloads] ?? 0, likes: b?.[F.likes] ?? 0 },
+  };
 }
 
 // The kernel decides whether these are the addressed bytes, the same rule a
@@ -391,8 +556,15 @@ const copyLine = (command, cls = "endpoint section-tag copy") => `<button type="
 // ---------------------------------------------------------------- home
 async function drawHome(main) {
   const s = screens.home;
+  // The call to action counts the catalogue, so it counts whatever the
+  // catalogue is: the roll when one is published, and the addressed index when
+  // not. It used to round the index down to a hundred and add a plus, which
+  // reads as a hedge once the number is three million; `count` is the same
+  // formatter the Models page's own pill uses, so the two agree.
+  const source = await openRoll();
   const list = await catalog().catch(() => []);
-  const total = list.length ? `${Math.floor(list.length / 100) * 100}+` : "";
+  const models = source?.total ?? list.length;
+  const total = models ? count(models) : "";
   const marks = s.families.map(([label, org]) => {
     const theirs = list.filter((m) => m.org === org);
     const face = theirs.find((m) => m.avatar);
@@ -526,7 +698,7 @@ function tags(m, { full = false } = {}) {
 function meta(m) {
   const s = screens.models;
   const spans = [`<span>${ICON.heart}${count(m.likes)}</span>`, `<span>${ICON.down}${count(m.downloads)}</span>`];
-  if ((m.sources?.length ?? 0) > 1) spans.push(`<span title="${esc(fill(s.held, { sources: m.sources.join(" and ") }))}">${ICON.nodes}${m.sources.length}</span>`);
+  if ((m.sources?.length ?? 0) > 1) spans.push(`<span title="${esc(fill(s.held, { sources: m.sources.map(sourceName).join(" and ") }))}">${ICON.nodes}${m.sources.length}</span>`);
   if (m.created) spans.push(`<span>${ICON.calendar}${esc(month(m.created))}</span>`);
   return spans.join("");
 }
@@ -537,7 +709,12 @@ const card = (m) => `<a class="card" data-in href="${href(`models/${m.id}/`)}" t
 // catalog, its state in the URL.
 async function drawModels(main) {
   const s = screens.models;
-  const list = await catalog();
+  const source = await openRoll();
+  // The addressed index is still read when there is no roll, and is still what
+  // the model pages and Verify use either way.
+  const list = source ? [] : await catalog();
+  const faces = await fetch(new URL("data/avatars/index.json", root)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+  if (source) { listing.signed = false; listing.rows = source.total; listing.shards = 0; listing.rules = "roll"; }
   const st = readState();
   const order = {};
   main.innerHTML = `
@@ -554,28 +731,100 @@ async function drawModels(main) {
           <button type="button" class="open-filters" id="open-filters">${ICON.sliders}${esc(s.filters)}</button>
           ${sortControl(s.sorts, st.sort)}
         </div></div>
+        <p class="note" id="partial" hidden></p>
         <div class="grid" id="cards"></div>
         <nav class="pager" id="pager" aria-label="Pages"></nav>
       </section>
       <div class="sheet-footer" id="sheet-footer" hidden><button type="button" class="button primary" id="show"></button></div>
     </div>`;
   $("#q").value = st.q;
-  const draw = () => {
+  // Which of the interface's sorts and facets the roll can answer. The rest
+  // are the index's: they come from a model's tags and its files, and the roll
+  // carries neither, so they are left out rather than drawn empty.
+  const ROLL_SORT = { trending: "trending", downloads: "downloads", likes: "likes", created: "createdAt", modified: "lastModified" };
+  const ROLL_FACET = { task: "task", library: "library", license: "license", languages: "language" };
+  const codesOf = (key, labels) => {
+    const dict = source?.dictionaries[ROLL_FACET[key]] ?? [];
+    return (labels ?? []).map((l) => dict.indexOf(l)).filter((i) => i >= 0);
+  };
+
+  const draw = async () => {
     writeState(st);
-    const results = list.filter((m) => matches(m, st)).sort(SORTERS[st.sort]);
-    const pages = Math.max(1, Math.ceil(results.length / s.pageSize));
-    st.page = Math.min(st.page, pages);
-    $("#count").textContent = count(results.length);
-    $("#show").textContent = fill(s.show, { n: count(results.length) });
-    $("#filters-body").innerHTML = filtersHtml(list, st, order);
+    // A query that arrived in the URL deserves the same shard a typed one
+    // gets, and this is the first chance to ask for it.
+    pullSwarm(st.q);
+    let shown, total, pages, pre = null;
+    if (source) {
+      const filters = {};
+      for (const [key, facet] of Object.entries(ROLL_FACET)) {
+        const codes = codesOf(key, st.f[key]);
+        if (codes.length) filters[facet] = codes;
+      }
+      const sort = ROLL_SORT[st.sort] ?? "downloads";
+      const got = await source.page({ sort, filters, page: st.page });
+      st.page = got.page;
+      total = got.total;
+      pages = got.pages;
+      shown = got.rows.map((r) => fromRoll(r, source, faces, s, Date.now()));
+      // The chip counts come from the postings header, so each is what that
+      // value holds in the catalogue rather than under the other filters. The
+      // interface used to narrow them as you chose; over three million rows
+      // that is a walk per chip, and a number honest about what it counts
+      // beats one that is not there.
+      pre = {};
+      for (const [key, facet] of Object.entries(ROLL_FACET)) {
+        const dict = source.dictionaries[facet] ?? [];
+        const counted = await source.counts(sort, facet);
+        pre[key] = new Map([...counted].map(([v, n]) => [dict[v], n]).filter(([label]) => label));
+      }
+    } else {
+      const results = list.filter((m) => matches(m, st)).sort(SORTERS[st.sort]);
+      total = results.length;
+      pages = Math.max(1, Math.ceil(total / s.pageSize));
+      st.page = Math.min(st.page, pages);
+      shown = results.slice((st.page - 1) * s.pageSize, st.page * s.pageSize);
+    }
+    $("#count").textContent = count(total);
+    $("#show").textContent = fill(s.show, { n: count(total) });
+    $("#filters-body").innerHTML = filtersHtml(list, st, order, pre);
     clampChips();
-    const slice = results.slice((st.page - 1) * s.pageSize, st.page * s.pageSize);
-    $("#cards").innerHTML = slice.length ? slice.map(card).join("")
+    $("#cards").innerHTML = shown.length ? shown.map(card).join("")
       : `<div class="empty"><p>${esc(s.empty)}</p><button type="button" class="link" data-clear>${esc(s.clear)}</button></div>`;
     $("#pager").innerHTML = pagerHtml(st.page, pages, s);
+    showPartial(st);
   };
+
+  // How much of the swarm's catalog is in front of the reader. Without this a
+  // count of a few hundred would read as all Pirate Face has, when the page
+  // has deliberately loaded one slice of it.
+  async function showPartial(st) {
+    const el = $("#partial");
+    const w = s.swarm;
+    const cat = await swarmCatalog().catch(() => null);
+    const asked = st.f.sources?.includes("pirateface");
+    if (!el || !w || !cat || !asked) { if (el) el.hidden = true; return; }
+    const have = list.filter((m) => m.state === "listed").length;
+    if (have >= cat.models) { el.hidden = true; return; }
+    el.textContent = fill(w.partial, { n: count(have), total: count(cat.models), source: w.source });
+    el.hidden = false;
+  }
+
+  // Reading one more shard, then drawing once. The query a reader typed
+  // decides which shard, so this runs on search and not on a filter.
+  let pulled = "";
+  async function pullSwarm(query) {
+    const key = query.trim().toLowerCase().slice(0, 2);
+    if (key.length < 2 || pulled === key) return;
+    pulled = key;
+    const found = await swarmByName(query).catch(() => []);
+    const added = await mergeSwarm(list, found);
+    if (!added) return;
+    for (const m of list) if (!m.status) dress(m);
+    draw();
+  }
+
   let timer;
-  $("#q").addEventListener("input", (e) => { clearTimeout(timer); timer = setTimeout(() => { st.q = e.target.value.trim(); st.page = 1; draw(); }, 144); });
+  $("#q").addEventListener("input", (e) => { clearTimeout(timer); timer = setTimeout(() => { st.q = e.target.value.trim(); st.page = 1; draw(); pullSwarm(st.q); }, 144); });
   wireSort(main, (key) => { st.sort = key; st.page = 1; draw(); });
   const sheet = (open) => { document.body.classList.toggle("sheet", open); $("#sheet-footer").hidden = !open; };
   $("#open-filters").addEventListener("click", () => sheet(true));
@@ -625,19 +874,28 @@ async function drawModels(main) {
     chips.classList.toggle("clamped", !w);
     $(".more", section).hidden = Boolean(w) || chips.scrollHeight <= chips.clientHeight;
   });
-  draw();
+  // Awaited, so a failure to read the roll surfaces instead of leaving an
+  // empty grid behind a silently rejected promise.
+  await draw();
 }
-function filtersHtml(list, st, order) {
+function filtersHtml(list, st, order, pre) {
   const s = screens.models;
   const tabs = s.tabs.map(([k, label, ic]) => `<button type="button" class="tab" role="tab" data-tab="${esc(k)}" aria-selected="${st.tab === k}">${ICON[ic] ?? ""}<span>${esc(label)}</span></button>`).join("");
-  const sections = facetDefs().filter((f) => f.tabs.includes(st.tab)).map((f) => (f.kind === "range" ? rangeFacet(st) : chipFacet(f, list, st, order))).join("");
+  // When the caller brought counts, those are the facets there are: the rest
+  // are the addressed index's and the roll cannot answer them, so they are not
+  // offered rather than offered empty.
+  const can = (f) => (pre ? Object.hasOwn(pre, f.key) : true);
+  const sections = facetDefs().filter((f) => f.tabs.includes(st.tab) && can(f))
+    .map((f) => (f.kind === "range" ? rangeFacet(st) : chipFacet(f, list, st, order, pre))).join("");
   return `<div class="tabs" role="tablist">${tabs}</div><div class="sections">${sections}</div>`;
 }
-function chipFacet(f, list, st, order) {
+function chipFacet(f, list, st, order, pre) {
   const s = screens.models;
   const fixed = fixedValues(f);
-  const counts = new Map(fixed ? fixed.map((v) => [v, 0]) : []);
-  for (const m of list) {
+  // Counts the caller already has - from the roll's postings header, where
+  // a value's total is a number to read rather than a walk over rows.
+  const counts = pre?.[f.key] ?? new Map(fixed ? fixed.map((v) => [v, 0]) : []);
+  for (const m of (pre?.[f.key] ? [] : list)) {
     const hit = matches(m, st, f.key);
     for (const v of valuesOf(m, f.key)) {
       if (f.key === "modality" && v === "Other") continue;
@@ -771,11 +1029,25 @@ async function drawModel(main, id) {
       .then((r) => (r.ok ? r.json() : [])).then((found) => found.find(same)).catch(() => undefined);
     if (row) m = fromApi(row);
   }
+  // Still nothing, and the swarm may list it. One shard, the one this model's
+  // own name is filed under, so a link to any of the catalog's models opens
+  // rather than reporting it missing.
+  if (!m) {
+    const found = await swarmByName(id.split("/")[1] ?? id).catch(() => []);
+    const row = found.find(same);
+    if (row) m = dress(row);
+  }
   const back = `<div class="back-row"><a class="back" data-in href="${href("models/")}">${ICON.left}${esc(s.back)}</a></div>`;
   if (!m) { main.innerHTML = `${back}<section class="panel note-panel">${esc(s.missing)}</section>`; return; }
   document.title = `${m.name} · ${chrome.brand}`;
-  const host = chrome.host;
-  const command = (i) => fill(s.tools[i][1], { host, repo: m.id });
+  // Where this model can actually be fetched from. For an indexed release
+  // that is this hub; for one the swarm merely lists, this hub would answer
+  // nothing, and saying otherwise would be the one claim a reader cannot
+  // check for themselves.
+  const w = screens.models.swarm;
+  const listed = m.state === "listed" && Boolean(w);
+  const host = listed ? w.host : chrome.host;
+  const command = (i) => (listed ? fill(w.command, { host, id: m.id }) : fill(s.tools[i][1], { host, repo: m.id }));
   const status = `<span class="${verified(m) ? "ok" : "dim"}">${esc(statusLabel(m))}</span>`;
   const facts = {
     status, revision: m.revision ? `<code>${esc(m.revision.slice(0, 12))}</code>` : "", files: m.files ? esc(m.files) : "",
@@ -796,8 +1068,9 @@ async function drawModel(main, id) {
       <div class="verdict" id="verdict" hidden></div>
       <dl class="rows">
         <div><dt>${esc(s.address)}</dt><dd>${copyLine(`${host}/${m.id}`, "endpoint section-tag copy")}${m.manifest ? `<code class="addr">${esc(m.manifest.slice(0, 22))}...</code>` : ""}</dd></div>
-        <div><dt>${esc(s.held)}</dt><dd class="held">${(m.sources ?? []).map((x) => `<span class="pill">${ICON.seal}${esc(x)}</span>`).join("") || "<span class=\"dim\">-</span>"}</dd></div>
-        <div><dt>${esc(s.get)}</dt><dd><div class="ptabs" role="tablist">${s.tools.map(([tool], i) => `<button type="button" role="tab" aria-selected="${i === 0}" data-tool="${i}">${esc(tool)}</button>`).join("")}</div>
+        <div><dt>${esc(s.held)}</dt><dd class="held">${(m.sources ?? []).map((x) => `<span class="pill">${ICON.seal}${esc(sourceName(x))}</span>`).join("") || "<span class=\"dim\">-</span>"}</dd></div>
+        <div><dt>${esc(s.get)}</dt><dd>${listed ? `<p class="note">${esc(w.get)}</p>`
+          : `<div class="ptabs" role="tablist">${s.tools.map(([tool], i) => `<button type="button" role="tab" aria-selected="${i === 0}" data-tool="${i}">${esc(tool)}</button>`).join("")}</div>`}
           <div class="get">${copyLine(command(0), "command copy")}</div></dd></div>
         <div><dt>${esc(s.witnesses.row)}</dt><dd id="witnesses" class="witnesses">...</dd></div>
         <div><dt>${esc(s.trust.row)}</dt><dd id="signed" class="signed">...</dd></div>

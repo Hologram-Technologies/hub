@@ -642,6 +642,9 @@ ul { list-style: none; margin: 0; padding: 0; }
 .tag.state.addressed, .tag.new { color: var(--hh-ok); border-color: color-mix(in srgb, var(--success) 45%, transparent); background: color-mix(in srgb, var(--success) 12%, transparent); }
 .tag.new { background: transparent; }
 .tag.state.pending { color: var(--hh-text-dim); background: transparent; border-color: var(--hh-line-strong); }
+/* A row another host listed and this hub has not checked: neither a pass
+   nor a failure, so it is marked rather than coloured like either. */
+.tag.state.listed { color: var(--hh-text-dim); background: transparent; border-color: var(--hh-line-strong); border-style: dashed; }
 .tag.state.skipped { color: var(--hh-bad); border-color: color-mix(in srgb, var(--destructive) 45%, transparent); background: color-mix(in srgb, var(--destructive) 10%, transparent); }
 
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-6) var(--space-2); height: var(--space-5); min-width: 0; font-size: var(--text-sm); color: var(--hh-text-dim); white-space: nowrap; overflow: hidden; }
