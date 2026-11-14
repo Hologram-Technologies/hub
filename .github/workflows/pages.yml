@@ -31,7 +31,12 @@ jobs:
     # The template repository publishes its try page instead (try-page.yml).
     if: github.repository != 'UOR-Foundation/template'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # Indexing is normally almost free, because a record is reused whenever the
+    # release has not moved. A run that cannot reuse the cache pays two Hugging
+    # Face calls per record at the one-a-second pace `hf()` keeps, which is about
+    # twenty minutes for the current catalog and grows with it. That is rare, but
+    # when it happens the job must finish rather than look like a flake.
+    timeout-minutes: 60
     permissions:
       contents: read
       id-token: write
@@ -333,3 +338,6 @@ jobs:
             }
           ' "$RUNNER_TEMP/index-copy"
           node tests/edge/complete.mjs https://hologram-technologies.github.io/hub/app/app.holo "$RUNNER_TEMP/index-copy"
+      - name: A record says where its bytes come from, and the edge sends you there
+        shell: bash
+        run: node tests/edge/origin.mjs https://hologram-technologies.github.io/hub/app/app.holo "$RUNNER_TEMP/index-copy"

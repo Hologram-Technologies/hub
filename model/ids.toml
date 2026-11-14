@@ -135,3 +135,9 @@ id = "HK-19"
 level = "build"
 suite = "kernel"
 statement = "A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served"
+
+[[id]]
+id = "HK-20"
+level = "build"
+suite = "index"
+statement = "A release record names where its own bytes come from, and the edge sends a client to that same place, so a reader who is not the edge can fetch and check a file without knowing which hub built the record"
