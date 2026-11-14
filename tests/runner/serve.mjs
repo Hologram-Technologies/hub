@@ -32,6 +32,7 @@ const gitBlob = (b) => createHash("sha1").update(`blob ${b.length}\0`).update(b)
 
 const REPO = "testing/model";
 const ONLY_BAD = "testing/only-bad";
+const SWARM_HASH = "d".repeat(40);
 const REVISION = "a".repeat(40);
 const WEIGHTS = Buffer.from("the bytes the record addresses, several times over".repeat(40));
 const CARD = Buffer.from("# a small file with no sha256 in the index\n");
@@ -57,6 +58,12 @@ const port = await new Promise((resolve) => {
     const wanted = url.pathname.match(/^\/index\/models\/(.+)\.json$/);
     if (wanted && records[decodeURIComponent(wanted[1])]) {
       return send(200, Buffer.from(JSON.stringify(records[decodeURIComponent(wanted[1])])));
+    }
+    // A stand-in for the swarm's own catalog, so the search route can be
+    // checked without asking the real one.
+    if (url.pathname.startsWith("/s/")) {
+      const line = `${REPO}                        2 KB     9 seeds  magnet:?xt=urn:btih:${SWARM_HASH}`;
+      return send(200, Buffer.from(`${line}\nrubbish\n`), "text/plain");
     }
     const good = url.pathname.match(/^\/good\/(.+)$/);
     const bad = url.pathname.match(/^\/bad\/(.+)$/);
@@ -184,7 +191,7 @@ ok("a pinned source that sends other bytes is refused, not served");
 forget();
 await rm(cacheDir, { recursive: true, force: true });
 await mkdir(cacheDir, { recursive: true });
-await start({ holo, huggingFace: false, drain: ["huggingface.co", "modelscope.cn"], cacheDir });
+await start({ holo, huggingFace: false, drain: ["huggingface.co", "modelscope.cn"], cacheDir, piratefaceHost: base });
 await adoptUnsignedIndexForTests(`${base}/index/`);
 response = await get(file("model.safetensors"), {}, true);
 assert.equal(response.status, 200);
@@ -208,6 +215,23 @@ response = await get(`/${ONLY_BAD}/resolve/main/model.safetensors`);
 assert.equal(response.status, 200);
 assert.equal(response.headers.get("x-hub-source"), "cache");
 ok("unpinned, the same file is served from the cache without asking a source");
+
+// Searching the swarm relays someone else's catalog, and the answer says so:
+// this hub has checked none of it, and whether a file's bytes can be checked
+// is a separate question from whether anyone is seeding it.
+response = await get("/api/swarm/search?q=model");
+assert.equal(response.status, 200);
+const found = await response.json();
+assert.equal(found.found, 1);
+assert.equal(found.checked, false);
+assert.equal(found.claimedBy, "pirateface.co");
+assert.equal(found.models[0].repo, REPO);
+assert.equal(found.models[0].seeders, 9);
+assert.equal(found.models[0].infohash, SWARM_HASH);
+ok("the swarm's catalog is relayed, labelled as its claim and not as a check");
+
+assert.equal((await get("/api/swarm/search")).status, 400);
+ok("a search with nothing to search for is refused");
 
 // And a file no source holds is an entry that is not found, not a 503.
 response = await get(file("absent.bin"));
