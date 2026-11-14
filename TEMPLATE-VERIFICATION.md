@@ -861,9 +861,11 @@ Proved on 2026-11-14 in the SDK image `prismpm.lock` pins, with LexLean 0.3.0
 and Lean 4.32.1. Before `HK-17` merged, `lexlean verify` verified 24 modules
 in 7 minutes 6 seconds, attestation
 `e5567e6d7160658bc286b6cf19a81840c0e902bfc9635930c51de207fc945c02`. With the
-second witness merged the model is 25 modules and the attestation moves; the
-current one is recorded below, and the figure above is kept because the mount
-measurement further down was taken against it. `addressedHolds` is proved by
+second witness merged the model is 25 modules, and `lexlean verify` verifies
+them in 7 minutes 26 seconds, attestation
+`eb7679443cadc1280bf9d201bd3c57a9924279d746fc59a44b00a42111c2f195`. That is
+the attestation for this tree. The earlier figure is kept because the mount
+measurement below was taken against the model it names. `addressedHolds` is proved by
 `linear_arithmetic` on `Quot.sound` and `propext`, as `kernel_hk_19` requires.
 `lexlean fmt --check` and `lexlean lock --check` pass, and
 `cargo test --workspace` passes with `kernel_hk_19`, `kernel_hk_17` and
@@ -919,6 +921,11 @@ idle, which is what made it look like a hang rather than a wait. Contention on
 the mount is the likely cause; one sample each way does not establish it, and
 it is recorded here as unverified. What is established is that the mount alone
 does not stop `lexlean verify`.
+
+A third run narrows it further. The merged model, 25 modules, verified on the
+same mount in 7 minutes 26 seconds against the 12 minutes 53 seconds the
+24-module model took, because `.lexlean` was warm by then. Most of the mount's
+cost is writing the staging tree, and it is paid once rather than per run.
 
 Do not copy the whole of `app/` to work around it. `app/target` is 1.7 GB after
 a `prismpm verify` and walking it over the mount takes minutes; `src/`,
