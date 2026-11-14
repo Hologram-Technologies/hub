@@ -38,7 +38,7 @@ import * as snapshot from "./snapshot.mjs";
 import { lookup, fetchTorrent } from "./pirateface.mjs";
 import { announce, fetchPieces, peerId } from "./swarm.mjs";
 import { findFile, piecesOf, readMagnet } from "./torrent.mjs";
-import { checkTensorsOfFile, gitBlobSha1, loadManifest } from "./uor.mjs";
+import { checkTensorsOfFile, loadManifest } from "./uor.mjs";
 
 const HF = "https://huggingface.co";
 // The edge's three, and the swarm as the fourth. The kernel has exactly four
@@ -136,12 +136,6 @@ async function cached(address) {
   } catch {
     return null;
   }
-}
-
-async function hashFile(path) {
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(path)) hash.update(chunk);
-  return hash.digest("hex");
 }
 
 async function fetchHttp(url, destination, timeoutMs = 30 * 60000) {
@@ -405,43 +399,59 @@ async function serveFile(request, via, repo, revision, path, onNote) {
   return refuse(17, method);
 }
 
-async function readAll(path) {
-  const chunks = [];
-  for await (const chunk of createReadStream(path)) chunks.push(chunk);
-  return Buffer.concat(chunks);
-}
-
-// `HK-10`: the kernel decides, from the expected and observed digest and size.
-// A small file has no SHA-256 in the index, so its git blob identity is
-// compared here instead - tested, not proved. `HK-19` is what makes that
-// safe: a source nobody vetted is never chosen for such a file.
+// Every address the record has, not the first one it has.
+//
+// `HK-10` decides the SHA-256, from the expected and observed digest and size.
+// The git blob identity is compared here instead - tested, not proved - and
+// for a small file it is the only address Hugging Face publishes at all.
+//
+// Both are checked when both exist, and either failing refuses. That is not
+// belt and braces; the two differ in who chose them. A SHA-256 may come from
+// a second witness, and a witness can also be a source: `pirateface.co`
+// witnesses addresses and `pirateface` serves bytes. Checking bytes from a
+// source against a digest that source supplied proves nothing, so the git
+// blob - which only Hugging Face ever published, and which this repository
+// signed into the record - is what actually stands between an unvetted source
+// and a client. Taking the SHA-256 as sufficient would replace an independent
+// check with a circular one, which is strictly worse than having only the
+// independent one.
+//
+// A file with neither is refused. Nothing passes for want of something to
+// check it against.
 async function check(kernel, file, { address, size, blobId, entry }) {
   const info = await stat(file);
-  if (!address) {
-    if (entry !== 1) return { ok: false, why: "the record names no address for a file it calls large" };
-    // Nothing passes for want of something to check it against. `HK-18`
-    // freezes a git blob identity on every entry so this should not arise,
-    // but a record from elsewhere or a later format could carry one, and
-    // without this the refusal would rest on a computed digest not being
-    // equal to `undefined` - true today, and nothing says it has to be.
-    if (!blobId) return { ok: false, why: "the record names no address for this file at all" };
-    const bytes = await readAll(file);
-    const found = gitBlobSha1(bytes);
-    return found === blobId
-      ? { ok: true, by: "git blob" }
-      : { ok: false, why: `git blob ${found}, the record says ${blobId}` };
+  if (!address && !blobId) return { ok: false, why: "the record names no address for this file at all" };
+  if (entry === 2 && !address) return { ok: false, why: "the record names no digest for a file it calls large" };
+
+  // One pass over the bytes for both digests. The git blob prefix carries the
+  // length actually read, so a file of the wrong size fails it without a
+  // separate comparison.
+  const sha = createHash("sha256");
+  const blob = blobId ? createHash("sha1").update(`blob ${info.size}\0`) : null;
+  for await (const chunk of createReadStream(file)) {
+    sha.update(chunk);
+    blob?.update(chunk);
   }
-  const observed = await hashFile(file);
-  const request = new Uint8Array(81);
-  request[0] = 2;
-  request.set(Buffer.from(address, "hex"), 1);
-  request.set(Buffer.from(observed, "hex"), 33);
-  new DataView(request.buffer).setBigUint64(65, BigInt(size));
-  new DataView(request.buffer).setBigUint64(73, BigInt(info.size));
-  const answer = (await kernel.dispatch(request))[0];
-  return answer === 20
-    ? { ok: true, by: "sha256" }
-    : { ok: false, why: `sha256 ${observed} and ${info.size} bytes, the record says ${address} and ${size}` };
+
+  if (blob) {
+    const found = blob.digest("hex");
+    if (found !== blobId) return { ok: false, why: `git blob ${found}, the record says ${blobId}` };
+  }
+
+  if (address) {
+    const observed = sha.digest("hex");
+    const request = new Uint8Array(81);
+    request[0] = 2;
+    request.set(Buffer.from(address, "hex"), 1);
+    request.set(Buffer.from(observed, "hex"), 33);
+    new DataView(request.buffer).setBigUint64(65, BigInt(size));
+    new DataView(request.buffer).setBigUint64(73, BigInt(info.size));
+    if ((await kernel.dispatch(request))[0] !== 20) {
+      return { ok: false, why: `sha256 ${observed} and ${info.size} bytes, the record says ${address} and ${size}` };
+    }
+  }
+
+  return { ok: true, by: blob && address ? "git blob and sha256" : blob ? "git blob" : "sha256" };
 }
 
 async function witnessed(repo) {
