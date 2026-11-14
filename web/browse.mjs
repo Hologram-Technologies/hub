@@ -183,6 +183,30 @@ export async function openBrowse(base) {
     // one facet are a union - the interface treats chips in a group as "any of
     // these" - and the facets are intersected.
     words,
+    // One model by name. The word index already knows which rows hold every
+    // word of its id, so the rarest of them is a short list to look through -
+    // no separate index, and no walk over three million rows.
+    async find(id) {
+      const use = Object.keys(root.orders)[0];
+      if (!root.search?.[use]) return undefined;
+      const terms = words(id);
+      if (!terms.length) return undefined;
+      let hits = null;
+      for (const word of terms) {
+        const found = await wordPositions(use, word);
+        hits = hits === null ? found : intersect(hits, found);
+        if (!hits.length) return undefined;
+      }
+      const order = url(root.orders[use].path);
+      const wanted = hits.slice(0, 64);
+      const numbers = await Promise.all(wanted.map(async (pos) => {
+        const b = await range(order, pos * 4, 4);
+        return new DataView(b.buffer, b.byteOffset, b.byteLength).getUint32(0);
+      }));
+      const rows = await rowsAt(numbers);
+      const row = rows.find((r) => r[0].toLowerCase() === id.toLowerCase());
+      return row && { id: row[0], revision: row[1], created: row[2], browse: row[6] ?? null };
+    },
     async page({ sort, filters = {}, page = 1, q = "" }) {
       const use = root.orders[sort] ? sort : Object.keys(root.orders)[0];
       let hits = null;
