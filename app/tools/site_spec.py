@@ -299,6 +299,12 @@ SCREENS = {
         "sortCount": "Sort by count",
         "none": "No values",
         "empty": "No models match these filters.",
+        # A first search for a term reads that term's own slice of the
+        # index, which on a cold edge took 8 to 31 seconds measured
+        # 2026-11-14. The results area said nothing for all of it, which
+        # reads as a catalogue holding nothing rather than as a page
+        # still fetching.
+        "searching": "Looking through the catalogue…",
         "clear": "Clear filters",
         "reset": "Reset",
         "more": "+{n} more",

@@ -714,9 +714,13 @@ const card = (m) => `<a class="card" data-in href="${href(`models/${m.id}/`)}" t
 async function drawModels(main) {
   const s = screens.models;
   const source = await openRoll();
-  // The addressed index is still read when there is no roll, and is still what
-  // the model pages and Verify use either way.
-  const list = source ? [] : await catalog();
+  // The addressed index is read either way. Without it the roll is the whole
+  // catalogue, and the roll does not know which source holds a release or
+  // whether this hub has checked one - so every row read as Unverified and
+  // the Source filter had nothing to filter on. It is one shard of a few
+  // hundred rows against the roll's three million, and it is the only place
+  // those answers exist.
+  const list = await catalog().catch(() => []);
   const faces = await fetch(new URL("data/avatars/index.json", root)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
   if (source) { listing.signed = false; listing.rows = source.total; listing.shards = 0; listing.rules = "roll"; }
   const st = readState();
@@ -752,13 +756,31 @@ async function drawModels(main) {
     return (labels ?? []).map((l) => dict.indexOf(l)).filter((i) => i >= 0);
   };
 
+  let drawing = 0;
+  // The addressed index by id, for the overlay above. It is the same `list`
+  // the filters are drawn from, so this costs no fetch.
+  const addressed = new Map(list.map((m) => [m.id.toLowerCase(), m]));
   const draw = async () => {
+    const mine = ++drawing;
     writeState(st);
     // A query that arrived in the URL deserves the same shard a typed one
     // gets, and this is the first chance to ask for it.
     pullSwarm(st.q);
+    // Only when there is nothing to look at. Redrawing a page that already
+    // has rows would throw them away to show a spinner, which is worse than
+    // letting the old rows stand for a moment.
+    // A deployed page can meet an older holo, which has no word for this.
+    // Then it stays silent rather than printing a gap where a sentence goes.
+    const cards = $("#cards");
+    if (cards && s.searching && !cards.querySelector(".card")) {
+      cards.setAttribute("aria-busy", "true");
+      cards.innerHTML = `<p class="note">${esc(s.searching)}</p>`;
+    }
     let shown, total, pages, pre = null;
-    if (source) {
+    // A source filter can only be answered by the addressed index, so asking
+    // for one asks that index rather than the roll.
+    const bySource = (st.f.sources?.length ?? 0) > 0;
+    if (source && !bySource) {
       const filters = {};
       for (const [key, facet] of Object.entries(ROLL_FACET)) {
         const codes = codesOf(key, st.f[key]);
@@ -769,18 +791,29 @@ async function drawModels(main) {
       st.page = got.page;
       total = got.total;
       pages = got.pages;
-      shown = got.rows.map((r) => fromRoll(r, source, faces, s, Date.now()));
+      const now = Date.now();
+      shown = got.rows.map((r) => {
+        const row = fromRoll(r, source, faces, s, now);
+        // The addressed index knows more about this release than the roll
+        // does. Where it holds the same model, its answer wins: saying
+        // Unverified about a release this hub has checked is the one thing
+        // the page must not do.
+        const known = addressed.get(row.id.toLowerCase());
+        return known ? { ...row, state: known.state, status: known.status, sources: known.sources ?? [], manifest: known.manifest ?? null, files: known.files ?? row.files, weightBytes: known.weightBytes ?? row.weightBytes } : row;
+      });
       // The chip counts come from the postings header, so each is what that
       // value holds in the catalogue rather than under the other filters. The
       // interface used to narrow them as you chose; over three million rows
       // that is a walk per chip, and a number honest about what it counts
       // beats one that is not there.
-      pre = {};
-      for (const [key, facet] of Object.entries(ROLL_FACET)) {
+      // Asked for together rather than one after another: they do not depend
+      // on each other, and in series each one's latency was added to the
+      // wait before anything could be drawn.
+      pre = Object.fromEntries(await Promise.all(Object.entries(ROLL_FACET).map(async ([key, facet]) => {
         const dict = source.dictionaries[facet] ?? [];
         const counted = await source.counts(sort, facet);
-        pre[key] = new Map([...counted].map(([v, n]) => [dict[v], n]).filter(([label]) => label));
-      }
+        return [key, new Map([...counted].map(([v, n]) => [dict[v], n]).filter(([label]) => label))];
+      })));
     } else {
       const results = list.filter((m) => matches(m, st)).sort(SORTERS[st.sort]);
       total = results.length;
@@ -788,6 +821,10 @@ async function drawModels(main) {
       st.page = Math.min(st.page, pages);
       shown = results.slice((st.page - 1) * s.pageSize, st.page * s.pageSize);
     }
+    // A newer draw started while this one was reading, so this one's rows
+    // are already out of date and must not land.
+    if (mine !== drawing) return;
+    cards?.removeAttribute("aria-busy");
     $("#count").textContent = count(total);
     $("#show").textContent = fill(s.show, { n: count(total) });
     $("#filters-body").innerHTML = filtersHtml(list, st, order, pre);
