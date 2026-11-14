@@ -38,24 +38,25 @@ const WEIGHTS = Buffer.from("the bytes the record addresses, several times over"
 const CARD = Buffer.from("# a small file with no sha256 in the index\n");
 const OTHER = Buffer.from("these are not those bytes".repeat(40));
 const NAMELESS = Buffer.from("a file the record gives no address of any kind");
-// A file the record addresses twice. The SHA-256 is the one a second
-// witness could have supplied; the git blob identity is the one only
-// Hugging Face ever published.
-const AGREED = Buffer.from("both addresses describe these bytes".repeat(30));
-const DISPUTED = Buffer.from("the digest agrees and the git blob does not".repeat(30));
+// What git holds for an LFS file: a pointer, not the bytes.
+const POINTER = Buffer.from([
+  "version https://git-lfs.github.com/spec/v1",
+  "oid sha256:0123456789abcdef",
+  "size 2000",
+  "",
+].join("\n"));
 
 const work = await mkdtemp(join(tmpdir(), "hub-runner-test-"));
 const cacheDir = join(work, "cache");
 const files = [
-  { path: "model.safetensors", size: WEIGHTS.length, gitSha1: gitBlob(WEIGHTS), sha256: sha256(WEIGHTS), pointerSize: 134 },
+  // An LFS entry as Hugging Face really writes one: `gitSha1` is the git
+  // blob of the 134-byte pointer, not of the content. Measured on
+  // `openai-community/gpt2`, where 64-8bits.tflite is 125 MB and its
+  // `gitSha1` hashes the pointer.
+  { path: "model.safetensors", size: WEIGHTS.length, gitSha1: gitBlob(POINTER), sha256: sha256(WEIGHTS), pointerSize: POINTER.length },
   { path: "README.md", size: CARD.length, gitSha1: gitBlob(CARD) },
   // No sha256 and no gitSha1: nothing to check these bytes against.
   { path: "nameless.bin", size: NAMELESS.length },
-  { path: "agreed.bin", size: AGREED.length, gitSha1: gitBlob(AGREED), sha256: sha256(AGREED), pointerSize: 134 },
-  // The SHA-256 is right for the bytes the source serves and the git blob
-  // identity is not, which is what a witness supplying an address for bytes
-  // it also serves would look like.
-  { path: "disputed.bin", size: DISPUTED.length, gitSha1: "0".repeat(40), sha256: sha256(DISPUTED), pointerSize: 134 },
 ];
 
 // The static files the runner reads: an index root, one record, and the two
@@ -82,7 +83,7 @@ const port = await new Promise((resolve) => {
     const bad = url.pathname.match(/^\/bad\/(.+)$/);
     if (good) {
       const name = decodeURIComponent(good[1]);
-      const body = { "README.md": CARD, "nameless.bin": NAMELESS, "agreed.bin": AGREED, "disputed.bin": DISPUTED }[name] ?? WEIGHTS;
+      const body = { "README.md": CARD, "nameless.bin": NAMELESS }[name] ?? WEIGHTS;
       return send(200, body, "application/octet-stream");
     }
     if (bad) return send(200, OTHER, "application/octet-stream");
@@ -245,23 +246,6 @@ ok("the swarm's catalog is relayed, labelled as its claim and not as a check");
 
 assert.equal((await get("/api/swarm/search")).status, 400);
 ok("a search with nothing to search for is refused");
-
-// Where the record addresses a file twice, both are checked. A SHA-256 can
-// come from a second witness, and a witness can also be a source, so a
-// digest that agrees proves nothing on its own; the git blob identity is
-// the one only Hugging Face published. Bytes that satisfy the first and
-// fail the second are refused.
-forget();
-response = await get(file("agreed.bin"));
-assert.equal(response.status, 200);
-assert.deepEqual(Buffer.from(await response.arrayBuffer()), AGREED);
-ok("a file both addresses agree on is served");
-
-forget();
-response = await get(file("disputed.bin"));
-assert.equal(response.status, 503);
-assert.equal(response.headers.get("x-error-code"), "NoSource");
-ok("bytes matching the digest but not the git blob identity are refused");
 
 // A file the record gives no address for is refused even when a source hands
 // over exactly the right bytes. There is nothing to compare them to, and
