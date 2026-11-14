@@ -44,7 +44,7 @@ if (!rollDir || !out) {
 const sha256 = (b) => createHash("sha256").update(b).digest("hex");
 
 // A row's browse fields, by position, as `tools/roll.mjs` writes them.
-const MODIFIED = 0, TASK = 1, LIBRARY = 2, LICENSE = 3, LANGUAGES = 4, PARAMS = 5, DOWNLOADS = 6, LIKES = 7;
+const MODIFIED = 0, TASK = 1, LIBRARY = 2, LICENSE = 3, LANGUAGES = 4, PARAMS = 5, DOWNLOADS = 6, LIKES = 7, TRENDING = 8;
 
 // The sorts the interface offers, in its own words. `created` is the order the
 // rows are already in, so it is the file's own order reversed and is written
@@ -55,15 +55,10 @@ const SORTS = {
   likes: (a, b) => (b.b?.[LIKES] ?? 0) - (a.b?.[LIKES] ?? 0),
   createdAt: (a, b) => b.created - a.created,
   lastModified: (a, b) => (b.b?.[MODIFIED] ?? 0) - (a.b?.[MODIFIED] ?? 0),
-  // Hugging Face's trending score is not in the listing this roll reads, so
-  // the hub derives one rather than inventing a number and calling it theirs:
-  // likes and downloads against how long the model has had to collect them.
-  trending: (a, b) => trend(b) - trend(a),
-};
-const DAY = 86400;
-const trend = (r) => {
-  const age = Math.max(1, (Date.now() / 1000 - r.created) / DAY);
-  return ((r.b?.[LIKES] ?? 0) * 10 + (r.b?.[DOWNLOADS] ?? 0)) / Math.sqrt(age);
+  // Hugging Face's own trending score, carried by the roll as it was given.
+  // The hub derived one of its own until 2026-11-14; this is theirs, so the
+  // order here is the order they publish and not a near miss of it.
+  trending: (a, b) => (b.b?.[TRENDING] ?? 0) - (a.b?.[TRENDING] ?? 0),
 };
 
 // The stops the interface draws, from `app/tools/site_spec.py`. A parameter
@@ -199,20 +194,26 @@ for (const [name, compare] of Object.entries(SORTS)) {
     // the end, so a reader takes the pair it needs and asks for that range.
     const blocks = [];
     const offsets = new Uint32Array(top + 1);
+    const counts = new Uint32Array(top);
     let cursor = 0;
     for (let v = 0; v < top; v++) {
       offsets[v] = cursor;
       const held = members[facet.key].get(v);
       if (held) {
+        counts[v] = held.length;
         const block = varints(held.map((n) => at[n]).sort((a, b) => a - b));
         blocks.push(block);
         cursor += block.length;
       }
     }
     offsets[top] = cursor;
+    // Header: the value count, then an offset per value and one past the end,
+    // then how many rows each value holds. The counts are what the filter
+    // panel puts beside a chip, and a reader takes them without touching a
+    // single posting.
     const header = Buffer.alloc(4);
     header.writeUInt32LE(top, 0);
-    const bytes = Buffer.concat([header, Buffer.from(offsets.buffer), ...blocks]);
+    const bytes = Buffer.concat([header, Buffer.from(offsets.buffer), Buffer.from(counts.buffer), ...blocks]);
     await writeFile(join(out, "postings", name, `${facet.key}.bin`), bytes);
     postings[name][facet.key] = { path: `postings/${name}/${facet.key}.bin`, values: top, sha256: sha256(bytes) };
   }
@@ -227,7 +228,7 @@ await writeFile(join(out, "root.json"), JSON.stringify({
   dictionaries: root.dictionaries,
   // What a row's browse array means, by position, so a reader need not read
   // this file's source to understand its output.
-  fields: ["modified", "task", "library", "license", "languages", "parameters", "downloads", "likes"],
+  fields: ["modified", "task", "library", "license", "languages", "parameters", "downloads", "likes", "trending"],
   pageSize: 42,
   // The buckets the parameter and recency filters are cut at, so a reader
   // turns the interface's range back into a union of values without guessing.

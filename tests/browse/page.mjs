@@ -50,7 +50,8 @@ async function positions(sort, facet, value) {
   const count = file.readUInt32LE(0);
   if (value >= count) return [];
   const offsets = new DataView(file.buffer, file.byteOffset + 4, (count + 1) * 4);
-  const base = 4 + (count + 1) * 4;
+  // Past the offsets come the per-value counts, then the postings themselves.
+  const base = 4 + (count + 1) * 4 + count * 4;
   const from = base + offsets.getUint32(value * 4, true);
   const to = base + offsets.getUint32((value + 1) * 4, true);
   const out = [];
@@ -115,10 +116,11 @@ const holds = (row, facet, value) => {
 const busiest = async (facet) => {
   const file = await readFile(join(dir, root.postings.downloads[facet].path));
   const count = file.readUInt32LE(0);
-  const offsets = new DataView(file.buffer, file.byteOffset + 4, (count + 1) * 4);
+  // The counts the header carries, which is what the filter panel reads.
+  const counts = new DataView(file.buffer, file.byteOffset + 4 + (count + 1) * 4, count * 4);
   let best = 0, size = -1;
   for (let v = 0; v < count; v++) {
-    const n = offsets.getUint32((v + 1) * 4, true) - offsets.getUint32(v * 4, true);
+    const n = counts.getUint32(v * 4, true);
     if (n > size) { size = n; best = v; }
   }
   return best;

@@ -1646,3 +1646,21 @@ carry: format, family, architecture, modality, source and status are derived by
 `tools/facets.mjs` from tags and a model's files, and the roll keeps neither.
 They remain available for the addressed catalogue and absent for the rest,
 which is the honest state rather than a silently narrower panel.
+
+### The trending order is Hugging Face's, not a near miss of it
+
+Until 2026-11-14 the browse index derived a trending score from likes and
+downloads against a model's age, because the listing the roll read did not
+carry one. It does: `trendingScore` is one of the twenty-six `expand[]`
+options, and naming it returns the real number. Measured that day, the top of
+the trending order reads 4,428 for `xtools-at/DeepSeek-V4-Pro-...`, 997 for
+`MiniMaxAI/MiniMax-H3-Image`, 426 for `Lightricks/LTX-2.5`.
+
+So the roll carries it as given, beside the downloads and the likes, and under
+the same rule: it is a measurement of somebody else's traffic, named as such,
+not a fact this hub re-derives. The sort is now their order rather than a
+plausible-looking approximation of it, which is the difference between a
+catalogue a reader can compare with Hugging Face and one they cannot.
+
+The postings header also gained a count per value, which is what the filter
+panel puts beside a chip: a reader takes it without touching a single posting.
