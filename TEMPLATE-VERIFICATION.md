@@ -802,6 +802,290 @@ cache blob names, and the errors for a missing repository, file and revision).
 The `offline` job in `pages.yml` repeats this after each deploy against the
 published, signed index.
 
+## A source no redirect can name (HK-19), and the runner that can reach it
+
+The edge cannot use Pirate Face, and measuring why decided the whole design.
+A magnet link is not something a `302` can point a Hugging Face client at, so
+the obvious bridge is BEP-19: Pirate Face's magnets carry a web seed, and a web
+seed is plain HTTP. Measured 2026-11-14 on `Qwen/Qwen3.8-27B`, the web seed
+`https://pirateface.co/api/ws/Qwen/Qwen3.8-27B/1d4bf0f2.../config.json` answers
+`302` to `http://187.127.110.248:8787/...`, a volunteer on plaintext HTTP, the
+same address on three consecutive calls; following that one hop returns, from
+`BaseHTTP/0.6 Python/3.12.3`, a second `302` to
+`https://huggingface.co/Qwen/Qwen3.8-27B/resolve/1d4bf0f2.../config.json`. The
+same for a 3 GB weight file. Zero bytes came from the swarm. Adding that as a
+vetted HTTP source would have built a failover path that ends at the host it
+was failing away from, and `HK-07` would have preferred it. One model at one
+moment, so not the whole catalog - but enough to stop building on it.
+
+So the swarm is reachable only by a runner that holds bytes, and `runner/` is
+that runner. The kernel needed one new theorem for it to be safe.
+
+The resolve request has exactly four source slots (`app/tools/gen_kernel.py`,
+bytes 8 to 23, four fields each). `edge/edge.mjs` names three and pads the
+fourth with zeros, so one was free; the runner uses it for `pirateface`. A
+fifth would move the request from 104 bytes to 108, change the "no source"
+sentinel from 4 to 5 in every response and every pinned vector, widen operation
+4 from five bytes to six, and re-prove `Vetted`, `Sound`, `Pin` and `Healthy`,
+each of which names the four slots explicitly. Nothing here needed that.
+
+`pirateface` is never vetted, and that is what the word means: a vetted source
+is one the edge may redirect a client to. `HK-04` therefore keeps the swarm off
+the edge for every input, already proved, with no new code. What was missing is
+the other half. `eligible` read `holds && !failed && (runner || vetted)`, so a
+local runner could fetch from a source nobody vetted for a file the record
+gives no address for - and then the only thing standing between the swarm and
+the cache is a check written by hand. `HK-19` closes that: `eligible` now reads
+`holds && !failed && (vetted || (runner && entry == 2))`, and `addressedHolds`
+proves no input reaches `breaksAddressed`, which is a chosen source that is not
+vetted for a file the record does not address.
+
+This is not a hypothetical. Running the runner against the published holo,
+which predates `HK-19`, a request for `openai-community/gpt2/config.json` with
+the HTTP sources failing reached the swarm - and `config.json` is a small file
+with no SHA-256 in the index. The rule changes real behaviour on a real
+request.
+
+An independent reference implementation of `select` was enumerated over every
+input it reads: 2,359,296 combinations of runner, pin, entry and the four
+sources' sixteen bits. No input met `breaksAddressed`, `breaksVetted`,
+`breaksSound`, `breaksSourced`, `breaksPin` or `breaksHealthy`. The planted
+defect was to drop the address requirement, leaving `vetted || runner`: 110,336
+inputs then met `breaksAddressed`, the first at `runner 1, entry 0`, with slot
+three holding the file and vetted by nobody. The condition is not vacuous.
+`kernel_hk_19` pins its exact text, and `kernel_vectors_match_reference`
+requires the holo's 68 vectors to be the reference's; two of those vectors are
+new, a local runner and an unvetted source with and without an address.
+
+Proved on 2026-11-14 in the SDK image `prismpm.lock` pins, with LexLean 0.3.0
+and Lean 4.32.1. Before `HK-17` merged, `lexlean verify` verified 24 modules
+in 7 minutes 6 seconds, attestation
+`e5567e6d7160658bc286b6cf19a81840c0e902bfc9635930c51de207fc945c02`. With the
+second witness merged the model is 25 modules, and `lexlean verify` verifies
+them in 7 minutes 26 seconds, attestation
+`eb7679443cadc1280bf9d201bd3c57a9924279d746fc59a44b00a42111c2f195`. That is
+the attestation for this tree. The earlier figure is kept because the mount
+measurement below was taken against the model it names. `addressedHolds` is proved by
+`linear_arithmetic` on `Quot.sound` and `propext`, as `kernel_hk_19` requires.
+`lexlean fmt --check` and `lexlean lock --check` pass, and
+`cargo test --workspace` passes with `kernel_hk_19`, `kernel_hk_17` and
+`index_hk_18` together, 19 in the kernel suite.
+
+The planted defect was then run through the same gate. Weakening `eligible`
+in `src/Kernel.lex.tex` to `(vetted =? 1) || (runner =? 1)`, which is what it
+said before `HK-19`, and leaving every proof untouched, `lexlean verify`
+refused in 2 minutes 58 seconds with `LLV7002`:
+
+    Lean rejected `HologramHubKernel.Proofs.Addressed` (error): omega could
+    not prove the goal: a possible counterexample may satisfy the constraints
+    0 <= a <= 1 where a := facts.entry
+      --> src/Proofs/Addressed.lex.tex:15:1
+
+`entry` is 0 when the record has no entry for the file and 1 when the file is
+small, so the counterexample Lean names is exactly the case the claim is
+about: a file the record gives no address for. Restored, the tree verifies
+again with the attestation above. The gate can fail, and it fails for the
+right reason.
+
+The other six parts of `just vv` pass in the same image: `fmt-check`, `model`
+(`validate: every gate passed`), `template-check` (`template contract passed`,
+`SDK lock is canonical and valid`), `lint`, `test` and `deny`. `just app` is
+the part not run here, for the reason below.
+
+Running LexLean on the Windows-mounted checkout is slower, not broken, and the
+difference is worth stating because the first measurement taken here said
+otherwise. `lexlean verify` on the mounted tree completed in 12 minutes 53
+seconds; the same command on a copy of the model inside the container's own
+filesystem took 7 minutes 6 seconds. Both answered with attestation
+`e5567e6d7160658bc286b6cf19a81840c0e902bfc9635930c51de207fc945c02` - the same
+model, verified from two filesystems, to the same attestation. The second of
+those runs was on the tree after the claim was renumbered from `HK-18` to
+`HK-19`, which is the direct evidence that renumbering an id leaves the proved
+artefacts alone.
+
+That is worth stating as a rule, because the next person to renumber will
+otherwise derive it the slow way. An id lives in exactly two places that are
+written by hand - its row in `model/ids.toml` and its row in the `CASES` table
+in `app/tools/write_tests.py` - and in the files generated from those two. It
+never reaches the Lean: `gen_kernel.py` names invariants by module, not by id,
+so `app/src/`, `app/tools/vectors.json` and `app/lexlean.lock` come out byte
+for byte the same. A renumbering is therefore a documentation change wearing a
+model change's clothes, and it needs no new proof. The check is the attestation
+not moving, and the gate will say so by not moving it.
+
+An earlier run of that same command on that same mount used no CPU at all for
+twenty minutes and was abandoned. It overlapped a `prismpm verify` working the
+same mount from a second container. A process blocked in I/O wait accrues no
+CPU time, so `docker top` shows `00:00:00` for one that is stuck rather than
+idle, which is what made it look like a hang rather than a wait. Contention on
+the mount is the likely cause; one sample each way does not establish it, and
+it is recorded here as unverified. What is established is that the mount alone
+does not stop `lexlean verify`.
+
+A third run narrows it further. The merged model, 25 modules, verified on the
+same mount in 7 minutes 26 seconds against the 12 minutes 53 seconds the
+24-module model took, because `.lexlean` was warm by then. Most of the mount's
+cost is writing the staging tree, and it is paid once rather than per run.
+
+Do not copy the whole of `app/` to work around it. `app/target` is 1.7 GB after
+a `prismpm verify` and walking it over the mount takes minutes; `src/`,
+`language/` and the five project files are enough, and that copy takes six
+seconds.
+
+`runner/swarm.mjs` is a leeching BitTorrent client with no dependencies, which
+matters because this repository ships none: `package.json` has two
+devDependencies and nothing at run time. It announces to an HTTP tracker,
+speaks the peer wire protocol over TCP, and hands on a piece only when its
+SHA-1 equals the hash the infohash committed to. `runner/torrent.mjs`
+recomputes that infohash from the metadata's own bytes, so a `.torrent` from a
+host nobody trusts is refused unless it hashes to the infohash the magnet
+named; `tests/runner/torrent.mjs` plants a single flipped byte in one piece
+hash and requires the refusal. It does not seed, speak UDP trackers or the DHT,
+or use web seeds, for the reason measured above.
+
+Measured live on 2026-11-14 (`tests/runner/live-pirateface.mjs`, not part of
+`just vv` because it needs real peers): `openai-community/gpt2` at revision
+`607a30d783df`, which is the revision the hub's own record names, 6 seeders,
+infohash `008ff5a52ed1f80a72e74b23acc3830d12135162`, a 28,407-byte `.torrent`
+whose info dictionary hashes to that infohash, 25 files and 1,343 pieces of
+4,194,304 bytes over 5,632,416,850 bytes. The HTTP tracker named 7 peers, and
+two pieces - 8,388,608 bytes - arrived in 10.0 seconds, each matching its
+committed hash.
+
+The whole path, measured 2026-11-14. A request to
+`/via/pirateface/openai-community/gpt2/resolve/main/64-8bits.tflite` answered
+`200` with 125,162,496 bytes in 47.8 seconds, from 7 peers over 30 pieces, and
+the bytes hash to `c966da3b74697803352ca7c6f2f220e7090a557b619de9da0c6b34d89f7825c1`,
+which is the address the signed index names. Every piece was checked against
+the infohash on the way in and the whole file against the record before any of
+it was served. That is a model weight file fetched from a BitTorrent swarm and
+handed to a Hugging Face client, with nothing trusted along the way.
+
+The same request from `huggingface_hub` 2.4.0 fails, and the reason is worth
+recording because it is not a defect in either side. A file is served only
+after all of it has been checked, so a cold fetch answers nothing for 48
+seconds; the client's read timeout is ten, and it sees silence rather than
+progress. It then retried, and each retry started another download of the same
+torrent: four concurrent fetches competing for the same four seeders, reported
+as `the swarm delivered 0 of 30 pieces before the deadline`.
+
+Streaming pieces as they arrive would fix the timeout and break the claim.
+BitTorrent checks each piece against the infohash, so streamed bytes would be
+intact, but the infohash comes from the swarm's own index and only the address
+in this hub's signed record says the torrent is the file it claims to be.
+Streaming sends bytes before that question is settled, which is what `HK-19`
+exists to prevent. So the wait stays and moves to `runner/pull.mjs`, which is
+not a Hugging Face client and does not mind waiting; afterwards the bytes are
+in the cache under their address and a client is answered from them at once.
+
+Two changes came out of that run. Fetches are now coalesced per address, so a
+retry joins the download in flight instead of starting a rival one. And the
+fetch verifies and moves the bytes into the cache before it returns, because
+the first version of the coalescing handed waiters a path that the request
+which started the fetch was about to rename - a race that only exists once
+more than one request can want the same file, which is exactly what a retrying
+client produces.
+
+The three steps together, measured 2026-11-14 on one machine. Ask what the
+swarm has: `/api/swarm/openai-community/gpt2` reports the revision matching the
+hub's record, 4 seeders, and the infohash recomputed. Pull it:
+`runner/pull.mjs ... --via pirateface` fetched 125,162,496 bytes in 42.1
+seconds and left them in the cache. Use it: `huggingface_hub` 2.4.0 with
+`HF_ENDPOINT` pointed at the runner and no pin at all returned the file in 2.6
+seconds, hashing to the address the signed index names. The client was not
+modified, told nothing about torrents, and never saw one.
+
+Discovery is the other half and is reported apart from it, because peers decide
+whether bytes can be fetched and addresses decide whether they can be believed.
+`node runner/discover.mjs qwen` found 67 models with a torrent. For
+`openai-community/gpt2`, `/api/swarm/{repo}` reports the revision matching the
+hub's record, 4 seeders, the infohash recomputed from the metadata, 25 files,
+5,632,416,850 bytes over 1,343 pieces, and `servable` as 11 addressed of 26
+files. A model with peers and no address is one that can be downloaded and not
+checked, and it is printed as that rather than as a result.
+`tests/runner/discover.mjs` covers the parsing, the revision mismatch, the
+absent repository and the tampered torrent in 5 checks with no network.
+
+What a Hugging Face client sees is the point, and it sees nothing. Measured
+2026-11-14 with `huggingface_hub` 2.4.0, `tests/edge/observe.py` run against
+huggingface.co and against the local runner, and `compare.py` over the two:
+14 of 14 checks identical - file hashes, large and small file metadata, an LFS
+download, the commit prefix, the model commit, the file list, the snapshot,
+the cache blob names, the search, and the errors for a missing repository, a
+missing file, a missing revision and a gated one. The runner reported no
+failed source in that run, so every byte it passed on had matched its address
+first.
+
+Two defects were found by running that comparison rather than by reading the
+code. A HEAD was answered by downloading the file: `huggingface_hub` sends one
+before every download, so describing `model.safetensors` fetched 548 MB and the
+client timed out. A HEAD now answers from the record alone, and
+`tests/runner/serve.mjs` requires the cache to be empty afterwards. The other
+was an import removed while refactoring, which made every HTTP source fail and
+sent the kernel to the swarm for a file it should not have been asked for.
+
+A fourth was found by the live check, and only by it. A peer whose TCP
+connection never established left its promise pending: a socket's `setTimeout`
+in Node is an inactivity timeout and does not cover connecting, so an
+unreachable peer held the whole download open until the operating system gave
+up minutes later. Both pieces had already arrived and been verified; the run
+simply never finished. The connection now carries its own deadline, and a
+socket that closes before the handshake is a failure rather than silence. The
+same run also caught a scope error in the fix for it, which made every peer
+fail on its first byte: with the error swallowed per peer, the only symptom was
+a swarm that found seven peers and downloaded nothing.
+
+A third came out of writing the tests. The runner was marking a source that
+timed out or answered 404 as having failed verification, which is the kernel's
+`failed` bit and a lasting judgement about that copy. Not being able to reach a
+source is not evidence that it sent the wrong bytes. `failed` is now set only
+when bytes arrive and do not match, and a source that could not deliver is
+marked as not holding the file for that request alone. The test that caught it
+had asserted the wrong thing and passed for the wrong reason: Hugging Face is a
+candidate for any file an index record lists, whatever sources the record
+names, so the case that was meant to leave the kernel with nothing had in fact
+left it with one.
+
+`tests/runner/serve.mjs` runs the whole path against one source that serves the
+bytes the record addresses and one that serves something else: 10 checks
+against the published holo, with `tests/runner/torrent.mjs` at 10 and
+`tests/runner/uor.mjs` at 7. A pinned source that sends other bytes is refused rather
+than served; with the good source drained, the kernel reaches the healthy bad
+one first, the runner refuses its bytes, and `HK-05` sends it back to the
+drained source, which has them. A warm cache does not override a refusal: the
+cache is a shortcut, and a delivered file always has a source (`HK-02`,
+`HK-05`).
+
+Not established here: `prismpm --project app verify` did not complete on this
+machine. It ran Lean on the generated kernel and then stopped making progress
+in a later stage, which matches what this file already records about the
+Hologram oracle stage on a Windows-mounted checkout. `lexlean verify` completes either
+on the mounted tree or on a copy inside the container, as above. The holo was
+therefore not rebuilt here, so `tests/runner/kernel.mjs`, which pins the
+answers `HK-19` changes, has not been run against a holo that contains it. The
+other runner tests ran against the published holo, as the edge tests do.
+
+The second witness does not yet reach the runner, and saying otherwise would be
+the easy mistake now that `HK-17` is on main. `tools/index.mjs` keeps a second
+witness's addresses in `record.witnesses[].addresses[]` and deliberately out of
+`files[].sha256`, because the edge reads that field to decide whether a file is
+an LFS file and so which ETag `HK-08` hands a client. The runner reads
+`files[].sha256` too. So for the fifteen `openai-community/gpt2` files Hugging
+Face gives no address for, `entry` is still 1, `HK-19` still keeps the swarm
+off them, and the swarm serves the eleven addressed files and not the other
+fifteen.
+
+Closing that is not a matter of reading the other field. `entry` carries two
+meanings at once - whether the file is LFS, which decides the ETag, and whether
+the record addresses it, which decides `HK-19` - and they have been the same
+thing only because both came from the LFS pointer. A second witness separates
+them. Setting `entry` to 2 because a witness named an address would change the
+ETag for those fifteen files and break the wire the edge tests pin, which is
+the trap `tools/index.mjs` already names in its own comment. The honest fix is
+a separate `addressed` fact in the resolve request, which moves it from 104
+bytes to 108 and re-proves every theorem that names the slots. That is a change
+of its own and is not made here.
+
 ## Prism accounts: the remembered passkey
 
 The sign-in page (`identity/id.mjs`) remembers which passkey this device last

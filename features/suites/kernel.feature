@@ -107,6 +107,12 @@ Feature: kernel
     When the Lean kernel checks trustHolds in app/src/Proofs/Trust.lex.tex during prismpm verify
     Then no input meets breaksTrust
 
+  @HK-19 @build
+  Scenario: A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks addressedHolds in app/src/Proofs/Addressed.lex.tex during prismpm verify
+    Then no input meets breaksAddressed
+
   @HK-10 @build
   Scenario: Received bytes are delivered exactly when their digest and size equal the expected digest and size
     Given the kernel model in app/src/Kernel.lex.tex

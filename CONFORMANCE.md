@@ -46,6 +46,7 @@ model does not sanction.
 | `HK-15` | `build` | An answer is built from the index only when the record holds every field that answer names; where one is missing the source dialect is asked, and where it cannot be asked the answer says it is partial |
 | `HK-16` | `build` | Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state |
 | `HK-17` | `build` | An address with two witnesses is used only when they agree; where one witness alone names it the page says so, and where they disagree the file has no address |
+| `HK-19` | `build` | A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served |
 
 ## Cited authorities
 

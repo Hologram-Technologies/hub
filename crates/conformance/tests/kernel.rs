@@ -352,6 +352,20 @@ fn kernel_hk_14() {
     dispatch_decides_by("(encodeVerdict (trust (byteNat value 1)");
 }
 
+/// `HK-19`: A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served
+#[test]
+fn kernel_hk_19() {
+    pinned(
+        "Addressed",
+        "breaksAddressed",
+        "((((Kernel::select facts) =? 0) && ((not ((project facts vetted0) =? 1)) && (not ((project facts entry) =? 2)))) || ((((Kernel::select facts) =? 1) && ((not ((project facts vetted1) =? 1)) && (not ((project facts entry) =? 2)))) || ((((Kernel::select facts) =? 2) && ((not ((project facts vetted2) =? 1)) && (not ((project facts entry) =? 2)))) || (((Kernel::select facts) =? 3) && ((not ((project facts vetted3) =? 1)) && (not ((project facts entry) =? 2)))))))",
+        "addressedHolds",
+        "facts",
+        "Quot.sound, propext",
+    );
+    dispatch_decides_by("(select facts)");
+}
+
 /// `HK-10`: Received bytes are delivered exactly when their digest and size equal the expected digest and size
 #[test]
 fn kernel_hk_10() {

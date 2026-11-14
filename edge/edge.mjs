@@ -21,7 +21,7 @@ import { verifyBundle } from "../web/sigstore.mjs";
 const HF = "https://huggingface.co";
 const SOURCE_INDEX = "https://gethologram.ai/data/files";
 // Source slots, in the order the kernel prefers them when all are healthy.
-const SOURCES = ["huggingface.co", "modelscope.cn", "ipfs"];
+export const SOURCES = ["huggingface.co", "modelscope.cn", "ipfs"];
 const TTL = 60_000;
 
 let kernel = null;
@@ -34,6 +34,9 @@ let index = null;
 let browse = [];
 let listQuery = { sorts: [], limit: 1000 };
 let useHuggingFace = true;
+// The Sigstore policy screen 3 pins, kept so a runner beside this one checks a
+// witnessed manifest against the same roots.
+let trust = null;
 const cache = new Map();
 const health = new Map(SOURCES.map((s) => [s, { failures: 0, until: 0, drained: false }]));
 const quarantined = new Set();
@@ -61,6 +64,7 @@ export async function start({ holo, index: indexUrl, huggingFace = true, drain =
   recordFields = record.fields.map(([id]) => id);
   partialHeader = record.partialHeader;
   const policy = (await screen(3)).trust?.policy;
+  trust = policy ?? null;
   let state = "none";
   if (indexUrl && policy?.indexPredicateType) {
     try {
@@ -139,7 +143,7 @@ const indexedRevision = (rec, revision) => revision === "main" || revision === r
   || (/^[0-9a-f]{7,39}$/.test(revision) && rec.revision.startsWith(revision));
 
 // Repository state the kernel reads: 0 public, 1 missing, 2 private, 3 gated, 4 disabled.
-async function release(repo, revision) {
+export async function release(repo, revision) {
   const rec = await record(repo);
   if (rec && (indexedRevision(rec, revision) || !useHuggingFace)) {
     if (!indexedRevision(rec, revision)) return { state: 0, revision: false };
@@ -163,7 +167,7 @@ async function release(repo, revision) {
   });
 }
 
-async function holders(repo, info) {
+export async function holders(repo, info) {
   if (info.record) return { revision: info.record.revision, sources: info.record.sources };
   return cached(`index:${repo}`, async () => {
     try {
@@ -175,10 +179,14 @@ async function holders(repo, info) {
   });
 }
 
-function healthy(source) {
+export function healthy(source) {
   const h = health.get(source);
   return !h || (!h.drained && h.until < Date.now());
 }
+// What a runner beside this one needs: the loaded kernel, the pinned trust
+// policy, the dialect that turns a kernel answer into HTTP, and the index.
+export const loaded = () => ({ kernel, dialect, trust, index, useHuggingFace });
+
 export function report(source, ok) {
   const h = health.get(source);
   if (!h) return;

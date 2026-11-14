@@ -131,6 +131,12 @@ suite = "index"
 statement = "A release record always carries the fields a client reads: the repository, the revision, every file with its path, size and git blob address, and the sources that hold it"
 
 [[id]]
+id = "HK-19"
+level = "build"
+suite = "kernel"
+statement = "A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served"
+
+[[id]]
 id = "HK-20"
 level = "build"
 suite = "index"
