@@ -43,7 +43,7 @@ import { checkTensorsOfFile, loadManifest } from "./uor.mjs";
 const HF = "https://huggingface.co";
 // The edge's three, and the swarm as the fourth. The kernel has exactly four
 // slots, so this list is full; a fifth source would move the resolve request
-// from 104 bytes to 108 and re-prove every theorem that names the slots.
+// from 105 bytes to 109 and re-prove every theorem that names the slots.
 export const SOURCES = [...edge.SOURCES, "pirateface"];
 const UNVETTED = new Set(["pirateface"]);
 const LOOKUP_TTL = 300_000;
@@ -114,13 +114,29 @@ const swarmHost = () => (settings.piratefaceHost ? { host: settings.piratefaceHo
 const match = (found, revision) => (found && revision && found.revision === revision ? found : null);
 
 const enc = new TextEncoder();
-function resolveRequest({ repo, revisionKind, refFound, requested, commit, entry, pin, slots }) {
-  const b = new Uint8Array(104);
+// Same discovery the edge makes, for the same reason: this runner can be
+// newer than the holo it loads.
+let resolveWidth = 105;
+async function decide(kernel, facts) {
+  const plan = await kernel.dispatch(resolveRequest(facts, resolveWidth));
+  if (plan[0] !== 0 || resolveWidth === 104) return plan;
+  const older = await kernel.dispatch(resolveRequest(facts, 104));
+  if (older[0] === 0) return plan;
+  resolveWidth = 104;
+  return older;
+}
+function resolveRequest({ repo, revisionKind, refFound, requested, commit, entry, addressed, pin, slots }, width) {
+  const b = new Uint8Array(width);
   // Byte 1 is the runner: 1 says this one serves bytes rather than redirecting.
   b.set([1, 1, repo, revisionKind, refFound, revisionKind === 1 ? requested.length : 0, entry, pin]);
   slots.forEach((s, i) => b.set([s.holds, s.healthy, s.vetted, s.failed], 8 + 4 * i));
   if (revisionKind === 1) b.set(enc.encode(requested).subarray(0, 40), 24);
   if (commit) b.set(enc.encode(commit).subarray(0, 40), 64);
+  // Byte 104 is whether the record addresses this file, which is what decides
+  // whether the swarm may serve it. Byte 6 decides the ETag instead. A kernel
+  // from before that field is asked the shorter request and decides as it did,
+  // which for the swarm means weights only.
+  if (width > 104) b[104] = addressed;
   return b;
 }
 
@@ -260,7 +276,13 @@ async function serveFile(request, via, repo, revision, path, onNote) {
   const lfs = sibling?.lfs;
   const entry = info.state === 0 && info.revision ? (sibling ? (lfs ? 2 : 1) : 0) : 0;
   const swarm = info.state === 0 && info.revision ? await swarmHolding(repo, info.sha) : null;
-  const address = lfs?.sha256 ?? null;
+  // A second witness can address a file Hugging Face never did. Taking the
+  // address from it keeps `check` on its SHA-256 path, which is what makes a
+  // source nobody vetted safe to use for this file; the git blob identity
+  // below is a SHA-1 and is not a check to put in front of a hostile source.
+  // `edge.addressOf` is the same function the edge fills `addressed` from, so
+  // the kernel never permits a file this cannot then verify.
+  const address = lfs?.sha256 ?? edge.addressOf(info.record, path);
 
   // A source this request already asked and could not get the file from. The
   // kernel reads two different facts here and the runner must not confuse
@@ -294,10 +316,11 @@ async function serveFile(request, via, repo, revision, path, onNote) {
   // it, and `HK-05` then keeps the kernel from choosing it again.
   for (let attempt = 0; attempt < SOURCES.length; attempt += 1) {
     const slots = build();
-    const plan = await kernel.dispatch(resolveRequest({
+    const plan = await decide(kernel, {
       repo: info.state, revisionKind: commitKind, refFound: info.revision ? 1 : 0,
-      requested: revision, commit: info.sha ?? "", entry, pin, slots,
-    }));
+      requested: revision, commit: info.sha ?? "", entry,
+      addressed: edge.checkable(info.record, path) ? 1 : 0, pin, slots,
+    });
     const [answer, slot, etagKind] = plan;
     // HK-03 proves a local runner is never told to redirect, for every input.
     if (answer !== 2) return refuse(answer, method);

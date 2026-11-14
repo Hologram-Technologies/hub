@@ -147,3 +147,9 @@ id = "HK-21"
 level = "build"
 suite = "index"
 statement = "A swarm catalog row is filed under the shard key the page resolves a query with, and says it is a listing rather than a checked record, so a search reads one shard and what it draws is not mistaken for proof"
+
+[[id]]
+id = "HK-22"
+level = "build"
+suite = "kernel"
+statement = "A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts"

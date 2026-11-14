@@ -1796,3 +1796,232 @@ ranged read is a few hundred bytes out of 400 MB. So `checked` on the handle
 is false, the interface says so rather than implying otherwise, and the
 checkable artefact remains the roll itself - small shards, named by its root,
 which `tests/roll/published.mjs` refuses to publish unnamed.
+
+## HK-22: what the ETag says and what the sources may serve are different facts
+
+`entry` carried two questions at once. Is this file large, which decides which
+ETag a Hugging Face client is given, because only an LFS file has a SHA-256
+there. And does the record address this file, which decides whether a source
+nobody vetted may serve it. The two coincided while both came from the LFS
+pointer, so nothing showed. A second witness pulls them apart: it addresses
+files Hugging Face never did, and for `openai-community/gpt2` that is fourteen
+of twenty-six. Those files were addressed and still refused, because
+eligibility read `entry`.
+
+So the resolve request is 105 bytes rather than 104, with `addressed` at byte
+104 - appended, not inserted, so every existing offset is unchanged and only
+the length check and the declared maximum moved. `eligible` reads `addressed`;
+`etagKind` still reads `entry`. The `Addressed` invariant now names the fact
+its own statement always named.
+
+### The safety that nearly went the wrong way
+
+Widening eligibility alone would have broken the property it was meant to
+extend. `runner/local.mjs` verifies a file with no SHA-256 by its git blob
+identity, and the comment above that branch says why it is safe: `HK-19` means
+a source nobody vetted is never chosen for such a file. Let the swarm serve a
+witness-addressed file while the runner still took its address from
+`lfs?.sha256`, and the check would have fallen through to a SHA-1 in front of
+an untrusted source. Quietly turning a SHA-256 guarantee into a SHA-1 one is
+worse than refusing the file.
+
+So `addressed` means a SHA-256 is known, and there is one function that answers
+it: `addressOf` in `edge/edge.mjs`, reading the release's own `files[].sha256`
+and then any witness that named the same revision. The edge fills byte 104 from
+it and the runner takes its expected digest from the same call, so the kernel
+cannot permit a file the runner cannot then verify - by construction, not by two
+pieces of code agreeing. `files[].sha256` is still not filled from a witness,
+because that field decides the ETag.
+
+### The planted defect, and what actually objected
+
+| Planted | Refused by | Diagnostic |
+| --- | --- | --- |
+| `eligible` reads `entry =? 2` again, in the generator and the reference implementation together, so the acceptance vectors agree with the lie | Lean, on `HologramHubKernel.Proofs.Addressed` | `LLV7002: omega could not prove the goal` |
+
+The expectation was that `servableHolds` would break, since `HK-22` is what the
+change adds. `addressedHolds` broke first and the run stopped there. Both would
+have: with eligibility reading `entry`, a source nobody vetted can be chosen
+for a file that is not addressed, which is exactly what `Addressed` forbids.
+That the older invariant objects first is the better outcome - the new claim is
+not carrying the safety property on its own.
+
+Restored, the gate passes and verifies attestation
+`d6976b535fb3c4439bf13342fa7258201abb76dae107bdd729375d5563eea953`. It moved,
+where `HK-20`'s did not, because this claim added a proof module and that one
+added none. Two claims hours apart, opposite results, both correct.
+
+### `LLV7005` a third time
+
+`Servable` declared the axioms the generator assumes and Lean observed
+`Classical.choice`, so the first run was refused. `omega` reaches for it when a
+split leaves an `if` over a disjunction, and `breaksServable` is a four-way
+disjunction over the slots, so it was always going to. This is the third module
+to need it after `Complete` and `Concur`. The generator cannot predict which
+proofs will: the measurement comes from Lean and the declaration has to follow,
+which is the whole reason the check exists.
+
+### The first version of this was circular, and a sibling session caught it
+
+The change above was held as a draft before it landed, because `addressed` was
+first computed from any address the record carried, a witness's included. For
+the fourteen `openai-community/gpt2` files only a witness addresses, that made
+the party supplying the bytes also supply the number they are checked against:
+the `pirateface` slot became eligible, the runner fetched from Pirate Face's
+swarm, and `check` compared the result to Pirate Face's own SHA-256. The hub
+would have reported that as verified.
+
+It was worse than circular. `check` guarded its git-blob branch on
+`if (!address)`, so a non-null witness SHA-256 did not add a check, it replaced
+one: the independent SHA-1 stopped being compared at the moment the circular
+SHA-256 started being compared. The first version removed an independent check.
+
+The reasoning that produced it ranked SHA-256 above SHA-1 by hash strength.
+That is the wrong axis, because the adversary these claims exist for is the
+source. A witness's SHA-256 is worth nothing against that witness; the
+release's git blob identity is worth something against it, because the witness
+did not choose it. **Independence dominates strength when the threat is the
+party being checked.**
+
+So `addressed` is `checkable`: true only for the release's own addresses, the
+git blob identity or a SHA-256 the origin published. `addressOf` survives as
+the SHA-256 the runner verifies with, which may come from a witness. They
+answer different questions. And `check` verifies every address the record
+carries in one pass, refusing if any disagrees, so a witness address can
+corroborate and can never be the only thing checked - from both ends rather
+than one.
+
+### A standing condition, recorded because no gate enforces it
+
+The git blob identity is not independent because of anything about the git
+blob. It is independent because the sources the kernel may choose while
+unvetted are never the record's origin. `pirateface` is unvetted and is not
+where a record came from, so the origin's addresses are independent of it.
+
+Point a record's origin at a source that is also unvetted - a record built from
+a swarm index rather than from a source dialect - and `checkable` becomes true
+because of an address that source supplied, with no gate objecting. The fix
+would be for the kernel to know which source a record came from, and
+`origin.kind` is already in the record for the asking. Nothing needs it today.
+It is written here so that whoever widens either end finds it rather than
+discovers it.
+
+### Two things that were true by coincidence
+
+Both surfaced in this change, and neither was caught by a gate; they were
+caught by reading.
+
+A comment in `runner/local.mjs` said the git-blob comparison was safe because
+an unvetted source is never chosen for such a file. That was true when written
+and silently false the moment eligibility widened, because the comment
+described the invariant and the code did not enforce it.
+
+A file the record addresses in neither way was already refused - but only
+because a 40-hex string does not equal `undefined`. One edit to that comparison
+would have turned it into a silent pass. It now checks for the absence and says
+so, and `tests/runner/serve.mjs` pins it with `disputed.bin`, whose SHA-256 is
+correct for the bytes served and whose `gitSha1` is not: refused, 503
+`NoSource`, beside an `agreed.bin` that is served.
+
+In both, two things coincided and the coincidence was doing the work while
+nothing recorded that it was load-bearing. `HK-21` exists to break one such
+coincidence, and breaking it surfaced two more within the same file.
+
+### Which address is the content check depends on the file kind
+
+A sibling session shipped and then found a bug in the other half of this, and
+it narrows a sentence worth stating precisely rather than generally.
+
+`gitSha1` is the git blob of whatever git holds. For a small file that is the
+content. **For an LFS file it is the 134-byte pointer**, so hashing the content
+against it refuses every weight file. Measured on a real record:
+`openai-community/gpt2`'s `64-8bits.tflite` carries
+`gitSha1 90e59f00f62c654b1a88a5f127dff14df4611cdc`, and `/raw/` returns 134
+bytes whose git blob is exactly that.
+
+So the content check is per kind. For a small file it is the git blob identity,
+which is the origin's only address. For an LFS file it is the SHA-256, and the
+git blob describes a pointer and checks nothing about the bytes a client wants.
+Both are the origin's, so `HK-21` survives unchanged - but "the git blob is what
+stands between an unvetted source and a client" is true only of small files.
+
+`checkable` is sound against this without a special case, and the reason is
+worth recording rather than relying on. It is true when the file entry carries a
+`gitSha1` or a `sha256`. The edge builds an `lfs` entry only where `sha256` is
+present, and `entry` is computed from `lfs` in two places that agree, so
+`entry = 2` holds exactly when a SHA-256 exists. A file whose only address is
+the git blob is therefore always a small file, where the git blob is a content
+check.
+
+The condition that breaks it has more than one site, and naming only one would
+send a reader looking for a single place. Today the only builder of an `lfs`
+entry that reaches `entry` is `edge/edge.mjs`; a sibling branch adds a second in
+its snapshot reader, and a third `lfs:` in the edge shapes the tree API's
+response and never reaches `entry` at all. **If any builder of an `lfs` entry
+ever fills it from something other than a SHA-256 the origin published, this
+stops being true.** The snapshot's safety there is by construction rather than
+by care: it writes `sha256` only from `f.lfs.oid` and `gitSha1` only from
+`f.oid`, so the two cannot cross.
+
+### A fixture cannot test whether its author understood the format
+
+The bug passed the serve suite the whole time, because the LFS fixture set
+`gitSha1` to the git blob of the content. The fixture was not wrong about the
+code; it was wrong about Hugging Face in the same way the code was, so the two
+agreed and the suite went green. Only reading a real record and fetching the
+pointer to see what the field actually hashed found it.
+
+That is a third coincidence in this change, and a different kind from the first
+two: not two facts that happened to agree, but one misunderstanding held by
+both the code and the test that checks it. A fixture written by whoever wrote
+the code tests that the code does what its author meant. Nothing written by
+that author can test whether the author read the format correctly. Only a real
+record can.
+
+### The class of check this repository has no name for
+
+Everything caught by reading rather than by a gate tonight came from fetching a
+real artifact: the live record, the `/raw/` pointer showing that `gitSha1` hashes
+134 bytes for an LFS file, the published index. None of it came from `just vv`,
+and none of it could have.
+
+The gates here are unusually good at proving the code does what its author
+intended and structurally unable to prove the author read the upstream format
+correctly. A source-reading gate inherits its author's reading twice over:
+`index_hk_20` confirms the builder writes an `origin` and would pass just as
+happily on a misreading of what `resolve` means. A fixture inherits it once -
+which is how an LFS fixture setting `gitSha1` to the git blob of the content
+kept a suite green over a bug. Only an artifact nobody here wrote can
+contradict either.
+
+That is a different class of check from everything `just vv` runs, and the
+repository has no name for it. The post-deploy jobs in `pages.yml` are the
+closest thing, because they run against the published index rather than a copy.
+
+### Widening the request broke the edge against the kernel it is serving
+
+CI refused the first push of this, and the reason is written at the top of
+`.github/workflows/edge.yml`: the edge is deployed apart from the kernel, so it
+must start against a holo older than itself. A 105-byte resolve request is one
+the published kernel does not understand, so it answered invalid and a Hugging
+Face client got `The request is not one the hub understands` for
+`config.json`. Every file, not an edge case.
+
+The workflow said so in a comment, and `tests/edge/older-kernel.mjs` existed for
+exactly this - but it checks that the edge starts, opens the index and answers
+health, and never resolves a file. So the gate for the constraint did not cover
+the operation the constraint was about, and it passed while the thing it
+guards was broken.
+
+The edge and the runner now ask the kernel which width it understands, once,
+from its own answer rather than from a version string: a kernel that calls the
+105-byte request invalid and the 104-byte one valid is an older kernel, and it
+then decides as it always did - which for the swarm means weights only, exactly
+the behaviour that preceded this change. Measured against the published holo
+after the fix: `config.json` 302s with its git blob ETag and
+`64-8bits.tflite` with its SHA-256.
+
+This is the same shape as the `docs.record` fallback recorded earlier: a guest
+and a host that ship separately cannot assume each other's age. The difference
+is that this time the repository had already learned it, written it down, and
+built a test for it, and the test was narrower than the lesson.

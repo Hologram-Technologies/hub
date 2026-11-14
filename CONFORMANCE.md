@@ -48,6 +48,7 @@ model does not sanction.
 | `HK-16` | `build` | Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state |
 | `HK-17` | `build` | An address with two witnesses is used only when they agree; where one witness alone names it the page says so, and where they disagree the file has no address |
 | `HK-19` | `build` | A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served |
+| `HK-22` | `build` | A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts |
 
 ## Cited authorities
 
