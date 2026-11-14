@@ -53,6 +53,8 @@ CASES = [
     ("HK-14", "A model page says Witnessed or Published only when every signature check passed, says Published only for a publisher's signature from the namespace owner, and never shows a witness's signature as a publisher's",
      [("Trust", "breaksTrust", "trustHolds", "present chain time log signature identity subject predicate kind owner")],
      "(encodeVerdict (trust (byteNat value 1)"),
+    ("HK-18", "A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served",
+     [("Addressed", "breaksAddressed", "addressedHolds", "facts")], "(select facts)"),
 ]
 HK10 = "Received bytes are delivered exactly when their digest and size equal the expected digest and size"
 

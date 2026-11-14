@@ -38,6 +38,7 @@ model does not sanction.
 | `HK-14` | `build` | A model page says Witnessed or Published only when every signature check passed, says Published only for a publisher's signature from the namespace owner, and never shows a witness's signature as a publisher's |
 | `HK-15` | `build` | An answer is built from the index only when the record holds every field that answer names; where one is missing the source dialect is asked, and where it cannot be asked the answer says it is partial |
 | `HK-16` | `build` | Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state |
+| `HK-18` | `build` | A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served |
 
 ## Cited authorities
 

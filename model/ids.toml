@@ -117,3 +117,9 @@ id = "HK-16"
 level = "build"
 suite = "kernel"
 statement = "Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state"
+
+[[id]]
+id = "HK-18"
+level = "build"
+suite = "kernel"
+statement = "A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served"

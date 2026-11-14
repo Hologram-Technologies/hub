@@ -1,0 +1,68 @@
+name: runner
+
+# The local runner must look exactly like huggingface.co to a Hugging Face
+# client, and must carry the bytes itself rather than redirecting. This runs
+# the client (huggingface_hub, pinned) against huggingface.co and against the
+# runner, and fails on any difference; it also runs the checks that need no
+# network, and the whole serve path against sources that send the right bytes
+# and the wrong ones.
+#
+# The live swarm check (tests/runner/live-pirateface.mjs) is not here: it needs
+# real peers, and a run that fails because nobody is seeding would say nothing
+# about this repository.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runner:
+    name: a Hugging Face client sees no difference, and every byte is checked
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out the exact event revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: The torrent is checked, not believed
+        shell: bash
+        run: node tests/runner/torrent.mjs
+      - name: A tensor address follows its bytes
+        shell: bash
+        run: node tests/runner/uor.mjs
+      - name: The runner carries verified bytes and refuses the rest
+        # Against the kernel the hub is serving, as the edge tests do: the
+        # runner is deployed apart from the kernel and must work with the holo
+        # that is published, not only with the one in this tree.
+        shell: bash
+        run: node tests/runner/serve.mjs https://hologram-technologies.github.io/hub/app/app.holo
+      - name: Install the Hugging Face client
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/hf"
+          "$RUNNER_TEMP/hf/bin/pip" install --quiet huggingface_hub==2.4.0 hf_xet==1.8.0
+      - name: The client sees what huggingface.co would have shown it
+        shell: bash
+        run: |
+          set -euo pipefail
+          CACHE_DIR="$RUNNER_TEMP/bytes" node runner/serve.mjs 8788 > "$RUNNER_TEMP/runner.log" 2>&1 &
+          for i in $(seq 1 90); do curl -sf http://127.0.0.1:8788/health > /dev/null && break; sleep 1; done
+          cat "$RUNNER_TEMP/runner.log"
+          py="$RUNNER_TEMP/hf/bin/python"
+          "$py" tests/edge/observe.py "$RUNNER_TEMP/ref" > "$RUNNER_TEMP/ref.json"
+          HF_ENDPOINT=http://127.0.0.1:8788 "$py" tests/edge/observe.py "$RUNNER_TEMP/local" > "$RUNNER_TEMP/local.json"
+          echo "== through the local runner"
+          "$py" tests/edge/compare.py "$RUNNER_TEMP/ref.json" "$RUNNER_TEMP/local.json"
+          echo "== what the runner did"
+          tail -40 "$RUNNER_TEMP/runner.log"

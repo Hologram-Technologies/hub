@@ -54,13 +54,15 @@ FIELDS = ["runner", "repo", "revision", "entry", "pin"] + [
 
 
 # ---------------------------------------------------------------- reference
-def ref_eligible(runner, holds, vetted, failed):
-    return holds == 1 and failed == 0 and (runner == 1 or vetted == 1)
+def ref_eligible(runner, holds, vetted, failed, entry):
+    addressable = vetted == 1 or (runner == 1 and entry == 2)
+    return holds == 1 and failed == 0 and addressable
 
 
 def ref_select(f):
     el = [
-        ref_eligible(f["runner"], f["holds%d" % i], f["vetted%d" % i], f["failed%d" % i])
+        ref_eligible(f["runner"], f["holds%d" % i], f["vetted%d" % i], f["failed%d" % i],
+                     f["entry"])
         for i in range(4)
     ]
     us = [el[i] and f["healthy%d" % i] == 1 for i in range(4)]
@@ -226,6 +228,8 @@ VECTORS = [
     resolve(entry=1),
     resolve(entry=2),
     resolve(runner=1, src=((1, 1, 0, 0), NONE, NONE, NONE)),
+    resolve(runner=1, entry=1, src=((1, 1, 0, 0), NONE, NONE, NONE)),
+    resolve(entry=1, src=((1, 1, 0, 0), NONE, NONE, NONE)),
     resolve(src=((1, 1, 0, 0), GOOD, NONE, NONE)),
     resolve(src=((1, 1, 1, 1), (1, 0, 1, 0), NONE, NONE)),
     resolve(src=((1, 0, 1, 0), NONE, GOOD, NONE)),
@@ -351,11 +355,11 @@ def kernel_module():
     k.append(structure("Digest", [("w%d" % i, "Nat") for i in range(4)]))
     k.append(structure("Check", [("expected", "Digest"), ("observed", "Digest"),
                                  ("expectedSize", "Nat"), ("observedSize", "Nat")]))
-    k.append(defn("eligible", "runner : Nat, holds : Nat, vetted : Nat, failed : Nat", "Bool",
-                  "(((holds =? 1) && (failed =? 0)) && ((runner =? 1) || (vetted =? 1)))"))
+    k.append(defn("eligible", "runner : Nat, holds : Nat, vetted : Nat, failed : Nat, entry : Nat", "Bool",
+                  "(((holds =? 1) && (failed =? 0)) && ((vetted =? 1) || ((runner =? 1) && (entry =? 2))))"))
     for i in range(4):
-        k.append(defn("eligible%d" % i, "facts : Facts", "Bool", "(eligible %s %s %s %s)" % (
-            pf("runner"), pf("holds%d" % i), pf("vetted%d" % i), pf("failed%d" % i))))
+        k.append(defn("eligible%d" % i, "facts : Facts", "Bool", "(eligible %s %s %s %s %s)" % (
+            pf("runner"), pf("holds%d" % i), pf("vetted%d" % i), pf("failed%d" % i), pf("entry"))))
     for i in range(4):
         k.append(defn("usable%d" % i, "facts : Facts", "Bool",
                       "((eligible%d facts) && (%s =? 1))" % (i, pf("healthy%d" % i))))
@@ -570,6 +574,12 @@ INVARIANTS = [
      "((not (%s =? 1)) && %s)" % (kf("runner"), nest("||", [
          "(((Kernel::select facts) =? %d) && (not (%s =? 1)))" % (i, kf("vetted%d" % i)) for i in range(4)])),
      SELECT_DEFS),
+    # A source nobody vetted is chosen only for a file the record addresses, so
+    # bytes from an untrusted source are always checkable before they are
+    # served.
+    ("Addressed", "breaksAddressed", "addressedHolds", FACTS, "facts", nest("||", [
+        "(((Kernel::select facts) =? %d) && ((not (%s =? 1)) && (not (%s =? 2))))"
+        % (i, kf("vetted%d" % i), kf("entry")) for i in range(4)]), SELECT_DEFS),
     # A delivered file always has a source ...
     ("Sourced", "breaksSourced", "sourcedHolds", FACTS, "facts",
      "((Kernel::delivers facts) && ((Kernel::select facts) =? 4))", DELIVERS_DEFS),

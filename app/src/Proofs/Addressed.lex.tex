@@ -1,0 +1,39 @@
+\begin{lexlean}{Proofs.Addressed}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksAddressed,
+  parameters: [facts : Kernel::Facts],
+  result: Bool,
+  body: ((((Kernel::select facts) =? 0) && ((not ((project facts vetted0) =? 1)) && (not ((project facts entry) =? 2)))) || ((((Kernel::select facts) =? 1) && ((not ((project facts vetted1) =? 1)) && (not ((project facts entry) =? 2)))) || ((((Kernel::select facts) =? 2) && ((not ((project facts vetted2) =? 1)) && (not ((project facts entry) =? 2)))) || (((Kernel::select facts) =? 3) && ((not ((project facts vetted3) =? 1)) && (not ((project facts entry) =? 2)))))))
+}
+
+theorem{
+  name: addressedHolds,
+  parameters: [facts : Kernel::Facts],
+  statement: ((breaksAddressed facts) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Kernel::eligible,
+      Kernel::eligible0,
+      Kernel::eligible1,
+      Kernel::eligible2,
+      Kernel::eligible3,
+      Kernel::select,
+      Kernel::selectFree,
+      Kernel::selectPinned,
+      Kernel::usable0,
+      Kernel::usable1,
+      Kernel::usable2,
+      Kernel::usable3,
+      breaksAddressed
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}
