@@ -110,19 +110,21 @@ export async function openBrowse(base) {
     return out;
   }
 
-  const rowsUrl = url(root.rows.body);
-  const idxUrl = url(root.rows.index);
+  // The rows live in the roll, not here. The locator says which shard a row is
+  // in and which bytes, so a row is two ranged reads and the bytes stay in the
+  // shards the roll's root names - the only copy a reader can check.
+  const locUrl = url(root.rows.locator);
+  const shardUrl = (i) => new URL(root.rows.shards[i], new URL(root.rows.from, base)).href;
 
   async function rowsAt(numbers) {
     if (!numbers.length) return [];
-    // One read for the offsets of a contiguous run where we can, then one per
-    // row. Forty-two small ranged reads to one origin is what HTTP/2 is for.
-    const slots = await Promise.all(numbers.map(async (n) => {
-      const b = await range(idxUrl, n * 12, 12);
+    // Forty-two small ranged reads to one origin is what HTTP/2 is for.
+    const where = await Promise.all(numbers.map(async (n) => {
+      const b = await range(locUrl, n * 12, 12);
       const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
-      return { at: Number(v.getBigUint64(0)), len: v.getUint32(8) };
+      return { shard: v.getUint32(0), at: v.getUint32(4), len: v.getUint32(8) };
     }));
-    const bodies = await Promise.all(slots.map((s) => range(rowsUrl, s.at, s.len)));
+    const bodies = await Promise.all(where.map((w) => range(shardUrl(w.shard), w.at, w.len)));
     const decoder = new TextDecoder();
     return bodies.map((b) => JSON.parse(decoder.decode(b)));
   }

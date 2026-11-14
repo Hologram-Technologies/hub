@@ -235,7 +235,8 @@ async function openRoll() {
 // A roll row as the cards and the filters want it. The dictionaries turn the
 // numbers back into the words the panel shows.
 function fromRoll(r, index, faces, s, now) {
-  const [id, revision, created, b] = r;
+  // A roll row: id, revision, created, first seen, last seen, state, browse.
+  const [id, revision, created, , , , b] = r;
   const d = index.dictionaries;
   const F = index.field;
   const at = (name, dict) => (b?.[F[name]] == null ? null : dict[b[F[name]]] ?? null);

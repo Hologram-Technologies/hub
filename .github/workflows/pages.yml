@@ -255,6 +255,16 @@ jobs:
         if: steps.roll.outputs.built == 'true'
         shell: bash
         run: node tests/roll/published.mjs "$RUNNER_TEMP/roll"
+      - name: Build the index the interface pages the roll through
+        if: steps.roll.outputs.built == 'true'
+        # Without this the roll is published and unusable: the interface reads
+        # `data/browse/`, and a deploy that ships the rows without the index
+        # leaves the catalogue at whatever the addressed index holds.
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/browse-index.mjs "$RUNNER_TEMP/roll" "$RUNNER_TEMP/browse"
+          node tests/browse/page.mjs "$RUNNER_TEMP/browse"
 
       - name: Take the swarm address snapshot the nightly run left
         # Written by `.github/workflows/swarm.yml`, not here: a full catalog
@@ -317,7 +327,17 @@ jobs:
           # carries by a wide margin, so the deploy says how large.
           if [ -f "$RUNNER_TEMP/roll/root.json" ]; then
             cp -r "$RUNNER_TEMP/roll" "$RUNNER_TEMP/pages/data/roll"
-            echo "roll: $(du -sh "$RUNNER_TEMP/pages/data/roll" | cut -f1) in the published site"
+            cp -r "$RUNNER_TEMP/browse" "$RUNNER_TEMP/pages/data/browse"
+            echo "roll: $(du -sh "$RUNNER_TEMP/pages/data/roll" | cut -f1), index $(du -sh "$RUNNER_TEMP/pages/data/browse" | cut -f1)"
+          fi
+          # A published GitHub Pages site may be no larger than 1 GB, and the
+          # roll is most of what this one weighs. Refusing here names the
+          # problem; letting the deploy do it gives an error about an artifact.
+          size=$(du -sm "$RUNNER_TEMP/pages" | cut -f1)
+          echo "site: ${size} MB of the 1024 MB a published Pages site may be"
+          if [ "$size" -gt 950 ]; then
+            echo "::error::The site is ${size} MB. GitHub refuses a published Pages site over 1024 MB, and this is past the 950 MB this build allows itself."
+            exit 1
           fi
           node tools/web-routes.mjs "$RUNNER_TEMP/pages"
           node tools/web-data.mjs "$RUNNER_TEMP/pages" https://gethologram.ai

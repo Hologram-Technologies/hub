@@ -111,19 +111,28 @@ function varints(values) {
 const root = JSON.parse(await readFile(join(rollDir, "root.json"), "utf8"));
 if (root.format !== "hologram.hub.roll/v1") throw new Error(`unexpected roll format ${root.format}`);
 
+// Rows are not copied here. The roll's shards already hold them, named by its
+// root and small enough for a reader to hash, so this records where each row
+// is instead: which shard, which bytes. Copying them would cost 551 MB beside
+// the roll's 499 and put the published site over the 1 GB GitHub allows;
+// pointing at them costs 38 MB and leaves the rows where they can be checked.
 const rows = [];
-for (const shard of root.shards) {
+for (const [shardIndex, shard] of root.shards.entries()) {
   const bytes = await readFile(join(rollDir, shard.path));
   // The roll's own rule: a shard counts only if its root names these bytes.
   if (sha256(bytes) !== shard.sha256) throw new Error(`${shard.path} does not match the roll's root`);
+  let at = 0;
   for (const line of bytes.toString("utf8").split("\n")) {
+    const length = Buffer.byteLength(line, "utf8");
+    const offset = at;
+    at += length + 1;
     if (!line) continue;
     const [id, revision, created, , , state, b] = JSON.parse(line);
     // A model Hugging Face no longer lists is kept in the roll and left out of
     // the catalogue: the interface browses what exists. The roll is still
     // where a reader goes to ask what used to.
     if (state !== 0) continue;
-    rows.push({ id, revision, created, b: b ?? null });
+    rows.push({ id, revision, created, b: b ?? null, shardIndex, offset, length });
   }
 }
 // Creation order, oldest first, so a row's number never changes as the roll
@@ -138,18 +147,17 @@ await mkdir(join(out, "order"), { recursive: true });
 // rows.ndjson, and the fixed-width table that says where each row is. The
 // table is what makes a row a ranged read rather than a search: row n starts
 // at the 8 bytes at offset n*8 of rows.idx, and runs for the 4 bytes after.
-const encoder = new TextEncoder();
-const lines = rows.map((r) => encoder.encode(JSON.stringify([r.id, r.revision, r.created, r.b])));
-const idx = new DataView(new ArrayBuffer(rows.length * 12));
-let at = 0;
-for (const [n, line] of lines.entries()) {
-  idx.setBigUint64(n * 12, BigInt(at));
-  idx.setUint32(n * 12 + 8, line.length);
-  at += line.length + 1;
-}
-const body = Buffer.concat(lines.flatMap((l) => [Buffer.from(l), Buffer.from("\n")]));
-await writeFile(join(out, "rows.ndjson"), body);
-await writeFile(join(out, "rows.idx"), Buffer.from(idx.buffer));
+// Where each row is in the roll: its shard, its first byte, its length. Three
+// numbers at a fixed place, so row n is one ranged read of this file and then
+// one of the shard it names.
+const loc = new DataView(new ArrayBuffer(rows.length * 12));
+rows.forEach((r, n) => {
+  loc.setUint32(n * 12, r.shardIndex);
+  loc.setUint32(n * 12 + 4, r.offset);
+  loc.setUint32(n * 12 + 8, r.length);
+});
+const body = Buffer.from(loc.buffer);
+await writeFile(join(out, "rows.loc"), body);
 
 // One file per sort: the row numbers, in that order, four bytes each. Page k
 // of a sort is the 168 bytes at offset k*42*4 - one ranged read, whatever the
@@ -233,7 +241,9 @@ await writeFile(join(out, "root.json"), JSON.stringify({
   // The buckets the parameter and recency filters are cut at, so a reader
   // turns the interface's range back into a union of values without guessing.
   buckets: { parameters: PARAM_STOPS, recencyDays: RECENCY_DAYS },
-  rows: { count: rows.length, body: "rows.ndjson", index: "rows.idx", bodySha256: sha256(body), indexSha256: sha256(Buffer.from(idx.buffer)) },
+  // The locator, and the shards its numbers point into, in that order and
+  // relative to this file.
+  rows: { count: rows.length, locator: "rows.loc", locatorSha256: sha256(body), from: "../roll/", shards: root.shards.map((x) => x.path) },
   orders,
   postings,
 }));
@@ -243,6 +253,6 @@ const orderBytes = rows.length * 4 * Object.keys(orders).length;
 let postingBytes = 0;
 for (const sort of Object.values(postings)) for (const f of Object.values(sort)) postingBytes += (await readFile(join(out, f.path))).length;
 const values = Object.values(postings[Object.keys(postings)[0]]).reduce((a, f) => a + f.values, 0);
-console.log(`browse-index: ${rows.length} rows | body ${mb(body.length)} | index ${mb(idx.byteLength)} `
+console.log(`browse-index: ${rows.length} rows | locator ${mb(body.length)} `
   + `| ${Object.keys(orders).length} orders ${mb(orderBytes)} | postings ${mb(postingBytes)} over ${values} values `
-  + `| total ${mb(body.length + idx.byteLength + orderBytes + postingBytes)}`);
+  + `| total ${mb(body.length + orderBytes + postingBytes)} beside the roll`);

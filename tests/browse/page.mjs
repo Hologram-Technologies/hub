@@ -20,17 +20,19 @@ const failures = [];
 const check = (name, ok, saw) => (ok ? console.log(`ok   ${name}`) : failures.push(`${name}: ${saw}`));
 
 const root = JSON.parse(await readFile(join(dir, "root.json"), "utf8"));
-const body = await readFile(join(dir, "rows.ndjson"));
-const idxBytes = await readFile(join(dir, "rows.idx"));
-const idx = new DataView(idxBytes.buffer, idxBytes.byteOffset, idxBytes.byteLength);
+// The rows live in the roll the index was built from; the locator says which
+// shard each is in and which bytes.
+const locBytes = await readFile(join(dir, root.rows.locator));
+const loc = new DataView(locBytes.buffer, locBytes.byteOffset, locBytes.byteLength);
+const shards = await Promise.all(root.rows.shards.map((p) => readFile(join(dir, root.rows.from, p))));
 
 const FIELD = Object.fromEntries(root.fields.map((f, i) => [f, i]));
 
 // ---- what a browser does
 const rowAt = (n) => {
-  const at = Number(idx.getBigUint64(n * 12));
-  const len = idx.getUint32(n * 12 + 8);
-  return JSON.parse(body.subarray(at, at + len).toString("utf8"));
+  const shard = shards[loc.getUint32(n * 12)];
+  const at = loc.getUint32(n * 12 + 4), len = loc.getUint32(n * 12 + 8);
+  return JSON.parse(shard.subarray(at, at + len).toString("utf8"));
 };
 
 const orderCache = new Map();
@@ -91,7 +93,7 @@ async function page(sort, filters, k = 0) {
 // ---- the slow, obvious way, for something to check against
 const all = Array.from({ length: root.rows.count }, (_, n) => rowAt(n));
 const holds = (row, facet, value) => {
-  const b = row[3];
+  const b = row[6];
   if (!b) return false;
   if (facet === "language") return (b[FIELD.languages] ?? []).includes(value);
   if (facet === "parameters") {
@@ -134,11 +136,11 @@ check("a filtered page comes back", one.rows.length > 0, String(one.rows.length)
 check("every row on it holds the facet", one.rows.every((r) => holds(r, "task", task)), "a row did not");
 check("the count matches counting by hand", one.total === all.filter((r) => holds(r, "task", task)).length,
   `${one.total} against ${all.filter((r) => holds(r, "task", task)).length}`);
-const d = one.rows.map((r) => r[3]?.[FIELD.downloads] ?? 0);
+const d = one.rows.map((r) => r[6]?.[FIELD.downloads] ?? 0);
 check("it is in the sort's order", d.every((v, i) => i === 0 || v <= d[i - 1]), JSON.stringify(d.slice(0, 5)));
 
 const byHand = all.filter((r) => holds(r, "task", task))
-  .sort((a, b) => (b[3]?.[FIELD.downloads] ?? 0) - (a[3]?.[FIELD.downloads] ?? 0))
+  .sort((a, b) => (b[6]?.[FIELD.downloads] ?? 0) - (a[6]?.[FIELD.downloads] ?? 0))
   .slice(0, root.pageSize).map((r) => r[0]);
 check("it is the page the slow way gives", JSON.stringify(one.rows.map((r) => r[0])) === JSON.stringify(byHand),
   `${one.rows[0]?.[0]} against ${byHand[0]}`);
@@ -149,13 +151,13 @@ check("and the intersection is no larger than either", two.total <= one.total, `
 
 const second = await page("downloads", [["task", task]], 1);
 if (one.total > root.pageSize) {
-  check("the second page continues the first", (second.rows[0]?.[3]?.[FIELD.downloads] ?? 0) <= (d[d.length - 1] ?? 0),
-    `${second.rows[0]?.[3]?.[FIELD.downloads]} after ${d[d.length - 1]}`);
+  check("the second page continues the first", (second.rows[0]?.[6]?.[FIELD.downloads] ?? 0) <= (d[d.length - 1] ?? 0),
+    `${second.rows[0]?.[6]?.[FIELD.downloads]} after ${d[d.length - 1]}`);
   check("and holds none of the first's rows", !second.rows.some((r) => one.rows.some((x) => x[0] === r[0])), "a row appeared twice");
 }
 
 const plain = await page("likes", []);
-const l = plain.rows.map((r) => r[3]?.[FIELD.likes] ?? 0);
+const l = plain.rows.map((r) => r[6]?.[FIELD.likes] ?? 0);
 check("an unfiltered page sorts too", l.every((v, i) => i === 0 || v <= l[i - 1]), JSON.stringify(l.slice(0, 5)));
 check("and says the whole catalogue is its total", plain.total === root.rows.count, `${plain.total} against ${root.rows.count}`);
 
