@@ -145,6 +145,22 @@ const siblingsOf = (rec) => new Map(rec.files.map((f) => [f.path, {
 // to decide which ETag a Hugging Face client is given and that wire must not
 // move. This is the same fact for a different purpose, so it is a different
 // function rather than a second meaning for one field.
+// Whether this file can be checked against an address the serving source did
+// not supply. Only the release's own addresses count: the git blob identity,
+// which every file a record carries has, and the SHA-256 where the origin
+// published one. A witness's address is deliberately not enough on its own -
+// a witness that is also a source would then be supplying both the bytes and
+// the number they are checked against, and the hub would call that verified.
+// The runner checks every address the record carries, so a witness address
+// can corroborate but can never be the only thing checked.
+export function checkable(record, path) {
+  const file = record?.files?.find((f) => f.path === path);
+  return Boolean(file && (file.gitSha1 || file.sha256));
+}
+
+// The SHA-256 to compare bytes against, which may come from a witness. This
+// is what the runner verifies with, beside the git blob identity; it is not
+// what decides whether an unvetted source may be chosen. See `checkable`.
 export function addressOf(record, path) {
   const own = record?.files?.find((f) => f.path === path)?.sha256;
   if (own) return own;
@@ -263,7 +279,7 @@ async function resolve(method, via, repo, revision, path) {
     requested: revision,
     commit: info.sha ?? "",
     entry: info.state === 0 && info.revision ? (sibling ? (lfs ? 2 : 1) : 0) : 0,
-    addressed: addressOf(info.record, path) ? 1 : 0,
+    addressed: checkable(info.record, path) ? 1 : 0,
     pin,
     slots,
   }));

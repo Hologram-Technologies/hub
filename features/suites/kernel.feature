@@ -114,7 +114,7 @@ Feature: kernel
     Then no input meets breaksAddressed
 
   @HK-22 @build
-  Scenario: A file whose address is known may be served from a source nobody vetted, even where the source dialect published no address of its own, because what the ETag says and what the sources may serve are decided by different facts
+  Scenario: A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts
     Given the kernel model in app/src/Kernel.lex.tex
     When the Lean kernel checks servableHolds in app/src/Proofs/Servable.lex.tex during prismpm verify
     Then no input meets breaksServable

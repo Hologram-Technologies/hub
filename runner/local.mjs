@@ -306,7 +306,7 @@ async function serveFile(request, via, repo, revision, path, onNote) {
     const plan = await kernel.dispatch(resolveRequest({
       repo: info.state, revisionKind: commitKind, refFound: info.revision ? 1 : 0,
       requested: revision, commit: info.sha ?? "", entry,
-      addressed: address ? 1 : 0, pin, slots,
+      addressed: edge.checkable(info.record, path) ? 1 : 0, pin, slots,
     }));
     const [answer, slot, etagKind] = plan;
     // HK-03 proves a local runner is never told to redirect, for every input.

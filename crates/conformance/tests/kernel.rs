@@ -366,7 +366,7 @@ fn kernel_hk_19() {
     dispatch_decides_by("(select facts)");
 }
 
-/// `HK-21`: A file whose address is known may be served from a source nobody vetted, even where the source dialect published no address of its own, because what the ETag says and what the sources may serve are decided by different facts
+/// `HK-21`: A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts
 #[test]
 fn kernel_hk_21() {
     pinned(
