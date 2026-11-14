@@ -117,3 +117,15 @@ id = "HK-16"
 level = "build"
 suite = "kernel"
 statement = "Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state"
+
+[[id]]
+id = "HK-17"
+level = "build"
+suite = "kernel"
+statement = "An address with two witnesses is used only when they agree; where one witness alone names it the page says so, and where they disagree the file has no address"
+
+[[id]]
+id = "HK-18"
+level = "build"
+suite = "index"
+statement = "A release record always carries the fields a client reads: the repository, the revision, every file with its path, size and git blob address, and the sources that hold it"

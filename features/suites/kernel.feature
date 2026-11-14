@@ -61,6 +61,12 @@ Feature: kernel
     When the Lean kernel checks revisionHolds in app/src/Proofs/Revision.lex.tex during prismpm verify
     Then no input meets breaksRevision
 
+  @HK-17 @build
+  Scenario: An address with two witnesses is used only when they agree; where one witness alone names it the page says so, and where they disagree the file has no address
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks concurHolds in app/src/Proofs/Concur.lex.tex during prismpm verify
+    Then no input meets breaksConcur
+
   @HK-16 @build
   Scenario: Every filter the browse page offers maps to one query parameter and back, so a link carries the whole state
     Given the kernel model in app/src/Kernel.lex.tex

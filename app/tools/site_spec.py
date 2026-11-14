@@ -315,6 +315,18 @@ SCREENS = {
             "tensorColumns": ["Tensor", "Type", "Shape", "Address"],
             "witnessed": "re-hashed by the witness",
         },
+        # Two witnesses may name an address for the same file. The kernel's
+        # concur rule decides whether it may be used; these are the words the
+        # page says about what it found.
+        "witnesses": {
+            "row": "Addresses",
+            "lead": "{addressed} of {files} files carry an address a reader can check.",
+            "both": "{n} agreed by {first} and {second}",
+            "one": "{n} from {source} alone",
+            "none": "{n} with no address",
+            "conflict": "{n} where the witnesses disagree, so the file has no address",
+            "read": "{source}, read {date}",
+        },
         "verify": {
             "label": "Verify",
             "checking": "Checking {file} from {n} sources",
