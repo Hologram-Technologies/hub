@@ -1,0 +1,76 @@
+name: swarm
+
+# The address snapshot: what the swarm's models should hash to, taken from
+# Hugging Face while Hugging Face still answers.
+#
+# This is not here to index Pirate Face. Its catalog is 669k models and a
+# seeder count that changes by the minute, and both can be asked for live;
+# `runner/discover.mjs` does. What cannot be asked for later is the address,
+# because a model is self-verifying only against a digest from somewhere other
+# than the party serving the bytes. For a model Hugging Face has removed there
+# is no second independent answer, so this is run nightly rather than on
+# demand: the point is to have asked in time.
+#
+# It is deliberately not part of `pages`. The catalog is cursor-paginated and
+# hard-capped at 30 rows a page, so a full sweep is about 22,300 requests, and
+# putting that in front of every deploy would make every push to main wait for
+# it. The result is left in the cache `pages` restores, the same way the
+# witnessed manifests and the index already are.
+
+on:
+  schedule:
+    # Nightly, after the hour, so it is not competing with everything else
+    # that runs on it.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      pages:
+        description: How many catalog pages to walk (blank for all)
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: swarm
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    name: write down what the swarm's models should hash to
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    steps:
+      - name: Check out the exact event revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Keep the snapshot between runs
+        # A release whose revision has not moved is not fetched again, so after
+        # the first run almost nothing is asked of Hugging Face and the cost is
+        # the catalog walk alone.
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/swarm
+          key: swarm-${{ hashFiles('tools/swarm-index.mjs') }}-${{ github.run_id }}
+          restore-keys: swarm-${{ hashFiles('tools/swarm-index.mjs') }}-
+      - name: Write down the addresses
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/swarm-index.mjs "$RUNNER_TEMP/swarm" ${PAGES:+--pages "$PAGES"}
+        env:
+          PAGES: ${{ inputs.pages }}
+      - name: Every shard is the bytes the root names
+        shell: bash
+        run: node tests/index/swarm-shards.mjs "$RUNNER_TEMP/swarm"
+      - name: Keep it where anyone can see what was written
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: swarm-index
+          path: ${{ runner.temp }}/swarm
+          retention-days: 7
