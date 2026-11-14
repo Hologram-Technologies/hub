@@ -1753,3 +1753,46 @@ An earlier run of the same tree verified `6e0cc8d6f8593efc3a4a2457d4dc34b023e79e
 before the site model was reworked. It is recorded here only so that the two
 hashes in this session's history are not mistaken for an unexplained drift:
 the model between them changed, and the second is the one this change ships.
+
+## The reader, and what it costs to draw a page
+
+`web/browse.mjs` is what the interface uses to read the browse index: a slice
+of an order, a slice of a postings file, a row apiece by offset, all ranged
+reads. `tests/browse/reader.mjs` drives it over real HTTP against a server
+answering exactly what GitHub Pages answers - a 206 with `Content-Range` for a
+Range request and a 200 otherwise - because a test that bypassed the ranges
+would be testing something else.
+
+Measured 2026-11-14 against a month of the Hub, 96,629 rows: sixteen checks,
+and **659 requests serving 152 kB in all, out of a 13 MB catalogue**. That is
+the whole point of the index in one number.
+
+The checks worth naming: an unfiltered page is the page sorting the lot would
+give, by id, in order; a filtered page's total is both the count the header
+gave and the count by hand; two chips in one group are a union and two groups
+intersect; the second page follows the first and repeats none of it; a page
+past the end is clamped rather than empty; and a value nothing holds gives
+nothing.
+
+**The planted defect.** Make two facet groups union where they should
+intersect - one character of difference at the call site, and the kind of
+mistake that looks like a widened filter rather than a wrong one.
+
+Failing command: `node tests/browse/reader.mjs <index>`. Diagnostic:
+
+    FAIL two groups intersect: a row did not hold both
+    FAIL and give no more than either alone: 34219 against 14569
+
+Exit 1 with it, exit 0 restored. Fourteen of the sixteen checks passed either
+way: pages still arrived, still sorted, still paged, still clamped, and single
+filters still gave exactly the right totals. Only a check that asked what two
+filters together mean could see it.
+
+### What the reader does not do
+
+Check the bytes. Everywhere else the hub's rule is that a reader hashes what
+it is given and compares with a signed root, and that needs the whole file. A
+ranged read is a few hundred bytes out of 400 MB. So `checked` on the handle
+is false, the interface says so rather than implying otherwise, and the
+checkable artefact remains the roll itself - small shards, named by its root,
+which `tests/roll/published.mjs` refuses to publish unnamed.
