@@ -57,6 +57,12 @@ const union = (lists) => {
   return [...seen].sort((a, b) => a - b);
 };
 
+// The same cut the builder makes, and it has to stay the same cut: a word the
+// index was written under is the only word that will find it.
+export const words = (text) => [...new Set(String(text ?? "").toLowerCase()
+  .split(/[^a-z0-9]+/).filter((w) => w.length >= 2 && w.length <= 24))];
+const bucketOf = (word) => word.slice(0, 2);
+
 export async function openBrowse(base) {
   const url = (path) => new URL(path, base).href;
   const root = await fetch(url("root.json")).then((r) => (r.ok ? r.json() : null));
@@ -129,6 +135,41 @@ export async function openBrowse(base) {
     return bodies.map((b) => JSON.parse(decoder.decode(b)));
   }
 
+  // Which words a bucket holds, in the order its postings are stored in. One
+  // small file a bucket, fetched whole and kept, because every search term
+  // beginning with those two characters needs the same list.
+  const bucketWords = new Map();
+  async function wordsIn(key) {
+    if (!bucketWords.has(key)) {
+      bucketWords.set(key, (async () => {
+        const r = await fetch(url(`search/words/${key}.bin`));
+        if (!r.ok) return [];
+        const b = new Uint8Array(await r.arrayBuffer());
+        const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+        const count = v.getUint32(0, true), length = v.getUint32(4, true);
+        if (!count) return [];
+        return new TextDecoder().decode(b.subarray(8, 8 + length)).split("\n");
+      })());
+    }
+    return bucketWords.get(key);
+  }
+
+  // Where one word's rows are, in one sort's order. The bucket's offsets come
+  // first, so the word's block is one ranged read into the rest.
+  async function wordPositions(sort, word) {
+    const key = bucketOf(word);
+    const names = await wordsIn(key);
+    const i = names.indexOf(word);
+    if (i < 0) return [];
+    const path = url(`search/${sort}/${key}.bin`);
+    const head = await range(path, i * 4, 8);
+    const hv = new DataView(head.buffer, head.byteOffset, head.byteLength);
+    const from = hv.getUint32(0, true), to = hv.getUint32(4, true);
+    if (to <= from) return [];
+    const base = (names.length + 1) * 4;
+    return varints(await range(path, base + from, to - from));
+  }
+
   return {
     checked: false,
     total: root.rows.count,
@@ -141,9 +182,19 @@ export async function openBrowse(base) {
     // `filters` is a map of facet to the values selected for it. Values within
     // one facet are a union - the interface treats chips in a group as "any of
     // these" - and the facets are intersected.
-    async page({ sort, filters = {}, page = 1 }) {
+    words,
+    async page({ sort, filters = {}, page = 1, q = "" }) {
       const use = root.orders[sort] ? sort : Object.keys(root.orders)[0];
       let hits = null;
+      // Every word typed has to match, so the terms intersect. A word the
+      // index has never seen matches nothing, which is the honest answer
+      // rather than quietly dropping it and widening the search.
+      for (const word of words(q)) {
+        if (!root.search?.[use]) break;
+        const found = await wordPositions(use, word);
+        hits = hits === null ? found : intersect(hits, found);
+        if (!hits.length) break;
+      }
       for (const [facet, values] of Object.entries(filters)) {
         if (!values?.length || !root.postings[use]?.[facet]) continue;
         const lists = await Promise.all(values.map((v) => positions(use, facet, v)));

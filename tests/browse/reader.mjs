@@ -114,6 +114,40 @@ check("a page past the end is clamped", far.page === far.pages && far.rows.lengt
 const none = await index.page({ sort: "downloads", filters: { task: [999999] }, page: 1 });
 check("a value nothing holds gives nothing", none.total === 0 && none.rows.length === 0, `${none.total}`);
 
+// ---- search
+const { words } = await import("../../web/browse.mjs");
+const term = "qwen";
+const found = await index.page({ sort: "downloads", q: term });
+const byHandSearch = all.filter((r) => words(r[0]).includes(term));
+check("a search finds rows", found.total > 0, String(found.total));
+check("and exactly the rows whose name holds the word", found.total === byHandSearch.length,
+  `${found.total} against ${byHandSearch.length}`);
+check("every row it returns holds it", found.rows.every((r) => words(r[0]).includes(term)),
+  found.rows.find((r) => !words(r[0]).includes(term))?.[0] ?? "");
+const searchByHand = [...byHandSearch].sort((a, b) => (b[6]?.[F.downloads] ?? 0) - (a[6]?.[F.downloads] ?? 0))
+  .slice(0, root.pageSize).map((r) => r[0]);
+check("in the order the slow way gives", JSON.stringify(found.rows.map((r) => r[0])) === JSON.stringify(searchByHand),
+  `${found.rows[0]?.[0]} against ${searchByHand[0]}`);
+
+// Two words must both match, not either.
+const second = words(byHandSearch.find((r) => words(r[0]).length > 1)?.[0] ?? "").find((w) => w !== term);
+if (second) {
+  const both = await index.page({ sort: "downloads", q: `${term} ${second}` });
+  check("two words both have to match", both.rows.every((r) => words(r[0]).includes(term) && words(r[0]).includes(second)),
+    "a row held only one");
+  check("and that is no wider than one of them", both.total <= found.total, `${both.total} against ${found.total}`);
+}
+
+const nothing = await index.page({ sort: "downloads", q: "zzzznosuchwordzzzz" });
+check("a word nothing holds finds nothing", nothing.total === 0 && nothing.rows.length === 0, String(nothing.total));
+
+// Search and a filter together.
+const withFilter = await index.page({ sort: "downloads", q: term, filters: { task: [task] } });
+check("a search and a filter intersect", withFilter.rows.every((r) => words(r[0]).includes(term) && r[6]?.[F.task] === task),
+  "a row did not hold both");
+check("and are no wider than either", withFilter.total <= Math.min(found.total, filtered.total),
+  `${withFilter.total} against ${found.total} and ${filtered.total}`);
+
 server.close();
 console.log(`\n${served} requests, ${(bytesServed / 1e3).toFixed(0)} kB served in all, out of a ${(body.length / 1e6).toFixed(0)} MB catalogue`);
 console.log(failures.length ? `\n${failures.map((f) => `FAIL ${f}`).join("\n")}` : "\ntests/browse/reader: all checks passed");
