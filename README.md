@@ -325,9 +325,18 @@ searches its catalog and prints the models with a torrent, by seeders. The
 runner answers the same question over HTTP for one model, and adds the part
 that matters here:
 
+    GET /api/swarm/search?q=<query>
     GET /api/swarm/{repo}
 
-returns the revision, whether it is the revision this hub's record names, the
+The search answers from the swarm's own catalog, live: 669k models listed
+against this hub's 415, measured 2026-11-14, of which 25,825 have a magnet.
+Nothing is indexed to make that work and nothing goes stale, but nothing is
+checked either, and the answer says so - `claimedBy` names the party and
+`checked` is false. `docs/pirateface-catalog.md` has the measurements and why
+indexing all 669k is the wrong goal.
+
+The per-model answer returns the revision, whether it is the revision this
+hub's record names, the
 seeder count, the infohash recomputed from the metadata rather than believed,
 the file and piece counts, and `servable`: how many of the release's files this
 hub holds an address for. Those last two numbers are deliberately separate.

@@ -33,10 +33,10 @@ import { pipeline } from "node:stream/promises";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import * as edge from "../edge/edge.mjs";
-import { holdings } from "./discover.mjs";
+import { holdings, search } from "./discover.mjs";
 import { lookup, fetchTorrent } from "./pirateface.mjs";
 import { announce, fetchPieces, peerId } from "./swarm.mjs";
-import { findFile, piecesOf } from "./torrent.mjs";
+import { findFile, piecesOf, readMagnet } from "./torrent.mjs";
 import { checkTensorsOfFile, gitBlobSha1, loadManifest } from "./uor.mjs";
 
 const HF = "https://huggingface.co";
@@ -439,6 +439,36 @@ export async function handle(request, { onNote = () => {} } = {}) {
       });
     }
   }
+  // Every model the swarm lists, answered live. There are far more of them
+  // than this hub indexes - 669k listed against 415 indexed, measured
+  // 2026-11-14 - and nothing is gained by snapshotting a seeder count that
+  // changes by the minute. What this cannot do is vouch for any of it: these
+  // are Pirate Face's claims, and whether a model's bytes can be checked is a
+  // different question, answered per file by `HK-19`.
+  if (path === "api/swarm/search" && (request.method === "GET" || request.method === "HEAD")) {
+    const q = url.searchParams.get("q") ?? "";
+    if (!q) return json({ error: "ask for something: /api/swarm/search?q=<query>" }, 400);
+    let rows;
+    try {
+      rows = await search(q, swarmHost());
+    } catch (error) {
+      return json({ query: q, error: String(error?.message ?? error) }, 502);
+    }
+    return json({
+      query: q,
+      found: rows.length,
+      claimedBy: "pirateface.co",
+      checked: false,
+      note: "Pirate Face's own listing, relayed unchecked. Seeder counts are its claims. Whether a file's bytes can be checked is decided per file against an address from somewhere else (HK-19); ask /api/swarm/{repo} for that.",
+      models: rows.map((r) => ({
+        repo: r.repo,
+        size: r.size,
+        seeders: r.seeders,
+        infohash: (() => { try { return readMagnet(r.magnet).infohash; } catch { return null; } })(),
+      })),
+    });
+  }
+
   // What the swarm holds for one model, and how much of it this hub could
   // actually check. The two are different questions and the answer keeps them
   // apart: peers decide whether bytes can be got, addresses decide whether
