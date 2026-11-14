@@ -74,10 +74,13 @@ export async function release(snapshot, repo) {
     siblings: new Map(row.files.map((f) => [f.path, {
       rfilename: f.path,
       size: f.size,
-      // Every file in a snapshot is one Hugging Face gave an LFS address for,
-      // so there is no git blob identity here and none is invented: `HK-08`
-      // hands back the SHA-256 ETag for exactly these.
-      lfs: { sha256: f.sha256, size: f.size, pointerSize: 134 },
+      // A file Hugging Face gave a SHA-256 for is an LFS file and takes the
+      // SHA-256 ETag; one it gave only a git blob identity for is small and
+      // takes the git blob ETag. That is `HK-08`, and reading a snapshot must
+      // not move it.
+      ...(f.sha256
+        ? { lfs: { sha256: f.sha256, size: f.size, pointerSize: 134 } }
+        : { blobId: f.gitSha1 }),
     }])),
   };
 }

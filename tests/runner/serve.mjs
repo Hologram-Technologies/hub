@@ -37,12 +37,15 @@ const REVISION = "a".repeat(40);
 const WEIGHTS = Buffer.from("the bytes the record addresses, several times over".repeat(40));
 const CARD = Buffer.from("# a small file with no sha256 in the index\n");
 const OTHER = Buffer.from("these are not those bytes".repeat(40));
+const NAMELESS = Buffer.from("a file the record gives no address of any kind");
 
 const work = await mkdtemp(join(tmpdir(), "hub-runner-test-"));
 const cacheDir = join(work, "cache");
 const files = [
   { path: "model.safetensors", size: WEIGHTS.length, gitSha1: gitBlob(WEIGHTS), sha256: sha256(WEIGHTS), pointerSize: 134 },
   { path: "README.md", size: CARD.length, gitSha1: gitBlob(CARD) },
+  // No sha256 and no gitSha1: nothing to check these bytes against.
+  { path: "nameless.bin", size: NAMELESS.length },
 ];
 
 // The static files the runner reads: an index root, one record, and the two
@@ -69,7 +72,7 @@ const port = await new Promise((resolve) => {
     const bad = url.pathname.match(/^\/bad\/(.+)$/);
     if (good) {
       const name = decodeURIComponent(good[1]);
-      const body = name === "README.md" ? CARD : WEIGHTS;
+      const body = name === "README.md" ? CARD : name === "nameless.bin" ? NAMELESS : WEIGHTS;
       return send(200, body, "application/octet-stream");
     }
     if (bad) return send(200, OTHER, "application/octet-stream");
@@ -232,6 +235,16 @@ ok("the swarm's catalog is relayed, labelled as its claim and not as a check");
 
 assert.equal((await get("/api/swarm/search")).status, 400);
 ok("a search with nothing to search for is refused");
+
+// A file the record gives no address for is refused even when a source hands
+// over exactly the right bytes. There is nothing to compare them to, and
+// passing for want of something to check is the one outcome that must not
+// happen.
+forget();
+response = await get(file("nameless.bin"));
+assert.equal(response.status, 503);
+assert.equal(response.headers.get("x-error-code"), "NoSource");
+ok("a file with no address of any kind is refused, not passed");
 
 // And a file no source holds is an entry that is not found, not a 503.
 response = await get(file("absent.bin"));

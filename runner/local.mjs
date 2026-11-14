@@ -419,6 +419,12 @@ async function check(kernel, file, { address, size, blobId, entry }) {
   const info = await stat(file);
   if (!address) {
     if (entry !== 1) return { ok: false, why: "the record names no address for a file it calls large" };
+    // Nothing passes for want of something to check it against. `HK-18`
+    // freezes a git blob identity on every entry so this should not arise,
+    // but a record from elsewhere or a later format could carry one, and
+    // without this the refusal would rest on a computed digest not being
+    // equal to `undefined` - true today, and nothing says it has to be.
+    if (!blobId) return { ok: false, why: "the record names no address for this file at all" };
     const bytes = await readAll(file);
     const found = gitBlobSha1(bytes);
     return found === blobId

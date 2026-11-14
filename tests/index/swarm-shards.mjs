@@ -43,10 +43,16 @@ check("the snapshot says whose addresses these are",
 // useless, so neither is allowed.
 const shapes = out.filter((r) => !r.repo || !r.revision || !Array.isArray(r.files) || !r.files.length);
 check("every release names a revision and at least one addressed file", shapes.length === 0, `${shapes.length} do not`);
+// Either address will do and neither will not: a large file has Hugging
+// Face's SHA-256, a small one its git blob identity, and a file with no
+// address at all is the one thing a snapshot must never carry, because the
+// runner would have nothing to check its bytes against.
 const digests = out.flatMap((r) => r.files);
-const bad = digests.filter((f) => !/^[0-9a-f]{64}$/.test(f.sha256 ?? "") || !(f.size > 0));
-check("every file carries a SHA-256 and a size", bad.length === 0, `${bad.length} do not`);
-console.log(`     ${out.length} releases, ${digests.length} addressed files`);
+const bad = digests.filter((f) => !(f.size > 0)
+  || !(/^[0-9a-f]{64}$/.test(f.sha256 ?? "") || /^[0-9a-f]{40}$/.test(f.gitSha1 ?? "")));
+check("every file carries an address and a size", bad.length === 0, `${bad.length} do not`);
+const large = digests.filter((f) => f.sha256).length;
+console.log(`     ${out.length} releases, ${digests.length} addressed files (${large} by SHA-256, ${digests.length - large} by git blob)`);
 
 // Planted defect: one byte of one shard. The snapshot still parses, still
 // describes the same releases, and must be refused.
@@ -56,7 +62,8 @@ if (root.shards?.length) {
   await cp(dir, work, { recursive: true });
   const path = join(work, root.shards[0].path);
   const bytes = await readFile(path);
-  const at = bytes.indexOf(Buffer.from('"sha256":"')) + 10;
+  let at = bytes.indexOf(Buffer.from('"sha256":"'));
+  at = at >= 0 ? at + 10 : bytes.indexOf(Buffer.from('"gitSha1":"')) + 11;
   bytes[at] = bytes[at] === 0x61 ? 0x62 : 0x61;
   await writeFile(path, bytes);
   let refused = false;
