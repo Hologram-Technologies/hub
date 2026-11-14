@@ -142,7 +142,16 @@ for (const row of rows) {
   let record = null;
   try {
     const kept = JSON.parse(await readFile(path, "utf8"));
-    if (kept.revision === row.sha && kept.format === "hologram.hub.release/v3") record = kept;
+    if (kept.revision === row.sha && kept.format === "hologram.hub.release/v4") record = kept;
+    // A v3 record holds everything a v4 record does except `origin`, and this
+    // builder has only ever read Hugging Face, so a v3 record's origin is not a
+    // guess: it is the string this builder would write for it. Upgrading in
+    // place keeps the first run after the format moved as cheap as any other,
+    // rather than refetching every record to add a field already implied by the
+    // two fields beside it.
+    else if (kept.revision === row.sha && kept.format === "hologram.hub.release/v3") {
+      record = { ...kept, format: "hologram.hub.release/v4", origin: { kind: "huggingface.co", resolve: `${HF}/${kept.repo}/resolve/${kept.revision}/` } };
+    }
   } catch {}
   if (!record) {
     try {
@@ -166,7 +175,7 @@ for (const row of rows) {
       // source and checks it for itself.
       const card = files.find((f) => f.path.toLowerCase() === "readme.md");
       record = {
-        format: "hologram.hub.release/v3",
+        format: "hologram.hub.release/v4",
         repo: row.id,
         revision: row.sha,
         info: {
@@ -197,6 +206,12 @@ for (const row of rows) {
           downloads: about.downloads ?? row.downloads ?? 0,
           likes: about.likes ?? row.likes ?? 0,
         },
+        // Where this record's own bytes come from. `sources` names the other
+        // places that hold them; this names the one the record was built from,
+        // so a reader that is not the edge can fetch a file without knowing
+        // which hub built the record or hardcoding a host. Same shape as a
+        // source entry, and like one it is good only for this revision.
+        origin: { kind: "huggingface.co", resolve: `${HF}/${row.id}/resolve/${row.sha}/` },
         files,
         sources,
       };

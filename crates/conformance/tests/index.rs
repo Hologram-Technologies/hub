@@ -27,13 +27,17 @@ fn builder() -> String {
         .join("\n")
 }
 
-/// The record literal the builder writes, from `format:` to the line that
+/// The record literal the builder writes, from its assignment to the line that
 /// closes it. Reading the whole file would let a field mentioned anywhere
 /// pass; the promise is about this object.
 fn record_literal(source: &str) -> String {
+    // Anchored on the assignment, not on the format string: the builder names
+    // the format in more than one place now that it can upgrade a cached record
+    // in place, and the earlier of those is not the literal this promise is
+    // about. The trailing newline is what tells the two apart.
     let start = source
-        .find("format: \"hologram.hub.release/")
-        .expect("the builder writes a record with a format");
+        .find("record = {\n")
+        .expect("the builder assigns a record literal");
     let rest = &source[start..];
     let end = rest
         .find("\n      };")
@@ -46,7 +50,13 @@ fn record_literal(source: &str) -> String {
 fn index_hk_18() {
     let source = builder();
     let record = record_literal(&source);
-    for field in ["repo:", "revision:", "files,", "sources,"] {
+    for field in [
+        "format: \"hologram.hub.release/",
+        "repo:",
+        "revision:",
+        "files,",
+        "sources,",
+    ] {
         assert!(
             record.contains(field),
             "a release record must carry {field} for a client that reads this index:\n{record}"
@@ -81,4 +91,40 @@ fn index_hk_18() {
         Path::new(&repo_model::repo_root().join("tools/index.mjs")).is_file(),
         "the builder this test reads must be the one that writes the index"
     );
+}
+
+/// `HK-20`: A release record names where its own bytes come from, and the edge sends a client to that same place, so a reader who is not the edge can fetch and check a file without knowing which hub built the record
+///
+/// The other half of this claim - that the edge's redirect is that same base -
+/// is checked end to end by `tests/edge/origin.mjs`, because it is a fact about
+/// what the edge answers rather than about what the builder writes.
+#[test]
+fn index_hk_20() {
+    let source = builder();
+    let record = record_literal(&source);
+    assert!(
+        record.contains("origin:"),
+        "a release record must name the origin its bytes come from:\n{record}"
+    );
+    let origin = {
+        let start = record.find("origin:").expect("checked just above");
+        let rest = &record[start..];
+        let end = rest.find('\n').unwrap_or(rest.len());
+        rest[..end].to_string()
+    };
+    for part in ["kind:", "resolve:"] {
+        assert!(
+            origin.contains(part),
+            "the origin must carry {part}, the shape a source entry already has: {origin}"
+        );
+    }
+    // Built from the host the builder actually read and from this record's own
+    // repository and revision. A second copy of a host name written out by hand
+    // is what drifts.
+    for part in ["HF", "row.id", "row.sha"] {
+        assert!(
+            origin.contains(part),
+            "the origin's resolve base must be built from {part}, not written out: {origin}"
+        );
+    }
 }

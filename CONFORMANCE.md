@@ -23,6 +23,7 @@ model does not sanction.
 | ID | Level | Statement |
 | --- | --- | --- |
 | `HK-18` | `build` | A release record always carries the fields a client reads: the repository, the revision, every file with its path, size and git blob address, and the sources that hold it |
+| `HK-20` | `build` | A release record names where its own bytes come from, and the edge sends a client to that same place, so a reader who is not the edge can fetch and check a file without knowing which hub built the record |
 
 ## kernel
 
