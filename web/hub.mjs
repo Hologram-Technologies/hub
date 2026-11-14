@@ -762,7 +762,7 @@ async function drawModels(main) {
         if (codes.length) filters[facet] = codes;
       }
       const sort = ROLL_SORT[st.sort] ?? "downloads";
-      const got = await source.page({ sort, filters, page: st.page });
+      const got = await source.page({ sort, filters, page: st.page, q: st.q });
       st.page = got.page;
       total = got.total;
       pages = got.pages;
