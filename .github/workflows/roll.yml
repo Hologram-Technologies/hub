@@ -48,13 +48,18 @@ jobs:
           set -euo pipefail
           from=$(node -e 'console.log(new Date(Date.now() - 2 * 3600e3).toISOString())')
           to=$(node -e 'console.log(new Date(Date.now() - 300e3).toISOString())')
-          node tools/roll.mjs "$RUNNER_TEMP/roll-browse" --from "$from" --to "$to"
-          node tools/browse-index.mjs "$RUNNER_TEMP/roll-browse" "$RUNNER_TEMP/browse"
-          node tests/browse/page.mjs "$RUNNER_TEMP/browse"
+          # Laid out the way the published site is: the index points at the
+          # roll beside it, so building them anywhere else tests a shape
+          # nobody deploys.
+          site="$RUNNER_TEMP/site"
+          rm -rf "$site" && mkdir -p "$site"
+          node tools/roll.mjs "$site/roll" --from "$from" --to "$to"
+          node tools/browse-index.mjs "$site/roll" "$site/browse"
+          node tests/browse/page.mjs "$site/browse"
 
       # And the reader the page itself uses, over real HTTP, because its whole
       # job is ranged reads and a test that bypassed them would be testing
       # something else.
       - name: The page's reader asks for ranges and gets the right rows
         shell: bash
-        run: node tests/browse/reader.mjs "$RUNNER_TEMP/browse"
+        run: node tests/browse/reader.mjs "$RUNNER_TEMP/site/browse"

@@ -91,6 +91,21 @@ const FACETS = [
   { key: "recency", of: (r) => recencyBucket(r.b?.[MODIFIED]) },
 ];
 
+// The words a model can be found by: its owner and its name, cut at anything
+// that is not a letter or a digit and lowercased. `Qwen/Qwen3.8-27B` is found
+// by qwen, 27b and 8. Measured 2026-11-14 over 103,000 models: 5.5 words each,
+// 79,561 distinct, and 60 per cent of those held by a single model.
+//
+// Two characters is the shortest worth keeping - one letter matches too much
+// to narrow anything - and twenty-four the longest, past which a token is a
+// hash somebody pasted into a name.
+export const words = (id) => [...new Set(id.toLowerCase().split(/[^a-z0-9]+/)
+  .filter((w) => w.length >= 2 && w.length <= 24))];
+// Which file a word's postings live in. Two characters gives about 1,300
+// buckets, so a bucket holds a couple of thousand words at three million
+// models and a search term is one fetch of some tens of kilobytes.
+export const bucketOf = (word) => word.slice(0, 2);
+
 // A varint, little end first, seven bits at a time. Positions in a sort's
 // order only ever increase, so what is written is the gap from the last one:
 // a facet half the catalogue holds costs about a byte a row, and a rare one
@@ -111,19 +126,28 @@ function varints(values) {
 const root = JSON.parse(await readFile(join(rollDir, "root.json"), "utf8"));
 if (root.format !== "hologram.hub.roll/v1") throw new Error(`unexpected roll format ${root.format}`);
 
+// Rows are not copied here. The roll's shards already hold them, named by its
+// root and small enough for a reader to hash, so this records where each row
+// is instead: which shard, which bytes. Copying them would cost 551 MB beside
+// the roll's 499 and put the published site over the 1 GB GitHub allows;
+// pointing at them costs 38 MB and leaves the rows where they can be checked.
 const rows = [];
-for (const shard of root.shards) {
+for (const [shardIndex, shard] of root.shards.entries()) {
   const bytes = await readFile(join(rollDir, shard.path));
   // The roll's own rule: a shard counts only if its root names these bytes.
   if (sha256(bytes) !== shard.sha256) throw new Error(`${shard.path} does not match the roll's root`);
+  let at = 0;
   for (const line of bytes.toString("utf8").split("\n")) {
+    const length = Buffer.byteLength(line, "utf8");
+    const offset = at;
+    at += length + 1;
     if (!line) continue;
     const [id, revision, created, , , state, b] = JSON.parse(line);
     // A model Hugging Face no longer lists is kept in the roll and left out of
     // the catalogue: the interface browses what exists. The roll is still
     // where a reader goes to ask what used to.
     if (state !== 0) continue;
-    rows.push({ id, revision, created, b: b ?? null });
+    rows.push({ id, revision, created, b: b ?? null, shardIndex, offset, length });
   }
 }
 // Creation order, oldest first, so a row's number never changes as the roll
@@ -138,18 +162,17 @@ await mkdir(join(out, "order"), { recursive: true });
 // rows.ndjson, and the fixed-width table that says where each row is. The
 // table is what makes a row a ranged read rather than a search: row n starts
 // at the 8 bytes at offset n*8 of rows.idx, and runs for the 4 bytes after.
-const encoder = new TextEncoder();
-const lines = rows.map((r) => encoder.encode(JSON.stringify([r.id, r.revision, r.created, r.b])));
-const idx = new DataView(new ArrayBuffer(rows.length * 12));
-let at = 0;
-for (const [n, line] of lines.entries()) {
-  idx.setBigUint64(n * 12, BigInt(at));
-  idx.setUint32(n * 12 + 8, line.length);
-  at += line.length + 1;
-}
-const body = Buffer.concat(lines.flatMap((l) => [Buffer.from(l), Buffer.from("\n")]));
-await writeFile(join(out, "rows.ndjson"), body);
-await writeFile(join(out, "rows.idx"), Buffer.from(idx.buffer));
+// Where each row is in the roll: its shard, its first byte, its length. Three
+// numbers at a fixed place, so row n is one ranged read of this file and then
+// one of the shard it names.
+const loc = new DataView(new ArrayBuffer(rows.length * 12));
+rows.forEach((r, n) => {
+  loc.setUint32(n * 12, r.shardIndex);
+  loc.setUint32(n * 12 + 4, r.offset);
+  loc.setUint32(n * 12 + 8, r.length);
+});
+const body = Buffer.from(loc.buffer);
+await writeFile(join(out, "rows.loc"), body);
 
 // One file per sort: the row numbers, in that order, four bytes each. Page k
 // of a sort is the 168 bytes at offset k*42*4 - one ranged read, whatever the
@@ -219,6 +242,72 @@ for (const [name, compare] of Object.entries(SORTS)) {
   }
 }
 
+// ------------------------------------------------------------------ search
+// The same shape as a facet, one file per bucket rather than one per facet,
+// because there are two and a half million words and nobody fetches a header
+// that size to find one of them.
+const search = {};
+// The words are written once and the postings once per sort. Writing both
+// five times costs 128 MB at three million models, which is the difference
+// between a site that fits and one that does not: measured, 309 MB against
+// 181 MB.
+const bucketsOf = (rows) => {
+  const out = new Map();
+  for (const [n, row] of rows.entries()) {
+    for (const word of words(row.id)) {
+      const key = bucketOf(word);
+      if (!out.has(key)) out.set(key, new Map());
+      const held = out.get(key);
+      if (!held.has(word)) held.set(word, []);
+      held.get(word).push(n);
+    }
+  }
+  return out;
+};
+const buckets = bucketsOf(rows);
+
+// One file a bucket: how many words, how long the names are, then the names.
+// A reader finds a word's place in this list and asks the sort it wants for
+// the postings at that place.
+await mkdir(join(out, "search", "words"), { recursive: true });
+const order = new Map();
+let wordBytes = 0;
+for (const [key, held] of buckets) {
+  const names = [...held.keys()].sort();
+  order.set(key, names);
+  const blob = Buffer.from(names.join("\n"), "utf8");
+  const head = Buffer.alloc(8);
+  head.writeUInt32LE(names.length, 0);
+  head.writeUInt32LE(blob.length, 4);
+  const bytes = Buffer.concat([head, blob]);
+  await writeFile(join(out, "search", "words", `${key}.bin`), bytes);
+  wordBytes += bytes.length;
+}
+
+for (const [name, compare] of Object.entries(SORTS)) {
+  const numbers = rows.map((_, n) => n).sort((x, y) => compare(rows[x], rows[y]));
+  const at = new Uint32Array(rows.length);
+  numbers.forEach((n, i) => { at[n] = i; });
+  await mkdir(join(out, "search", name), { recursive: true });
+  let bytesWritten = 0;
+  for (const [key, held] of buckets) {
+    const names = order.get(key);
+    const blocks = names.map((w) => varints(held.get(w).map((n) => at[n]).sort((a, b) => a - b)));
+    const head = Buffer.alloc((names.length + 1) * 4);
+    let cursor = 0;
+    for (const [i, block] of blocks.entries()) {
+      head.writeUInt32LE(cursor, i * 4);
+      cursor += block.length;
+    }
+    head.writeUInt32LE(cursor, names.length * 4);
+    const bytes = Buffer.concat([head, ...blocks]);
+    await writeFile(join(out, "search", name, `${key}.bin`), bytes);
+    bytesWritten += bytes.length;
+  }
+  search[name] = { path: `search/${name}/`, buckets: buckets.size, bytes: bytesWritten };
+}
+search.words = { path: "search/words/", buckets: buckets.size, bytes: wordBytes };
+
 await writeFile(join(out, "root.json"), JSON.stringify({
   format: "hologram.hub.browse/v1",
   built: new Date().toISOString(),
@@ -233,9 +322,13 @@ await writeFile(join(out, "root.json"), JSON.stringify({
   // The buckets the parameter and recency filters are cut at, so a reader
   // turns the interface's range back into a union of values without guessing.
   buckets: { parameters: PARAM_STOPS, recencyDays: RECENCY_DAYS },
-  rows: { count: rows.length, body: "rows.ndjson", index: "rows.idx", bodySha256: sha256(body), indexSha256: sha256(Buffer.from(idx.buffer)) },
+  // The locator, and the shards its numbers point into, in that order and
+  // relative to this file.
+  rows: { count: rows.length, locator: "rows.loc", locatorSha256: sha256(body), from: "../roll/", shards: root.shards.map((x) => x.path) },
   orders,
   postings,
+  // A search term is looked up in the bucket its first two characters name.
+  search,
 }));
 
 const mb = (n) => `${(n / 1e6).toFixed(1)} MB`;
@@ -243,6 +336,7 @@ const orderBytes = rows.length * 4 * Object.keys(orders).length;
 let postingBytes = 0;
 for (const sort of Object.values(postings)) for (const f of Object.values(sort)) postingBytes += (await readFile(join(out, f.path))).length;
 const values = Object.values(postings[Object.keys(postings)[0]]).reduce((a, f) => a + f.values, 0);
-console.log(`browse-index: ${rows.length} rows | body ${mb(body.length)} | index ${mb(idx.byteLength)} `
+console.log(`browse-index: ${rows.length} rows | locator ${mb(body.length)} `
   + `| ${Object.keys(orders).length} orders ${mb(orderBytes)} | postings ${mb(postingBytes)} over ${values} values `
-  + `| total ${mb(body.length + idx.byteLength + orderBytes + postingBytes)}`);
+  + `| search ${mb(Object.values(search).reduce((a, x) => a + x.bytes, 0))} `
+  + `| total ${mb(body.length + orderBytes + postingBytes + Object.values(search).reduce((a, x) => a + x.bytes, 0))} beside the roll`);
