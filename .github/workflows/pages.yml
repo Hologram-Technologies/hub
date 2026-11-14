@@ -220,6 +220,42 @@ jobs:
           # other sources hold its bytes is still the live hub's claim.
           predicate: '{"tool":"tools/index.mjs","releases":"https://huggingface.co","holders":"https://gethologram.ai/data/files"}'
           show-summary: false
+
+      # ---- the roll: every model Hugging Face has ever listed
+      # The index addresses a few hundred models and costs two calls each. The
+      # roll names every one of them and costs about one call per thousand, so
+      # the two are built apart and only the roll is total.
+      # `docs/model-roll.md` has the arithmetic.
+      - name: Keep the roll between runs
+        # Without this a run has nothing to continue from, and the next step
+        # refuses rather than walking three million rows inside a 60-minute
+        # job. Priming it is `roll-sweep.yml`, run by hand, once.
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/roll
+          key: roll-${{ hashFiles('tools/roll.mjs') }}-${{ github.run_id }}
+          restore-keys: roll-${{ hashFiles('tools/roll.mjs') }}-
+      - name: Catch the roll up with what Hugging Face has listed since
+        id: roll
+        # `--tail` walks only what is new. Measured 2026-11-14: two calls and a
+        # few seconds to pick up a day's 1,007 models. It exits 69 rather than
+        # sweeping when there is nothing to continue from, so a cold cache
+        # stops this step instead of running for an hour and being killed.
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "$RUNNER_TEMP/roll/root.json" ]; then
+            node tools/roll.mjs "$RUNNER_TEMP/roll" --tail
+            echo "built=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No roll in the cache, so the site is published without one. Run roll-sweep.yml once to prime it."
+            echo "built=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Nothing is published that the roll's root does not name
+        if: steps.roll.outputs.built == 'true'
+        shell: bash
+        run: node tests/roll/published.mjs "$RUNNER_TEMP/roll"
+
       - name: Take the swarm address snapshot the nightly run left
         # Written by `.github/workflows/swarm.yml`, not here: a full catalog
         # walk is about 22,300 requests and must not sit in front of a deploy.
@@ -270,6 +306,12 @@ jobs:
           # The index goes in before the two page tools run: both read the
           # models from it, so the pages and the browse list name one set.
           cp -r "$RUNNER_TEMP/index" "$RUNNER_TEMP/pages/data/index"
+          # The roll, when there is one. It is the largest thing the site
+          # carries by a wide margin, so the deploy says how large.
+          if [ -f "$RUNNER_TEMP/roll/root.json" ]; then
+            cp -r "$RUNNER_TEMP/roll" "$RUNNER_TEMP/pages/data/roll"
+            echo "roll: $(du -sh "$RUNNER_TEMP/pages/data/roll" | cut -f1) in the published site"
+          fi
           node tools/web-routes.mjs "$RUNNER_TEMP/pages"
           node tools/web-data.mjs "$RUNNER_TEMP/pages" https://gethologram.ai
           node -e '
