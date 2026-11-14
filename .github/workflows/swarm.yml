@@ -46,14 +46,14 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 22
       - name: Keep the snapshot between runs
         # A release whose revision has not moved is not fetched again, so after
         # the first run almost nothing is asked of Hugging Face and the cost is
         # the catalog walk alone.
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/swarm
           key: swarm-${{ hashFiles('tools/swarm-index.mjs') }}-${{ github.run_id }}
@@ -99,7 +99,7 @@ jobs:
         shell: bash
         run: node tests/index/swarm-catalog.mjs "$RUNNER_TEMP/swarm/catalog"
       - name: Keep it where anyone can see what was written
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: swarm-index
           path: ${{ runner.temp }}/swarm

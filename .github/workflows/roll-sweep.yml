@@ -43,7 +43,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 22
 
@@ -51,7 +51,7 @@ jobs:
         # A sweep that is resumed rather than restarted keeps what it has. The
         # builder merges into an existing roll, so a second sweep is cheap and
         # a half-finished one is not wasted.
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/roll
           key: roll-${{ hashFiles('tools/roll.mjs') }}-${{ github.run_id }}
