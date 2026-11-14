@@ -280,6 +280,16 @@ Pirate Face web seed answers with a redirect to a volunteer which redirects to
 huggingface.co, so using one would build a failover path that ends at the host
 it was failing away from (`TEMPLATE-VERIFICATION.md`).
 
+Every address the record has is checked, not the first one it has. `HK-10`
+decides the SHA-256 and the git blob identity is compared beside it, in one
+pass over the bytes, and either failing refuses. The two differ in who chose
+them: a SHA-256 may come from a second witness, and a witness can also be a
+source, since `pirateface.co` witnesses addresses and `pirateface` serves
+bytes. A digest supplied by the party serving the bytes proves nothing about
+them, so the git blob identity - which only Hugging Face published, and which
+this repository signed into the record - is what stands between an unvetted
+source and a client. A file the record addresses in neither way is refused.
+
 Every response is hashed before it is sent, including one served from the
 cache, so nothing reaches a client that the kernel has not just accepted. That
 costs a pass over the file per request, which is the price of the guarantee;
