@@ -792,6 +792,16 @@ those runs was on the tree after the claim was renumbered from `HK-18` to
 `HK-19`, which is the direct evidence that renumbering an id leaves the proved
 artefacts alone.
 
+That is worth stating as a rule, because the next person to renumber will
+otherwise derive it the slow way. An id lives in exactly two places that are
+written by hand - its row in `model/ids.toml` and its row in the `CASES` table
+in `app/tools/write_tests.py` - and in the files generated from those two. It
+never reaches the Lean: `gen_kernel.py` names invariants by module, not by id,
+so `app/src/`, `app/tools/vectors.json` and `app/lexlean.lock` come out byte
+for byte the same. A renumbering is therefore a documentation change wearing a
+model change's clothes, and it needs no new proof. The check is the attestation
+not moving, and the gate will say so by not moving it.
+
 An earlier run of that same command on that same mount used no CPU at all for
 twenty minutes and was abandoned. It overlapped a `prismpm verify` working the
 same mount from a second container. A process blocked in I/O wait accrues no
