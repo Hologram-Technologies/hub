@@ -65,6 +65,18 @@ jobs:
           node tools/swarm-index.mjs "$RUNNER_TEMP/swarm" ${PAGES:+--pages "$PAGES"}
         env:
           PAGES: ${{ inputs.pages }}
+      - name: Write down the catalog, sharded so a page can read a slice
+        # Rows for browsing and searching, from Pirate Face's own listing and
+        # nothing else - no Hugging Face calls. Sharded by the first two
+        # characters of the model's name, because the whole catalog is about
+        # 300 MB at 468 bytes a row and no page should load that: a prefix
+        # shard is about 450 KB.
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/swarm-catalog.mjs "$RUNNER_TEMP/swarm/catalog" --all ${PAGES:+--pages "$PAGES"}
+        env:
+          PAGES: ${{ inputs.pages }}
       - name: Every shard is the bytes the root names
         shell: bash
         run: node tests/index/swarm-shards.mjs "$RUNNER_TEMP/swarm"
