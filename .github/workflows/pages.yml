@@ -16,6 +16,23 @@ name: pages
 on:
   push:
     branches: [main]
+  # The hub tracks Hugging Face, not this repository's commits. Without this
+  # the published catalogue only moves when somebody pushes, which has nothing
+  # to do with what Hugging Face published overnight.
+  #
+  # Every six hours, because a run of this workflow takes 19 to 33 minutes
+  # (measured over the five runs before 2026-11-14) and `concurrency: pages`
+  # does not cancel in progress, so a shorter period would queue runs behind
+  # each other rather than refresh anything sooner. Four runs a day against a
+  # creation rate of about 138 models an hour means a scheduled build sees
+  # roughly 800 new models' worth of movement.
+  #
+  # GitHub delays scheduled runs under load, sometimes by a long time, so this
+  # is a floor on staleness and not a promise. It does not need to be a
+  # promise: a model the published index does not yet hold is still answered,
+  # because the edge asks Hugging Face for anything it cannot answer itself.
+  schedule:
+    - cron: "17 */6 * * *"
   workflow_dispatch:
 
 permissions:

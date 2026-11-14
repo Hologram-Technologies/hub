@@ -13,7 +13,7 @@ is a pure function of a timestamp. So enumerating every model it has ever listed
 costs about 3,076 calls and half an hour, needs no stored state, and can be cut
 into windows and run in parallel. That is the whole basis of the design.
 
-Addresses are a different matter: they cost one call per model, four orders of
+Addresses are a different matter: they cost two calls per model, four orders of
 magnitude more. So the hub should keep two things, not one. A **roll** of every
 model that has ever existed, cheap and total. An **index** of addresses, built
 on top of it by priority, which is what `tools/index.mjs` already does for 500.
@@ -121,7 +121,8 @@ Measured, and this is the limitation that shapes everything: a sibling object
 carries `rfilename` and nothing else. No size, no `lfs.oid`. `blobs=true` does
 not change that on a listing — I asked for it and the sibling keys were still
 `rfilename` alone. Sizes and SHA-256 come only from
-`/api/models/{repo}/tree/{revision}`, one call per model.
+`/api/models/{repo}/tree/{revision}`, and the fields the kernel calls a
+complete record come from `/api/models/{repo}`, so two calls per model.
 
 So:
 
@@ -129,10 +130,21 @@ So:
 | --- | --- | --- | --- |
 | every model's id, revision, times, tags, filenames | ~3,076 | ~30 min | ~12.6 GB |
 | the same without `full=true` (no `sha`, no filenames) | ~3,076 | ~30 min | ~1.7 GB |
-| every model's file sizes and SHA-256 | ~3,080,000 | ~21 days | much larger |
+| every model's file sizes and SHA-256 | ~6,160,000 | ~43 days | much larger |
 
 The payload figures are measured: 500 rows with `full=true` came to 2,041,226
 bytes, 4.08 kB a row; without it, 279,221 bytes, 558 B a row.
+
+Checked exhaustively rather than by sampling, because the whole question turns
+on it: asking for an invalid `expand[]` makes Hugging Face list every valid
+one. They are `author`, `baseModels`, `cardData`, `config`, `createdAt`,
+`disabled`, `downloads`, `downloadsAllTime`, `evalResults`, `gated`,
+`inference`, `inferenceProviderMapping`, `lastModified`, `likes`, `private`,
+`safetensors`, `sha`, `siblings`, `spaces`, `tags`, `transformersInfo`,
+`trendingScore`, `widgetData`, `gguf`, `resourceGroup` and `xetEnabled`. Not
+one of them carries a file's size or its hash. So no listing can ever answer
+for addresses, whatever it is asked for, and the per-model call is not an
+oversight to be optimised away.
 
 Four orders of magnitude between existence and addresses is not a detail to
 optimise away. It is the reason the design has two layers.
@@ -376,6 +388,34 @@ exists here, with a signed root and a kernel rule that judges it.
 
 Worth keeping in mind for the edge rather than the browser: a runner that has
 already verified a shard can serve ranges out of it.
+
+## What runs on its own, and what does not yet
+
+The hub is meant to track Hugging Face. Until 2026-11-14 nothing here did:
+`pages.yml` ran on a push to main and on a manual dispatch, so the published
+catalogue moved when somebody committed and not when Hugging Face published.
+That is now a `schedule:` of `17 */6 * * *` - four runs a day, at seventeen
+minutes past, offset from the hour because GitHub's scheduler is busiest there.
+
+Six hours rather than something shorter, for a measured reason: a run of that
+workflow took 19 to 33 minutes over the five runs before that date, and
+`concurrency: pages` does not cancel a run in progress, so a shorter period
+would queue runs behind one another rather than refresh anything sooner.
+
+Staleness in the published index is therefore a floor of about six hours, plus
+whatever GitHub's scheduler adds, which under load can be considerable. It does
+not need to be better than that, and this is the part worth understanding: the
+published index is a cache, not the only path. A model it does not hold is
+still answered, because `edge/edge.mjs` asks Hugging Face for anything it
+cannot answer from the index. The cadence decides how often an answer is cheap,
+not whether it is right.
+
+What does not run on its own yet is the roll. `tools/roll.mjs` exists and is
+gated, but nothing publishes its output, because 367 MB would ride in every
+deploy of the site whether or not a shard changed, and the Pages action uploads
+the whole artifact each time. The open decision is where the roll lives: in
+this site, accepting slower deploys; or on a site of its own with its own
+schedule, which the edge would read by URL the way it already reads the index.
 
 ## Sources
 
