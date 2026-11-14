@@ -29,6 +29,10 @@ let dialect = null;
 let recordFields = [];
 let partialHeader = "X-Hub-Partial";
 let index = null;
+// The browse rows the listing answers from, and the query the kernel says it
+// takes.
+let browse = [];
+let listQuery = { sorts: [], limit: 1000 };
 let useHuggingFace = true;
 const cache = new Map();
 const health = new Map(SOURCES.map((s) => [s, { failures: 0, until: 0, drained: false }]));
@@ -52,6 +56,7 @@ export async function start({ holo, index: indexUrl, huggingFace = true, drain =
   // The edge is deployed apart from the kernel, so it must start against a
   // holo older than itself: a kernel with no record block answers operation 6
   // as invalid, and the edge then answers from the index as it did before.
+  listQuery = { sorts: docs.listSorts ?? [], limit: docs.listLimit ?? 1000 };
   const record = docs.record ?? { fields: [], partialHeader: "X-Hub-Partial" };
   recordFields = record.fields.map(([id]) => id);
   partialHeader = record.partialHeader;
@@ -60,6 +65,7 @@ export async function start({ holo, index: indexUrl, huggingFace = true, drain =
   if (indexUrl && policy?.indexPredicateType) {
     try {
       index = await openIndex(indexUrl, policy);
+      browse = await openBrowse(indexUrl, index.root);
       state = `${index.records.size} models`;
     } catch (error) {
       state = `refused (${error.message})`;
@@ -80,11 +86,25 @@ async function openIndex(base, policy) {
   return { base, root, records: new Map(root.records.map((r) => [r.repo.toLowerCase(), r])), loaded: new Map() };
 }
 
+// The browse rows: the same shards the page draws, read the same way. A shard
+// counts only if its bytes are the ones the signed root names, so the listing
+// an agent gets and the listing a person sees are one set of facts.
+async function openBrowse(base, root) {
+  const rows = [];
+  for (const shard of root.browse ?? []) {
+    const bytes = new Uint8Array(await (await fetch(new URL(shard.path, base))).arrayBuffer());
+    if (sha256(bytes) !== shard.sha256) throw new Error(`index shard ${shard.path} does not match the signed root`);
+    rows.push(...JSON.parse(new TextDecoder().decode(bytes)));
+  }
+  return rows;
+}
+
 // For tests of the index logic before a signature exists (the signature is
 // made in CI). serve.mjs never calls it: the server opens only a signed index.
 export async function adoptUnsignedIndexForTests(base) {
   const root = await (await fetch(new URL("root.json", base))).json();
   index = { base, root, records: new Map(root.records.map((r) => [r.repo.toLowerCase(), r])), loaded: new Map() };
+  browse = await openBrowse(base, root);
 }
 
 async function record(repo) {
@@ -311,12 +331,19 @@ function treeEntries(rec, dir, recursive) {
   return out.sort((a, b) => a.path.localeCompare(b.path));
 }
 async function fromIndex(request, url, path) {
-  const m = path.match(/^api\/models\/([\w.-]+\/[\w.-]+)(?:\/(revision|tree|paths-info|refs)(?:\/([^/]+))?(?:\/(.*))?)?$/);
+  const m = path.match(/^api\/models\/([\w.-]+\/[\w.-]+)(?:\/(revision|tree|paths-info|refs|commits)(?:\/([^/]+))?(?:\/(.*))?)?$/);
   if (!m) return null;
   const [, repo, kind, revision = "main", rest = ""] = m;
   const rec = await record(repo);
   if (!rec) return null;
   if (kind === "refs") return json({ branches: [{ name: "main", ref: "refs/heads/main", targetCommit: rec.revision }], converts: [], tags: [], pullRequests: [] });
+  // The index holds a release, not a history, so the hub answers with the one
+  // commit it knows and says the answer is partial rather than implying the
+  // repository has had one commit.
+  if (kind === "commits") {
+    return json([{ id: rec.revision, title: "The release this index holds", message: "", authors: [], date: rec.info?.lastModified ?? rec.info?.createdAt ?? null }],
+                200, { [partialHeader]: "history" });
+  }
   const rev = decodeURIComponent(revision);
   if (kind && !indexedRevision(rec, rev)) return useHuggingFace ? null : refuse(11, request.method);
   if (!kind || kind === "revision") {
@@ -337,15 +364,129 @@ async function fromIndex(request, url, path) {
   }
   return null;
 }
+// The listing, answered from the index the way Hugging Face answers it: the
+// same query names, the same row shape, the same refusals, and a cursor in a
+// Link header. The query the hub accepts is the kernel's (screen 4), so the
+// docs page and this answer cannot disagree about it.
+const listSorts = () => listQuery.sorts;
+const SORT_KEY = {
+  downloads: (r) => r.observed?.downloads ?? 0,
+  likes: (r) => r.observed?.likes ?? 0,
+  createdAt: (r) => Date.parse(r.created ?? 0) || 0,
+  lastModified: (r) => Date.parse(r.modified ?? r.created ?? 0) || 0,
+  trendingScore: (r) => -(r.rank ?? 0),
+};
+// A row as Hugging Face writes it with no expansion: eleven fields, in its
+// order.
+function listRow(r) {
+  return {
+    _id: r.revision?.slice(0, 24) ?? r.id, id: r.id, likes: r.observed?.likes ?? 0,
+    trendingScore: Math.max(0, 1000 - (r.rank ?? 0)), private: false,
+    downloads: r.observed?.downloads ?? 0, tags: listTags(r), pipeline_tag: r.task ?? null,
+    library_name: r.library ?? null, createdAt: r.created ? `${r.created}T00:00:00.000Z` : null,
+    modelId: r.id,
+  };
+}
+// The tags a row carries: what the publisher wrote, which is what `filter`
+// matches on.
+const listTags = (r) => [
+  ...(r.task ? [r.task] : []), ...(r.library ? [r.library] : []),
+  ...(r.format && r.format !== "Other" ? [r.format.toLowerCase()] : []),
+  ...(r.languages ?? []), ...(r.license ? [`license:${r.license}`] : []),
+  ...(r.arch ? [r.arch] : []),
+];
+// Everything a record holds, for `full=true`: Hugging Face's sixteen fields,
+// in its order (measured 2026-11-13).
+function fullRow(r) {
+  return {
+    _id: r.revision?.slice(0, 24) ?? r.id, id: r.id, author: r.org, gated: Boolean(r.gated),
+    lastModified: r.modified ? `${r.modified}T00:00:00.000Z` : null, likes: r.observed?.likes ?? 0,
+    trendingScore: Math.max(0, 1000 - (r.rank ?? 0)), private: false, sha: r.revision,
+    downloads: r.observed?.downloads ?? 0, tags: listTags(r), pipeline_tag: r.task ?? null,
+    library_name: r.library ?? null, createdAt: r.created ? `${r.created}T00:00:00.000Z` : null,
+    modelId: r.id, siblings: null,
+  };
+}
+
 function searchIndex(url) {
-  const q = (url.searchParams.get("search") ?? "").toLowerCase();
-  const author = url.searchParams.get("author");
-  const limit = Number(url.searchParams.get("limit") ?? 50);
-  const rows = [...index.records.values()]
-    .filter((r) => (!q || r.repo.toLowerCase().includes(q)) && (!author || r.repo.split("/")[0] === author))
-    .slice(0, limit)
-    .map((r) => ({ _id: r.revision.slice(0, 24), id: r.repo, modelId: r.repo, author: r.repo.split("/")[0], sha: r.revision, private: false, gated: false }));
-  return json(rows);
+  const p = url.searchParams;
+  const sort = p.get("sort");
+  const direction = p.get("direction");
+  // Hugging Face refuses these, so the hub refuses them too rather than
+  // answering something else and calling it a result.
+  if (sort !== null && !listSorts().includes(sort)) return refuse(0, "GET");
+  if (direction !== null && direction !== "-1") return refuse(0, "GET");
+  const limit = Math.min(Math.max(1, Number(p.get("limit") ?? listQuery.limit) || listQuery.limit), listQuery.limit);
+  const q = (p.get("search") ?? "").toLowerCase();
+  const author = p.get("author");
+  const want = (p.get("filter") ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+  const expand = p.getAll("expand[]").concat(p.getAll("expand")).filter(Boolean);
+
+  let rows = browse.filter((r) => (!q || r.id.toLowerCase().includes(q))
+    && (!author || r.org === author)
+    && want.every((t) => listTags(r).includes(t)));
+  const key = SORT_KEY[sort ?? "trendingScore"];
+  rows = [...rows].sort((a, b) => key(b) - key(a));
+
+  // The cursor is this hub's own and opaque, as Hugging Face's is: a client
+  // follows the Link header and never reads it.
+  const from = Number(Buffer.from(p.get("cursor") ?? "", "base64url").toString("utf8") || 0) || 0;
+  const page = rows.slice(from, from + limit);
+  const body = page.map((r) => {
+    if (expand.length) {
+      // Hugging Face answers an expansion with the identity, the key it sorted
+      // by, and the fields asked for that the model has; a field it has not is
+      // left out rather than sent as null (measured 2026-11-13).
+      const whole = { ...fullRow(r), downloadsAllTime: r.observed?.downloads ?? 0, safetensors: r.params ? { total: r.params } : null, gguf: null };
+      const key = sort ?? "trendingScore";
+      const wanted = ["_id", "id", key, ...expand].filter((f) => whole[f] !== null && whole[f] !== undefined);
+      // The keys come back in the record's own order, which is the order
+      // `full=true` answers in; a field that order does not name follows it.
+      const order = Object.keys(whole);
+      const row = {};
+      for (const field of [...new Set(wanted)].sort((a, b) => {
+        const i = order.indexOf(a), j = order.indexOf(b);
+        return (i < 0 ? order.length + expand.indexOf(a) : i) - (j < 0 ? order.length + expand.indexOf(b) : j);
+      })) row[field] = whole[field];
+      return row;
+    }
+    const row = p.get("full") === "true" ? fullRow(r) : listRow(r);
+    if (p.get("config") === "true") row.config = { model_type: r.arch ?? null, architectures: r.arch ? [r.arch] : [] };
+    return row;
+  });
+  const headers = {};
+  if (from + limit < rows.length) {
+    const next = new URL(url);
+    next.searchParams.set("cursor", Buffer.from(String(from + limit), "utf8").toString("base64url"));
+    headers.link = `<${next.href}>; rel="next"`;
+  }
+  return json(body, 200, headers);
+}
+
+// Every tag the listed models carry, by kind, the way Hugging Face groups
+// them. The hub answers for what it holds, not for the whole of Hugging Face.
+function tagsByType() {
+  const kinds = { pipeline_tag: new Set(), library: new Set(), language: new Set(), license: new Set(), other: new Set() };
+  for (const r of browse) {
+    if (r.task) kinds.pipeline_tag.add(r.task);
+    if (r.library) kinds.library.add(r.library);
+    for (const l of r.languages ?? []) kinds.language.add(l);
+    if (r.license) kinds.license.add(`license:${r.license}`);
+    if (r.arch) kinds.other.add(r.arch);
+  }
+  return json(Object.fromEntries(Object.entries(kinds).map(([type, set]) => [
+    type, [...set].sort().map((id) => ({ type, id, label: id })),
+  ])));
+}
+
+// The search box's answer: names that match, nothing else.
+function quicksearch(url) {
+  const q = (url.searchParams.get("q") ?? "").toLowerCase();
+  const type = url.searchParams.get("type");
+  const models = type && type !== "model" ? [] : browse
+    .filter((r) => q && r.id.toLowerCase().includes(q)).slice(0, 10)
+    .map((r) => ({ id: r.id, _id: r.revision?.slice(0, 24) ?? r.id, private: false, authorType: "org" }));
+  return json({ models, modelsCount: models.length, datasets: [], datasetsCount: 0, spaces: [], spacesCount: 0, orgs: [], users: [], q: url.searchParams.get("q") ?? "" });
 }
 
 // Hugging Face's own answer, for a model the index does not hold, without the
@@ -388,6 +529,11 @@ export async function handle(request) {
       return await resolve(request.method, via, file[1], decodeURIComponent(file[2]), decodeURIComponent(file[3]));
     }
     if (path === "api/whoami-v2") return refuse(10, request.method);
+    if (path === "api/models-tags-by-type" && browse.length) return tagsByType();
+    if (path === "api/quicksearch" && browse.length) return quicksearch(url);
+    if ((path === "api/models-tags-by-type" || path === "api/quicksearch") && useHuggingFace) {
+      return await passthrough(request, url, `/${path}`);
+    }
     if (/^api\/models(\/|$)/.test(path) && !/\/(preupload|commit|xet-write-token)\//.test(path)) {
       if (request.method === "POST" && !/\/paths-info\//.test(path)) return refuse(0, request.method);
       const local = index ? await fromIndex(request.clone(), url, path) : null;

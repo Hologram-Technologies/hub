@@ -304,6 +304,9 @@ jobs:
           "$py" tests/edge/observe.py "$RUNNER_TEMP/ref" > "$RUNNER_TEMP/ref.json"
           OFFLINE=1 HF_ENDPOINT=http://127.0.0.1:8787 "$py" tests/edge/observe.py "$RUNNER_TEMP/off" > "$RUNNER_TEMP/off.json"
           "$py" tests/edge/compare.py "$RUNNER_TEMP/ref.json" "$RUNNER_TEMP/off.json"
+      - name: The listing answers the whole query from the index alone
+        shell: bash
+        run: node tests/edge/listing.mjs https://hologram-technologies.github.io/hub/app/app.holo https://hologram-technologies.github.io/hub/data/index/
       - name: An incomplete record is never served as though it were whole
         shell: bash
         run: |
