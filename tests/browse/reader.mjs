@@ -8,7 +8,7 @@
 // Content-Range for a Range request, a 200 otherwise, and nothing clever.
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
-import { join, normalize } from "node:path";
+import { basename, dirname, join, normalize } from "node:path";
 import { openBrowse } from "../../web/browse.mjs";
 
 const dir = process.argv[2];
@@ -16,6 +16,11 @@ if (!dir) {
   console.error("usage: node tests/browse/reader.mjs <browse index dir>");
   process.exit(64);
 }
+// The index points into the roll beside it, so the server has to serve both.
+// It serves their parent, and the reader is opened at the index's own folder,
+// which is how a deployed site is laid out.
+const site = dirname(dir);
+const here = `${basename(dir)}/`;
 const failures = [];
 const check = (name, ok, saw) => (ok ? console.log(`ok   ${name}`) : failures.push(`${name}: ${saw}`));
 
@@ -24,7 +29,7 @@ const server = createServer(async (req, res) => {
   const rel = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname))
     .split(/[\\/]+/).filter((p) => p && p !== "." && p !== "..").join("/");
   let body;
-  try { body = await readFile(join(dir, rel)); } catch { res.writeHead(404).end(); return; }
+  try { body = await readFile(join(site, rel)); } catch { res.writeHead(404).end(); return; }
   served += 1;
   const r = /^bytes=(\d+)-(\d+)$/.exec(req.headers.range ?? "");
   if (r) {
@@ -39,7 +44,7 @@ const server = createServer(async (req, res) => {
   res.writeHead(200, { "content-length": body.length }).end(body);
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
-const base = `http://127.0.0.1:${server.address().port}/`;
+const base = `http://127.0.0.1:${server.address().port}/${here}`;
 
 const index = await openBrowse(base);
 check("the index opens", Boolean(index), "it did not");
@@ -47,19 +52,21 @@ check("and does not claim its bytes were checked", index.checked === false, Stri
 
 // The slow, obvious answer, from the files directly.
 const root = JSON.parse(await readFile(join(dir, "root.json"), "utf8"));
-const body = await readFile(join(dir, root.rows.body));
-const idxBytes = await readFile(join(dir, root.rows.index));
-const iv = new DataView(idxBytes.buffer, idxBytes.byteOffset, idxBytes.byteLength);
+const locBytes = await readFile(join(dir, root.rows.locator));
+const lv = new DataView(locBytes.buffer, locBytes.byteOffset, locBytes.byteLength);
+const shards = await Promise.all(root.rows.shards.map((p) => readFile(join(dir, root.rows.from, p))));
+const body = shards.reduce((a, b) => a + b.length, 0) ? { length: shards.reduce((a, b) => a + b.length, 0) } : { length: 0 };
 const all = Array.from({ length: root.rows.count }, (_, n) => {
-  const at = Number(iv.getBigUint64(n * 12)), len = iv.getUint32(n * 12 + 8);
-  return JSON.parse(body.subarray(at, at + len).toString("utf8"));
+  const shard = shards[lv.getUint32(n * 12)];
+  const at = lv.getUint32(n * 12 + 4), len = lv.getUint32(n * 12 + 8);
+  return JSON.parse(shard.subarray(at, at + len).toString("utf8"));
 });
 
 const F = index.field;
 const first = await index.page({ sort: "downloads", page: 1 });
 check("an unfiltered page has a full page of rows", first.rows.length === root.pageSize, String(first.rows.length));
 check("and the whole catalogue as its total", first.total === root.rows.count, `${first.total} of ${root.rows.count}`);
-const byHand = [...all].sort((a, b) => (b[3]?.[F.downloads] ?? 0) - (a[3]?.[F.downloads] ?? 0)).slice(0, root.pageSize).map((r) => r[0]);
+const byHand = [...all].sort((a, b) => (b[6]?.[F.downloads] ?? 0) - (a[6]?.[F.downloads] ?? 0)).slice(0, root.pageSize).map((r) => r[0]);
 check("it is the page sorting the lot would give", JSON.stringify(first.rows.map((r) => r[0])) === JSON.stringify(byHand),
   `${first.rows[0]?.[0]} against ${byHand[0]}`);
 
@@ -70,7 +77,7 @@ check("a page costs kilobytes, not the catalogue", bytesForAPage < 1e6, `${(byte
 const taskCounts = await index.counts("downloads", "task");
 const [task] = [...taskCounts].sort((a, b) => b[1] - a[1])[0];
 const filtered = await index.page({ sort: "downloads", filters: { task: [task] }, page: 1 });
-const holdsTask = (r) => r[3]?.[F.task] === task;
+const holdsTask = (r) => r[6]?.[F.task] === task;
 check("a filtered page holds only matching rows", filtered.rows.every(holdsTask), "a row did not");
 check("and its total is the count the header gave", filtered.total === taskCounts.get(task),
   `${filtered.total} against ${taskCounts.get(task)}`);
@@ -88,7 +95,7 @@ check("two chips in one group are a union", either.total === taskCounts.get(a) +
 const licenceCounts = await index.counts("downloads", "license");
 const [licence] = [...licenceCounts].sort((x, y) => y[1] - x[1])[0];
 const both = await index.page({ sort: "downloads", filters: { task: [task], license: [licence] }, page: 1 });
-check("two groups intersect", both.rows.every((r) => holdsTask(r) && r[3]?.[F.license] === licence), "a row did not hold both");
+check("two groups intersect", both.rows.every((r) => holdsTask(r) && r[6]?.[F.license] === licence), "a row did not hold both");
 check("and give no more than either alone", both.total <= filtered.total, `${both.total} against ${filtered.total}`);
 
 // Paging through a filter.
