@@ -7,8 +7,18 @@ module is the model, the guest serves each screen from it, and the renderer in
 run `python app/tools/gen_kernel.py`.
 """
 
+# Two hosts, because they are two things. HOST is where this site is served
+# from: the static interface, published from this repository. API_HOST is the
+# hub that answers a tool - the Hugging Face dialect, the OCI registry, MCP,
+# accounts and buckets - which a static host cannot do, since it has to set
+# `X-Repo-Commit` on a HEAD and redirect with headers. They were one name until
+# 2026-11-14, when the apex became this repository's Pages site and the hub
+# moved to a name of its own on the same machine. Every command, link and
+# endpoint a tool is given below names API_HOST; only the brand in the header
+# names HOST. `docs/cutover.md` has the records and the order.
 HOST = "gethologram.ai"
-API = "https://gethologram.ai"
+API_HOST = "api.gethologram.ai"
+API = f"https://{API_HOST}"
 
 # Routes the guest renders, by number. Request `03 nn` asks for route nn.
 ROUTES = ["chrome", "home", "models", "model", "docs", "registry", "apps", "buckets"]
@@ -122,14 +132,14 @@ SCREENS = {
         "requires": "Needs",
         "files": "{n} files",
         "model": "Model",
-        "openBase": "https://gethologram.ai/spaces/",
+        "openBase": f"{API}/spaces/",
         "snapshot": "Copied from {source} on {date}. sha256 {hash}",
     },
     "buckets": {
         "title": "Buckets",
-        "lead": "A bucket is a named place for your own objects, each stored and fetched by its address. Writing to a bucket needs an account on gethologram.ai; reading and checking any object needs nothing.",
-        "manage": "Open buckets on gethologram.ai",
-        "manageHref": "https://gethologram.ai/buckets/",
+        "lead": f"A bucket is a named place for your own objects, each stored and fetched by its address. Writing to a bucket needs an account on {API_HOST}; reading and checking any object needs nothing.",
+        "manage": "Open buckets on the hub",
+        "manageHref": f"{API}/buckets/",
         "command": "buckets create <owner>/<name>",
         "checkTitle": "Check an object",
         "checkLead": "Paste an address. The page fetches the object, hashes it here with the address's own hash, and asks the kernel whether these are the addressed bytes.",
@@ -170,7 +180,7 @@ SCREENS = {
         },
         "menu": "Menu",
         "signIn": "Sign in",
-        "signInHref": "https://gethologram.ai/",
+        "signInHref": f"{API}/",
         "proof": "Proved by Lean",
         "proofDetail": "{passed} of {total} examples hold",
         "proofHref": "app/",
@@ -184,7 +194,7 @@ SCREENS = {
         "tail": "models, skills and artifacts.",
         "cta": "Browse {count} models",
         "ctaRoute": ROUTE["models"],
-        "command": "curl gethologram.ai",
+        "command": f"curl {API_HOST}",
         "families": [
             ["Llama", "meta-llama"], ["Qwen", "Qwen"], ["DeepSeek", "deepseek-ai"],
             ["Mistral AI", "mistralai"], ["Gemma", "google"], ["Phi", "microsoft"],
@@ -197,7 +207,7 @@ SCREENS = {
     },
     "models": {
         "title": "Models",
-        "command": "curl gethologram.ai/models",
+        "command": f"curl {API_HOST}/models",
         "search": "Search models",
         "filters": "Filters",
         "close": "Close filters",
@@ -345,7 +355,7 @@ SCREENS = {
     "docs": {
         "title": "The Hugging Face dialect",
         "lead": "Set HF_ENDPOINT to a hub and every Hugging Face tool talks to it unchanged. These are the routes it answers, and every answer the hub's kernel can give, with the status and error code a tool receives. Both tables are served by the proved kernel itself.",
-        "command": "export HF_ENDPOINT=https://gethologram.ai",
+        "command": f"export HF_ENDPOINT={API}",
         "endpointsTitle": "Routes",
         "endpoints": [list(e) for e in ENDPOINTS],
         "answersTitle": "Answers",
@@ -387,10 +397,10 @@ SCREENS = {
         "sections": [
             {"id": "quickstart", "title": "Quickstart",
              "body": ["Point the tools you already use at the hub. Nothing else changes: the cache layout, revisions and errors are the ones Hugging Face tools expect."],
-             "commands": ["export HF_ENDPOINT=https://gethologram.ai",
+             "commands": [f"export HF_ENDPOINT={API}",
                           "hf download openai-community/gpt2",
                           "vllm serve openai-community/gpt2",
-                          "MODEL_ENDPOINT=https://gethologram.ai/ llama-cli -hf bartowski/MiniCPM5-2B-GGUF:IQ2_M"]},
+                          f"MODEL_ENDPOINT={API}/ llama-cli -hf bartowski/MiniCPM5-2B-GGUF:IQ2_M"]},
             {"id": "verification", "title": "Verification",
              "body": ["Every file has an address: the SHA-256 of its bytes. Verify on a model page fetches one file from each source that holds it, hashes each copy in your browser and asks the hub's kernel two questions: does this copy match its address, and what is the verdict across all copies.",
                       "Both answers are proved in Lean for every possible input: a copy is accepted exactly when its digest and size are the expected ones, and the page says Verified only when at least one source delivered and none sent other bytes.",
@@ -398,7 +408,7 @@ SCREENS = {
             {"id": "sources", "title": "Sources and failover",
              "body": ["A file can come from Hugging Face, ModelScope or IPFS. The kernel chooses: never a source that does not hold the file or failed verification for it, a healthy one whenever a usable one exists, and only the source you pin when you pin one with /via/<source>.",
                       "On the edge the hub only redirects, and only to vetted sources. A local runner serves the bytes itself, after checking them."],
-             "commands": ["curl -I https://gethologram.ai/via/ipfs/openai-community/gpt2/resolve/main/config.json"]},
+             "commands": [f"curl -I {API}/via/ipfs/openai-community/gpt2/resolve/main/config.json"]},
             {"id": "limits", "title": "Limits and scope",
              "body": ["Open-weight models only: gated and private repositories are refused, and a missing repository and a private one get the same answer, so the hub never tells them apart.",
                       "Reads only for now. Uploads, discussions, Spaces and inference are not part of the hub."]},
