@@ -244,9 +244,17 @@ async function resolve(method, via, repo, revision, path) {
   if (answer !== 1) return refuse(answer, method);
   const source = slots[slot].kind;
   const etag = etagKind === 2 ? lfs.sha256 : sibling.blobId;
-  const target = source === "huggingface.co"
-    ? `${HF}/${repo}/resolve/${info.sha}/${path}`
-    : `${held.sources.find((x) => x.kind === source).resolve}${path}`;
+  // The record names where its own bytes come from, so the redirect and the
+  // record agree by construction rather than by two copies of one host name.
+  // A record written before `origin` existed leaves it unset and the
+  // constant answers, which is what every record did until HK-20.
+  const origin = info.record?.origin;
+  const fromRecord = origin?.kind === source ? origin.resolve : null;
+  const target = fromRecord
+    ? `${fromRecord}${path}`
+    : source === "huggingface.co"
+      ? `${HF}/${repo}/resolve/${info.sha}/${path}`
+      : `${held.sources.find((x) => x.kind === source).resolve}${path}`;
   return new Response(null, {
     status: 302,
     headers: {

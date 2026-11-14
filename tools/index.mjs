@@ -142,7 +142,7 @@ for (const row of rows) {
   let record = null;
   try {
     const kept = JSON.parse(await readFile(path, "utf8"));
-    if (kept.revision === row.sha && kept.format === "hologram.hub.release/v3") record = kept;
+    if (kept.revision === row.sha && kept.format === "hologram.hub.release/v4") record = kept;
   } catch {}
   if (!record) {
     try {
@@ -166,7 +166,7 @@ for (const row of rows) {
       // source and checks it for itself.
       const card = files.find((f) => f.path.toLowerCase() === "readme.md");
       record = {
-        format: "hologram.hub.release/v3",
+        format: "hologram.hub.release/v4",
         repo: row.id,
         revision: row.sha,
         info: {
@@ -197,6 +197,12 @@ for (const row of rows) {
           downloads: about.downloads ?? row.downloads ?? 0,
           likes: about.likes ?? row.likes ?? 0,
         },
+        // Where this record's own bytes come from. `sources` names the other
+        // places that hold them; this names the one the record was built from,
+        // so a reader that is not the edge can fetch a file without knowing
+        // which hub built the record or hardcoding a host. Same shape as a
+        // source entry, and like one it is good only for this revision.
+        origin: { kind: "huggingface.co", resolve: `${HF}/${row.id}/resolve/${row.sha}/` },
         files,
         sources,
       };

@@ -82,3 +82,39 @@ fn index_hk_18() {
         "the builder this test reads must be the one that writes the index"
     );
 }
+
+/// `HK-20`: A release record names where its own bytes come from, and the edge sends a client to that same place, so a reader who is not the edge can fetch and check a file without knowing which hub built the record
+///
+/// The other half of this claim - that the edge's redirect is that same base -
+/// is checked end to end by `tests/edge/origin.mjs`, because it is a fact about
+/// what the edge answers rather than about what the builder writes.
+#[test]
+fn index_hk_20() {
+    let source = builder();
+    let record = record_literal(&source);
+    assert!(
+        record.contains("origin:"),
+        "a release record must name the origin its bytes come from:\n{record}"
+    );
+    let origin = {
+        let start = record.find("origin:").expect("checked just above");
+        let rest = &record[start..];
+        let end = rest.find('\n').unwrap_or(rest.len());
+        rest[..end].to_string()
+    };
+    for part in ["kind:", "resolve:"] {
+        assert!(
+            origin.contains(part),
+            "the origin must carry {part}, the shape a source entry already has: {origin}"
+        );
+    }
+    // Built from the host the builder actually read and from this record's own
+    // repository and revision. A second copy of a host name written out by hand
+    // is what drifts.
+    for part in ["HF", "row.id", "row.sha"] {
+        assert!(
+            origin.contains(part),
+            "the origin's resolve base must be built from {part}, not written out: {origin}"
+        );
+    }
+}

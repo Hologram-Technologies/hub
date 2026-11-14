@@ -333,3 +333,6 @@ jobs:
             }
           ' "$RUNNER_TEMP/index-copy"
           node tests/edge/complete.mjs https://hologram-technologies.github.io/hub/app/app.holo "$RUNNER_TEMP/index-copy"
+      - name: A record says where its bytes come from, and the edge sends you there
+        shell: bash
+        run: node tests/edge/origin.mjs https://hologram-technologies.github.io/hub/app/app.holo "$RUNNER_TEMP/index-copy"

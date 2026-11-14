@@ -920,3 +920,56 @@ its Verify button for all of them although there is nothing to compare, so the
 button does nothing when clicked; that is older than this change.
 `tools/web-routes.mjs` builds its model pages from the live hub's catalog, so
 an owner's models have no prerendered page and open through `404.html`.
+
+## HK-20: a record says where its own bytes come from
+
+A record addressed every file and named the other places that held them, but
+never said where it came from itself. The edge did not need telling - it has
+`const HF = "https://huggingface.co"` and built the redirect from that - so the
+gap only showed for a reader that is not the edge. A browser client holding a
+record could check a file's address and still not know which host to ask. The
+nearest thing in the record was `observed.source`, which names who counted the
+downloads, not where bytes live; reading it as a resolve base would be one
+field doing two jobs.
+
+So a record now carries `origin`, the same shape a `sources` entry has and
+good for the same one revision: `{ kind, resolve }`, where `resolve` is a base
+a path appends to. `sources` keeps its meaning - the *other* places that hold
+these bytes - and nothing claims Hugging Face twice. The edge reads `origin`
+when its kind matches the slot the kernel chose, and falls back to its constant
+for a record written before this existed. The record format moved to
+`hologram.hub.release/v4`, which also forces every cached record to be rebuilt
+rather than reused without the new field.
+
+Two gates, because the claim has two halves, and each was shown to fail first.
+
+| Planted | Gate | Diagnostic |
+| --- | --- | --- |
+| The resolve base written out by hand as `"https://huggingface.co/"` instead of built from what the builder read | `index_hk_20` in `crates/conformance/tests/index.rs` | `the origin's resolve base must be built from HF, not written out` |
+| `const fromRecord = null` in `edge/edge.mjs`, so the edge ignores the record and uses its own constant | `tests/edge/origin.mjs` | three failures, including `a record whose origin is a mirror is followed to the mirror` |
+
+The second gate needed designing before it could fail at all. Every record
+today names Hugging Face, which is exactly what the edge's own constant says,
+so comparing the redirect against the record would have passed even with the
+field ignored entirely. The test therefore moves one record's origin to
+`https://mirror.invalid/held/`, a base the constant could never produce, and
+that is the check that can actually fail. A gate that cannot distinguish the
+implementation from its absence is not evidence, however green it reads.
+
+### A cached target directory can make a test read a different repository
+
+`crates/model`'s `repo_root()` is `env!("CARGO_MANIFEST_DIR")`, resolved when
+the binary is compiled, not when it runs. The SDK volume holds both a shared
+`CARGO_TARGET_DIR` at `/tmp/hub-target` and a copy of the tree at `/tmp/hubvv`
+that `just vv` made earlier. A binary built during that run bakes
+`/tmp/hubvv/crates/model`, so a later `cargo test` using the same target
+directory against the mounted `/w` reads `/tmp/hubvv/tools/index.mjs` - a tree
+that can be hours old - while appearing to test the working tree.
+
+This is not hypothetical: it is how `index_hk_20` was first seen to fail, and
+how `cargo run -p xtask -- check-model --write` wrote `/tmp/hubvv/CONFORMANCE.md`
+and left the real one stale. The symptom is a test whose result does not change
+when the file it reads does. `cargo clean -p repo-model -p xtask -p
+repo-conformance` rebuilds with the right path baked in; `just vv` is unaffected
+because it makes its own fresh copy. Any source-reading gate is exposed to this,
+which is the cost of a gate that reads a file rather than running code.
