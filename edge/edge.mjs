@@ -139,6 +139,38 @@ const siblingsOf = (rec) => new Map(rec.files.map((f) => [f.path, {
   rfilename: f.path, size: f.size, blobId: f.gitSha1,
   ...(f.sha256 ? { lfs: { sha256: f.sha256, size: f.size, pointerSize: f.pointerSize ?? 134 } } : {}),
 }]));
+// The SHA-256 a file's bytes can be checked against: the release's own, or a
+// second witness that named the same revision. `files[].sha256` is
+// deliberately not filled from a witness, because the edge reads that field
+// to decide which ETag a Hugging Face client is given and that wire must not
+// move. This is the same fact for a different purpose, so it is a different
+// function rather than a second meaning for one field.
+// Whether this file can be checked against an address the serving source did
+// not supply. Only the release's own addresses count: the git blob identity,
+// which every file a record carries has, and the SHA-256 where the origin
+// published one. A witness's address is deliberately not enough on its own -
+// a witness that is also a source would then be supplying both the bytes and
+// the number they are checked against, and the hub would call that verified.
+// The runner checks every address the record carries, so a witness address
+// can corroborate but can never be the only thing checked.
+export function checkable(record, path) {
+  const file = record?.files?.find((f) => f.path === path);
+  return Boolean(file && (file.gitSha1 || file.sha256));
+}
+
+// The SHA-256 to compare bytes against, which may come from a witness. This
+// is what the runner verifies with, beside the git blob identity; it is not
+// what decides whether an unvetted source may be chosen. See `checkable`.
+export function addressOf(record, path) {
+  const own = record?.files?.find((f) => f.path === path)?.sha256;
+  if (own) return own;
+  for (const witness of record?.witnesses ?? []) {
+    const seen = witness.addresses?.find((a) => a.path === path)?.sha256;
+    if (seen) return seen;
+  }
+  return null;
+}
+
 const indexedRevision = (rec, revision) => revision === "main" || revision === rec.revision
   || (/^[0-9a-f]{7,39}$/.test(revision) && rec.revision.startsWith(revision));
 
@@ -194,12 +226,31 @@ export function report(source, ok) {
 }
 
 const enc = new TextEncoder();
-function resolveRequest({ repo, revisionKind, refFound, requested, commit, entry, pin, slots }) {
-  const b = new Uint8Array(104);
+// The edge is deployed apart from the kernel it loads, so it has to work
+// against one built before `addressed` existed, which refuses a 105-byte
+// request outright. Asked once, from the kernel's own answer rather than from
+// a version string: a kernel that calls the longer request invalid and the
+// shorter one valid is an older kernel, and it then decides as it always did.
+let resolveWidth = 105;
+async function decide(facts) {
+  const plan = await kernel.dispatch(resolveRequest(facts, resolveWidth));
+  if (plan[0] !== 0 || resolveWidth === 104) return plan;
+  const older = await kernel.dispatch(resolveRequest(facts, 104));
+  if (older[0] === 0) return plan;
+  resolveWidth = 104;
+  return older;
+}
+function resolveRequest({ repo, revisionKind, refFound, requested, commit, entry, addressed, pin, slots }, width) {
+  const b = new Uint8Array(width);
   b.set([1, 0, repo, revisionKind, refFound, revisionKind === 1 ? requested.length : 0, entry, pin]);
   slots.forEach((s, i) => b.set([s.holds, s.healthy, s.vetted, s.failed], 8 + 4 * i));
   if (revisionKind === 1) b.set(enc.encode(requested).subarray(0, 40), 24);
   if (commit) b.set(enc.encode(commit).subarray(0, 40), 64);
+  // Whether the record addresses this file, which decides which sources may
+  // serve it. `entry` at byte 6 decides the ETag instead; the two coincided
+  // only while both came from the LFS pointer. A kernel from before this field
+  // existed is asked the shorter request and answers as it used to.
+  if (width > 104) b[104] = addressed;
   return b;
 }
 
@@ -236,16 +287,17 @@ async function resolve(method, via, repo, revision, path) {
   });
   slots.push({ kind: null, holds: 0, healthy: 0, vetted: 0, failed: 0 });
   const pin = via === null ? 0 : SOURCES.indexOf(via) >= 0 ? SOURCES.indexOf(via) + 1 : 5;
-  const plan = await kernel.dispatch(resolveRequest({
+  const plan = await decide({
     repo: info.state,
     revisionKind: commitKind,
     refFound: info.revision ? 1 : 0,
     requested: revision,
     commit: info.sha ?? "",
     entry: info.state === 0 && info.revision ? (sibling ? (lfs ? 2 : 1) : 0) : 0,
+    addressed: checkable(info.record, path) ? 1 : 0,
     pin,
     slots,
-  }));
+  });
   const [answer, slot, etagKind] = plan;
   if (answer !== 1) return refuse(answer, method);
   const source = slots[slot].kind;

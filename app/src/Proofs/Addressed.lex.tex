@@ -9,7 +9,7 @@ definition{
   name: breaksAddressed,
   parameters: [facts : Kernel::Facts],
   result: Bool,
-  body: ((((Kernel::select facts) =? 0) && ((not ((project facts vetted0) =? 1)) && (not ((project facts entry) =? 2)))) || ((((Kernel::select facts) =? 1) && ((not ((project facts vetted1) =? 1)) && (not ((project facts entry) =? 2)))) || ((((Kernel::select facts) =? 2) && ((not ((project facts vetted2) =? 1)) && (not ((project facts entry) =? 2)))) || (((Kernel::select facts) =? 3) && ((not ((project facts vetted3) =? 1)) && (not ((project facts entry) =? 2)))))))
+  body: ((((Kernel::select facts) =? 0) && ((not ((project facts vetted0) =? 1)) && (not ((project facts addressed) =? 1)))) || ((((Kernel::select facts) =? 1) && ((not ((project facts vetted1) =? 1)) && (not ((project facts addressed) =? 1)))) || ((((Kernel::select facts) =? 2) && ((not ((project facts vetted2) =? 1)) && (not ((project facts addressed) =? 1)))) || (((Kernel::select facts) =? 3) && ((not ((project facts vetted3) =? 1)) && (not ((project facts addressed) =? 1)))))))
 }
 
 theorem{
