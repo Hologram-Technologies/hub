@@ -30,6 +30,15 @@ const ORIGIN = "2022-03-02T23:29:04Z";
 // One call a second leaves most of that for everything else the build does.
 const PACE = 1100;
 const PAGE = 1000;
+// Named fields rather than `full=true`, for two reasons measured on
+// 2026-11-14. It is the only way to get `safetensors`, which is the parameter
+// count the interface's Parameters slider filters on: `full=true` does not
+// return it and naming it is the documented way to ask. And `full=true`
+// returns `siblings`, every filename of every model, which is most of a
+// 4.08 kB row and which the roll does not store - the index holds filenames,
+// with the sizes and addresses that make them worth having.
+const FIELDS = ["sha", "createdAt", "lastModified", "tags", "pipeline_tag", "library_name",
+  "safetensors", "downloads", "likes", "gated", "private"].map((f) => `expand[]=${f}`).join("&");
 // 11 bits of the id's digest: 2,048 shards, about 1,500 rows each at today's
 // three million models, which is where a cold lookup is cheapest once a row's
 // real size is measured rather than estimated. The working, and the estimate
@@ -40,6 +49,47 @@ const SHARDS = 1 << SHARD_BITS;
 // private are not the same thing and Hugging Face tells them apart, so the
 // roll does too.
 const LISTED = 0, GONE = 1, WITHHELD = 2;
+
+// ------------------------------------------------------- the browse fields
+// Everything the interface's filter panel reads is already in the listing:
+// `pipeline_tag` is the task, `library_name` the library, and the tags carry
+// the licence and the languages. None of it costs an extra call.
+//
+// They are stored as indices into dictionaries published in the root, not as
+// strings. Measured 2026-11-14 on 500 real rows: 79 B a row coded against
+// 635 B for the row the interface publishes today, which is the difference
+// between 245 MB for three million models and 1,955 MB - between fitting in a
+// GitHub Pages site and not. A tag repeated three million times should be
+// written down once.
+const DICTS = ["task", "library", "license", "language"];
+const dict = Object.fromEntries(DICTS.map((d) => [d, new Map()]));
+const code = (d, v) => {
+  if (v == null || v === "") return null;
+  if (!dict[d].has(v)) dict[d].set(v, dict[d].size);
+  return dict[d].get(v);
+};
+// Days rather than seconds: the interface groups by day and never shows a
+// time, and four fewer digits over three million rows is 12 MB.
+const days = (iso) => (iso ? Math.floor(new Date(iso).getTime() / 86400000) : null);
+// A language tag is two or three lower-case letters. Hugging Face's tags mix
+// languages, licences, libraries and free text in one list, so this is a
+// filter and not a parse; anything it misses is simply not offered as a
+// language, which is how the interface already treats a missing facet.
+const LANG = /^[a-z]{2,3}$/;
+const browseOf = (m) => {
+  const tags = Array.isArray(m.tags) ? m.tags : [];
+  const licence = tags.find((t) => t.startsWith("license:"))?.slice(8) ?? null;
+  return [
+    days(m.lastModified),
+    code("task", m.pipeline_tag),
+    code("library", m.library_name),
+    code("license", licence),
+    tags.filter((t) => LANG.test(t)).slice(0, 8).map((t) => code("language", t)),
+    m.safetensors?.total ?? null,
+    m.downloads ?? 0,
+    m.likes ?? 0,
+  ];
+};
 
 const args = process.argv.slice(2);
 const out = args[0];
@@ -70,7 +120,7 @@ async function listing(cursor) {
   const wait = last + PACE - Date.now();
   if (wait > 0) await pause(wait);
   last = Date.now();
-  const url = `${HF}/api/models?sort=createdAt&direction=-1&limit=${PAGE}&full=true`
+  const url = `${HF}/api/models?sort=createdAt&direction=-1&limit=${PAGE}&${FIELDS}`
     + (cursor ? `&cursor=${encodeURIComponent(cursor)}` : "");
   for (let attempt = 0; ; attempt++) {
     const r = await fetch(url, { signal: AbortSignal.timeout(90000) });
@@ -161,6 +211,11 @@ const now = Math.floor(Date.now() / 1000);
 const { rows, root } = await readRoll(out);
 const before = rows.size;
 
+// The dictionaries are restored before anything is walked. A code is an index,
+// so renumbering them would silently change what every existing row says: the
+// same number would mean a different licence. They only ever grow.
+for (const d of DICTS) for (const value of root?.dictionaries?.[d] ?? []) code(d, value);
+
 const to = flag("to") ?? new Date(Date.now() + 60_000).toISOString();
 let from = flag("from");
 if (!from) {
@@ -189,10 +244,14 @@ await walk(from, to, (m, created) => {
     was[1] = m.sha ?? was[1];
     was[4] = now;
     was[5] = state;
+    was[6] = browseOf(m);
     updated += 1;
   } else {
-    // [ id, revision, created, first seen, last seen, state ]
-    rows.set(m.id, [m.id, m.sha ?? null, created, now, now, state]);
+    // [ id, revision, created, first seen, last seen, state, browse ]
+    // where browse is [ modified, task, library, licence, languages,
+    // parameters, downloads, likes ], each name an index into the root's
+    // dictionary. A row with no browse is one this build did not see listed.
+    rows.set(m.id, [m.id, m.sha ?? null, created, now, now, state, browseOf(m)]);
     added += 1;
   }
 });
@@ -223,6 +282,9 @@ await writeFile(join(out, "root.json"), JSON.stringify({
   built: new Date().toISOString(),
   source: `${HF}/api/models`,
   counts,
+  // What a browse row's numbers mean. Published here rather than beside each
+  // row because three million rows saying "apache-2.0" should say it once.
+  dictionaries: Object.fromEntries(DICTS.map((d) => [d, [...dict[d].keys()]])),
   shards,
 }));
 

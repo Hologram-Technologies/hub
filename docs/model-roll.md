@@ -444,6 +444,45 @@ hashes to what the root names, every shard on disk is named by the root, and
 the root's counts equal the rows. Nothing is published that a reader could not
 check, and nothing is published that the root does not account for.
 
+## Listing everything, with the filters kept
+
+The interface can list all 3.08 million and keep its filter panel. An earlier
+reading of this said it could not, and that reading was wrong because it
+measured the wrong row.
+
+The row the interface publishes today is 635 B, which is 1,955 MB for three
+million and does not fit in a GitHub Pages site. But most of that row is either
+derivable from the id, or the same handful of strings written out three million
+times. Stored as indices into dictionaries published once in the root, a roll
+row carrying everything the panel filters on measures 154 B, which is 474 MB -
+46 per cent of the limit. Measured 2026-11-14 on a real day's build of 3,959
+models.
+
+Nothing extra is fetched for it. The listing already carries the task in
+`pipeline_tag`, the library in `library_name`, and the licence and the
+languages inside `tags`. The parameter count needs `expand[]=safetensors`,
+which is also the reason the sweep names its fields rather than asking for
+`full=true`: that flag does not return `safetensors`, and it does return
+`siblings`, every filename of every model, which is most of a 4.08 kB row and
+which the roll does not store.
+
+Dictionaries only ever grow, and are restored before a run walks anything. A
+code is an index, so renumbering would silently change what every existing row
+says - the same number would mean a different licence. Checked on a tail run
+that added 1,163 models: every previous code still means what it meant.
+
+### What the long tail actually looks like
+
+Worth knowing before the interface offers filters over three million rows.
+Measured over one day, 3,959 models: 41 per cent carry a task, 41 per cent a
+library, 48 per cent a licence, 30 per cent a language, 28 per cent a parameter
+count, and 49 per cent have ever been downloaded.
+
+So more than half of what Hugging Face holds is unlabelled, and a filter panel
+over the whole roll is a panel most rows cannot answer. That is a fact about
+the Hub rather than about this hub, and the honest way to show it is to say how
+many rows a filter could not speak for, rather than to quietly drop them.
+
 ## Sources
 
 Everything above marked measured was obtained with `curl` and `node` against
