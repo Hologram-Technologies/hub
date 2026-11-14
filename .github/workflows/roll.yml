@@ -51,3 +51,10 @@ jobs:
           node tools/roll.mjs "$RUNNER_TEMP/roll-browse" --from "$from" --to "$to"
           node tools/browse-index.mjs "$RUNNER_TEMP/roll-browse" "$RUNNER_TEMP/browse"
           node tests/browse/page.mjs "$RUNNER_TEMP/browse"
+
+      # And the reader the page itself uses, over real HTTP, because its whole
+      # job is ranged reads and a test that bypassed them would be testing
+      # something else.
+      - name: The page's reader asks for ranges and gets the right rows
+        shell: bash
+        run: node tests/browse/reader.mjs "$RUNNER_TEMP/browse"
