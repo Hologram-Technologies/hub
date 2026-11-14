@@ -33,6 +33,7 @@ import { pipeline } from "node:stream/promises";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import * as edge from "../edge/edge.mjs";
+import { holdings } from "./discover.mjs";
 import { lookup, fetchTorrent } from "./pirateface.mjs";
 import { announce, fetchPieces, peerId } from "./swarm.mjs";
 import { findFile, piecesOf } from "./torrent.mjs";
@@ -46,19 +47,30 @@ export const SOURCES = [...edge.SOURCES, "pirateface"];
 const UNVETTED = new Set(["pirateface"]);
 const LOOKUP_TTL = 300_000;
 
-let settings = { cacheDir: join(tmpdir(), "hologram-hub-cache"), manifests: null, drain: new Set() };
+let settings = {
+  cacheDir: join(tmpdir(), "hologram-hub-cache"), manifests: null, drain: new Set(),
+  // Overridable so a test can stand a swarm index in front of the runner.
+  piratefaceHost: undefined,
+};
 let manifestCache = new Map();
 const lookups = new Map();
 const torrents = new Map();
+// One fetch per file in flight at a time. A client that gives up and retries
+// would otherwise start a second download of the same file, and two downloads
+// of one torrent compete for the same peers and both go slower. Measured: a
+// `huggingface_hub` retry loop started four concurrent swarm fetches and none
+// of them finished.
+const inflight = new Map();
 const quarantined = new Set();
 const id = peerId();
 
-export async function start({ holo, index, manifests = null, huggingFace = true, drain = [], cacheDir } = {}) {
+export async function start({ holo, index, manifests = null, huggingFace = true, drain = [], cacheDir, piratefaceHost } = {}) {
   const ready = await edge.start({ holo, index, huggingFace, drain });
   settings = {
     cacheDir: cacheDir ?? settings.cacheDir,
     manifests,
     drain: new Set(drain),
+    piratefaceHost,
   };
   await mkdir(settings.cacheDir, { recursive: true });
   return { ...ready, runner: "local", sources: SOURCES, cache: settings.cacheDir };
@@ -72,13 +84,14 @@ async function swarmHolding(repo, revision) {
   if (hit && hit.at > Date.now() - LOOKUP_TTL) return match(hit.value, revision);
   let value = null;
   try {
-    value = await lookup(repo);
+    value = await lookup(repo, swarmHost());
   } catch {
     value = null;
   }
   lookups.set(repo, { at: Date.now(), value });
   return match(value, revision);
 }
+const swarmHost = () => (settings.piratefaceHost ? { host: settings.piratefaceHost } : {});
 const match = (found, revision) => (found && revision && found.revision === revision ? found : null);
 
 const enc = new TextEncoder();
@@ -123,7 +136,7 @@ async function fetchHttp(url, destination, timeoutMs = 30 * 60000) {
 // commitment before it is written, and the pieces at either end hold bytes of
 // neighbouring files which are written and then ignored.
 async function fetchSwarm(found, path, destination, onNote) {
-  if (!torrents.has(found.infohash)) torrents.set(found.infohash, await fetchTorrent(found));
+  if (!torrents.has(found.infohash)) torrents.set(found.infohash, await fetchTorrent(found, swarmHost()));
   const torrent = torrents.get(found.infohash);
   const file = findFile(torrent, path);
   if (!file) throw new Error(`${path} is not in torrent ${torrent.infohash}`);
@@ -166,6 +179,10 @@ const CORS = {
   "access-control-allow-origin": "*",
   "access-control-expose-headers": "x-repo-commit, x-linked-etag, x-linked-size, etag, x-error-code, x-error-message, x-hub-source, x-hub-runner, x-hub-tensors, x-hub-partial, link, accept-ranges, content-range",
 };
+
+const json = (body, status = 200) => new Response(JSON.stringify(body, null, 1), {
+  status, headers: { ...CORS, "content-type": "application/json", "cache-control": "no-store" },
+});
 
 function refuse(answer, method) {
   const { dialect } = edge.loaded();
@@ -275,64 +292,80 @@ async function serveFile(request, via, repo, revision, path, onNote) {
       return served(method, null, { etag, size: sibling.size, commit: info.sha, source, tensors: null }, null);
     }
 
-    // Bytes already in the cache were verified before they were written, and
-    // the cache is addressed by the digest the record names, so a hit needs no
-    // source at all. A pinned request skips it, because asking for
+    // The cache is addressed by whatever address the record names, so a hit
+    // needs no source at all. A pinned request skips it, because asking for
     // `/via/<source>` is asking to exercise that source.
-    const hit = pin === 0 ? await cached(address) : null;
+    const key = address ?? sibling.blobId;
+    const hit = pin === 0 ? await cached(key) : null;
     let file = hit?.path ?? null;
-    let temporary = null;
+    let tensors = null;
+
     if (!file) {
-      temporary = join(settings.cacheDir, "partial", `${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+      // One fetch per file at a time, and the fetch verifies before it
+      // returns. Both matter: a waiter must never be handed a path the owner
+      // is about to move, and a client that gives up and retries must not
+      // start a second download that competes with the first for the same
+      // peers.
+      const job = inflight.get(key) ?? (() => {
+        const made = (async () => {
+          const into = join(settings.cacheDir, "partial", `${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+          try {
+            if (source === "pirateface") await fetchSwarm(swarm, path, into, onNote);
+            else {
+              const target = source === "huggingface.co"
+                ? `${HF}/${repo}/resolve/${info.sha}/${path}`
+                : `${held.sources.find((x) => x.kind === source).resolve}${path}`;
+              await fetchHttp(target, into);
+            }
+          } catch (error) {
+            await unlink(into).catch(() => {});
+            throw Object.assign(error, { unreachable: true });
+          }
+          const verdict = await check(kernel, into, { address, size: sibling.size, blobId: sibling.blobId, entry });
+          if (!verdict.ok) {
+            await unlink(into).catch(() => {});
+            throw new Error(verdict.why);
+          }
+          // Verified, so it may be named by its address. Every consumer of
+          // this job gets the same settled path.
+          const destination = cachePath(key);
+          await mkdir(dirname(destination), { recursive: true });
+          await rename(into, destination).catch(() => {});
+          return (await cached(key))?.path ?? into;
+        })();
+        inflight.set(key, made);
+        made.catch(() => {}).then(() => inflight.delete(key));
+        return made;
+      })();
       try {
-        if (source === "pirateface") await fetchSwarm(swarm, path, temporary, onNote);
-        else {
-          const target = source === "huggingface.co"
-            ? `${HF}/${repo}/resolve/${info.sha}/${path}`
-            : `${held.sources.find((x) => x.kind === source).resolve}${path}`;
-          await fetchHttp(target, temporary);
-        }
+        file = await job;
       } catch (error) {
-        onNote(`${source} could not deliver ${repo}/${path}: ${error.message}`);
-        await unlink(temporary).catch(() => {});
+        if (error.unreachable) {
+          onNote(`${source} could not deliver ${repo}/${path}: ${error.message}`);
+          silent.add(source);
+        } else {
+          onNote(`${source} sent bytes that are not ${repo}/${path}: ${error.message}`);
+          quarantined.add(`${source}:${key}`);
+        }
         edge.report(source, false);
-        silent.add(source);
         continue;
       }
-      file = temporary;
-    }
-
-    const verdict = await check(kernel, file, { address, size: sibling.size, blobId: sibling.blobId, entry });
-    if (!verdict.ok) {
-      onNote(`${source} sent bytes that are not ${repo}/${path}: ${verdict.why}`);
-      if (temporary) await unlink(temporary).catch(() => {});
-      edge.report(source, false);
-      quarantined.add(`${source}:${address ?? sibling?.blobId}`);
-      continue;
     }
 
     // The UOR check: the file is intact, and these are the tensors this
     // repository witnessed. A file that passes its address but fails a
     // witnessed tensor means two signed artifacts disagree, which is reported
     // rather than served.
-    let tensors = null;
     if (manifest && path.endsWith(".safetensors")) {
       const seen = await checkTensorsOfFile(manifest, path, file);
       if (seen.witnessed && seen.mismatched.length) {
         onNote(`${repo}/${path}: ${seen.mismatched.length} tensors do not match the signed manifest`);
-        if (temporary) await unlink(temporary).catch(() => {});
-        quarantined.add(`${source}:${address}`);
+        quarantined.add(`${source}:${key}`);
         continue;
       }
       if (seen.witnessed) tensors = `${seen.matched}/${seen.total}`;
     }
 
-    if (temporary && address) {
-      const destination = cachePath(address);
-      await mkdir(dirname(destination), { recursive: true });
-      await rename(temporary, destination).catch(() => {});
-      file = (await cached(address))?.path ?? temporary;
-    }
     if (!hit) edge.report(source, true);
     const size = sibling.size;
     // A cache hit is named as one rather than credited to the source the
@@ -406,6 +439,29 @@ export async function handle(request, { onNote = () => {} } = {}) {
       });
     }
   }
+  // What the swarm holds for one model, and how much of it this hub could
+  // actually check. The two are different questions and the answer keeps them
+  // apart: peers decide whether bytes can be got, addresses decide whether
+  // they can be believed, and `HK-19` refuses a file that has no address
+  // however many peers hold it.
+  const swarm = path.match(/^api\/swarm\/([\w.-]+\/[\w.-]+)$/);
+  if (swarm && (request.method === "GET" || request.method === "HEAD")) {
+    const repo = swarm[1];
+    const rec = await edge.release(repo, "main").catch(() => null);
+    const addressed = rec?.siblings ? [...rec.siblings.values()].filter((s) => s.lfs?.sha256).length : null;
+    let held = null;
+    try {
+      held = await holdings(repo, { ...swarmHost(), revision: rec?.sha ?? null });
+    } catch (error) {
+      return json({ repo, error: String(error?.message ?? error) }, 502);
+    }
+    if (!held) return json({ repo, swarm: null, why: "no torrent is listed for this repository" }, 404);
+    return json({
+      ...held,
+      servable: addressed === null ? null : { addressed, files: rec.siblings.size },
+    });
+  }
+
   if (path === "" || path === "health") {
     const { kernel, index, useHuggingFace } = edge.loaded();
     return new Response(JSON.stringify({

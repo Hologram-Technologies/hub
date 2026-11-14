@@ -40,6 +40,9 @@ jobs:
       - name: A tensor address follows its bytes
         shell: bash
         run: node tests/runner/uor.mjs
+      - name: Finding a model and being able to check it are different questions
+        shell: bash
+        run: node tests/runner/discover.mjs
       - name: The runner carries verified bytes and refuses the rest
         # Against the kernel the hub is serving, as the edge tests do: the
         # runner is deployed apart from the kernel and must work with the holo

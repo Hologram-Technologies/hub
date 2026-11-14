@@ -952,6 +952,60 @@ whose info dictionary hashes to that infohash, 25 files and 1,343 pieces of
 two pieces - 8,388,608 bytes - arrived in 10.0 seconds, each matching its
 committed hash.
 
+The whole path, measured 2026-11-14. A request to
+`/via/pirateface/openai-community/gpt2/resolve/main/64-8bits.tflite` answered
+`200` with 125,162,496 bytes in 47.8 seconds, from 7 peers over 30 pieces, and
+the bytes hash to `c966da3b74697803352ca7c6f2f220e7090a557b619de9da0c6b34d89f7825c1`,
+which is the address the signed index names. Every piece was checked against
+the infohash on the way in and the whole file against the record before any of
+it was served. That is a model weight file fetched from a BitTorrent swarm and
+handed to a Hugging Face client, with nothing trusted along the way.
+
+The same request from `huggingface_hub` 2.4.0 fails, and the reason is worth
+recording because it is not a defect in either side. A file is served only
+after all of it has been checked, so a cold fetch answers nothing for 48
+seconds; the client's read timeout is ten, and it sees silence rather than
+progress. It then retried, and each retry started another download of the same
+torrent: four concurrent fetches competing for the same four seeders, reported
+as `the swarm delivered 0 of 30 pieces before the deadline`.
+
+Streaming pieces as they arrive would fix the timeout and break the claim.
+BitTorrent checks each piece against the infohash, so streamed bytes would be
+intact, but the infohash comes from the swarm's own index and only the address
+in this hub's signed record says the torrent is the file it claims to be.
+Streaming sends bytes before that question is settled, which is what `HK-19`
+exists to prevent. So the wait stays and moves to `runner/pull.mjs`, which is
+not a Hugging Face client and does not mind waiting; afterwards the bytes are
+in the cache under their address and a client is answered from them at once.
+
+Two changes came out of that run. Fetches are now coalesced per address, so a
+retry joins the download in flight instead of starting a rival one. And the
+fetch verifies and moves the bytes into the cache before it returns, because
+the first version of the coalescing handed waiters a path that the request
+which started the fetch was about to rename - a race that only exists once
+more than one request can want the same file, which is exactly what a retrying
+client produces.
+
+The three steps together, measured 2026-11-14 on one machine. Ask what the
+swarm has: `/api/swarm/openai-community/gpt2` reports the revision matching the
+hub's record, 4 seeders, and the infohash recomputed. Pull it:
+`runner/pull.mjs ... --via pirateface` fetched 125,162,496 bytes in 42.1
+seconds and left them in the cache. Use it: `huggingface_hub` 2.4.0 with
+`HF_ENDPOINT` pointed at the runner and no pin at all returned the file in 2.6
+seconds, hashing to the address the signed index names. The client was not
+modified, told nothing about torrents, and never saw one.
+
+Discovery is the other half and is reported apart from it, because peers decide
+whether bytes can be fetched and addresses decide whether they can be believed.
+`node runner/discover.mjs qwen` found 67 models with a torrent. For
+`openai-community/gpt2`, `/api/swarm/{repo}` reports the revision matching the
+hub's record, 4 seeders, the infohash recomputed from the metadata, 25 files,
+5,632,416,850 bytes over 1,343 pieces, and `servable` as 11 addressed of 26
+files. A model with peers and no address is one that can be downloaded and not
+checked, and it is printed as that rather than as a result.
+`tests/runner/discover.mjs` covers the parsing, the revision mismatch, the
+absent repository and the tampered torrent in 5 checks with no network.
+
 What a Hugging Face client sees is the point, and it sees nothing. Measured
 2026-11-14 with `huggingface_hub` 2.4.0, `tests/edge/observe.py` run against
 huggingface.co and against the local runner, and `compare.py` over the two:

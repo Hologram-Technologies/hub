@@ -291,7 +291,51 @@ never an override: when the kernel answers that no source can serve a file, the
 runner does not reach past it, because a delivered file always has a source
 (`HK-02`, `HK-05`).
 
-`tests/runner/` covers it: the torrent and UOR checks need no network,
+## Pulling from the swarm
+
+A file is served only after every byte of it has been checked, so a cold fetch
+from the swarm answers nothing until the whole file has arrived and hashed:
+measured at 48 seconds for 125 MB from four seeders. `huggingface_hub` gives up
+first. Its read timeout is ten seconds and it sees silence rather than
+progress, then retries, and before fetches were coalesced each retry started a
+competing download of the same torrent.
+
+Streaming pieces as they arrive is not the answer. BitTorrent checks each piece
+against the infohash, so streamed bytes would be intact, but the infohash comes
+from the swarm's own index; only the address in this hub's signed record says
+the torrent is the file it claims to be. Streaming would send bytes before that
+was settled, which is what `HK-19` exists to prevent.
+
+So the wait moves to something that is not a Hugging Face client:
+
+    CACHE_DIR=~/.hologram node runner/pull.mjs openai-community/gpt2 64-8bits.tflite --via pirateface
+
+fetches, verifies and leaves the bytes in the cache under their SHA-256. A
+client pointed at the runner with the same `CACHE_DIR` is then answered at
+once, from bytes the kernel has already accepted.
+
+## Finding what the swarm has
+
+Pulling is half of it. Pirate Face indexes far more models than this hub does,
+so what the swarm holds cannot be answered from this hub's index alone.
+
+    node runner/discover.mjs qwen
+
+searches its catalog and prints the models with a torrent, by seeders. The
+runner answers the same question over HTTP for one model, and adds the part
+that matters here:
+
+    GET /api/swarm/{repo}
+
+returns the revision, whether it is the revision this hub's record names, the
+seeder count, the infohash recomputed from the metadata rather than believed,
+the file and piece counts, and `servable`: how many of the release's files this
+hub holds an address for. Those last two numbers are deliberately separate.
+Peers decide whether bytes can be fetched; addresses decide whether they can be
+believed. A model with peers and no address is one you can download and cannot
+check, and `HK-19` refuses it rather than serving it.
+
+`tests/runner/` covers it: the torrent, UOR and discovery checks need no network,
 `tests/runner/kernel.mjs` pins the kernel answers the runner is built on, and
 `tests/runner/serve.mjs` runs the whole path against sources that serve the
 right bytes and the wrong ones. `tests/runner/live-pirateface.mjs` is a live
