@@ -43,6 +43,9 @@ jobs:
       - name: Finding a model and being able to check it are different questions
         shell: bash
         run: node tests/runner/discover.mjs
+      - name: A release Hugging Face no longer answers for keeps its address
+        shell: bash
+        run: node tests/runner/snapshot.mjs https://hologram-technologies.github.io/hub/app/app.holo
       - name: The runner carries verified bytes and refuses the rest
         # Against the kernel the hub is serving, as the edge tests do: the
         # runner is deployed apart from the kernel and must work with the holo

@@ -32,16 +32,30 @@ const gitBlob = (b) => createHash("sha1").update(`blob ${b.length}\0`).update(b)
 
 const REPO = "testing/model";
 const ONLY_BAD = "testing/only-bad";
+const SWARM_HASH = "d".repeat(40);
 const REVISION = "a".repeat(40);
 const WEIGHTS = Buffer.from("the bytes the record addresses, several times over".repeat(40));
 const CARD = Buffer.from("# a small file with no sha256 in the index\n");
 const OTHER = Buffer.from("these are not those bytes".repeat(40));
+const NAMELESS = Buffer.from("a file the record gives no address of any kind");
+// A file the record addresses twice. The SHA-256 is the one a second
+// witness could have supplied; the git blob identity is the one only
+// Hugging Face ever published.
+const AGREED = Buffer.from("both addresses describe these bytes".repeat(30));
+const DISPUTED = Buffer.from("the digest agrees and the git blob does not".repeat(30));
 
 const work = await mkdtemp(join(tmpdir(), "hub-runner-test-"));
 const cacheDir = join(work, "cache");
 const files = [
   { path: "model.safetensors", size: WEIGHTS.length, gitSha1: gitBlob(WEIGHTS), sha256: sha256(WEIGHTS), pointerSize: 134 },
   { path: "README.md", size: CARD.length, gitSha1: gitBlob(CARD) },
+  // No sha256 and no gitSha1: nothing to check these bytes against.
+  { path: "nameless.bin", size: NAMELESS.length },
+  { path: "agreed.bin", size: AGREED.length, gitSha1: gitBlob(AGREED), sha256: sha256(AGREED), pointerSize: 134 },
+  // The SHA-256 is right for the bytes the source serves and the git blob
+  // identity is not, which is what a witness supplying an address for bytes
+  // it also serves would look like.
+  { path: "disputed.bin", size: DISPUTED.length, gitSha1: "0".repeat(40), sha256: sha256(DISPUTED), pointerSize: 134 },
 ];
 
 // The static files the runner reads: an index root, one record, and the two
@@ -58,11 +72,17 @@ const port = await new Promise((resolve) => {
     if (wanted && records[decodeURIComponent(wanted[1])]) {
       return send(200, Buffer.from(JSON.stringify(records[decodeURIComponent(wanted[1])])));
     }
+    // A stand-in for the swarm's own catalog, so the search route can be
+    // checked without asking the real one.
+    if (url.pathname.startsWith("/s/")) {
+      const line = `${REPO}                        2 KB     9 seeds  magnet:?xt=urn:btih:${SWARM_HASH}`;
+      return send(200, Buffer.from(`${line}\nrubbish\n`), "text/plain");
+    }
     const good = url.pathname.match(/^\/good\/(.+)$/);
     const bad = url.pathname.match(/^\/bad\/(.+)$/);
     if (good) {
       const name = decodeURIComponent(good[1]);
-      const body = name === "README.md" ? CARD : WEIGHTS;
+      const body = { "README.md": CARD, "nameless.bin": NAMELESS, "agreed.bin": AGREED, "disputed.bin": DISPUTED }[name] ?? WEIGHTS;
       return send(200, body, "application/octet-stream");
     }
     if (bad) return send(200, OTHER, "application/octet-stream");
@@ -184,7 +204,7 @@ ok("a pinned source that sends other bytes is refused, not served");
 forget();
 await rm(cacheDir, { recursive: true, force: true });
 await mkdir(cacheDir, { recursive: true });
-await start({ holo, huggingFace: false, drain: ["huggingface.co", "modelscope.cn"], cacheDir });
+await start({ holo, huggingFace: false, drain: ["huggingface.co", "modelscope.cn"], cacheDir, piratefaceHost: base });
 await adoptUnsignedIndexForTests(`${base}/index/`);
 response = await get(file("model.safetensors"), {}, true);
 assert.equal(response.status, 200);
@@ -208,6 +228,50 @@ response = await get(`/${ONLY_BAD}/resolve/main/model.safetensors`);
 assert.equal(response.status, 200);
 assert.equal(response.headers.get("x-hub-source"), "cache");
 ok("unpinned, the same file is served from the cache without asking a source");
+
+// Searching the swarm relays someone else's catalog, and the answer says so:
+// this hub has checked none of it, and whether a file's bytes can be checked
+// is a separate question from whether anyone is seeding it.
+response = await get("/api/swarm/search?q=model");
+assert.equal(response.status, 200);
+const found = await response.json();
+assert.equal(found.found, 1);
+assert.equal(found.checked, false);
+assert.equal(found.claimedBy, "pirateface.co");
+assert.equal(found.models[0].repo, REPO);
+assert.equal(found.models[0].seeders, 9);
+assert.equal(found.models[0].infohash, SWARM_HASH);
+ok("the swarm's catalog is relayed, labelled as its claim and not as a check");
+
+assert.equal((await get("/api/swarm/search")).status, 400);
+ok("a search with nothing to search for is refused");
+
+// Where the record addresses a file twice, both are checked. A SHA-256 can
+// come from a second witness, and a witness can also be a source, so a
+// digest that agrees proves nothing on its own; the git blob identity is
+// the one only Hugging Face published. Bytes that satisfy the first and
+// fail the second are refused.
+forget();
+response = await get(file("agreed.bin"));
+assert.equal(response.status, 200);
+assert.deepEqual(Buffer.from(await response.arrayBuffer()), AGREED);
+ok("a file both addresses agree on is served");
+
+forget();
+response = await get(file("disputed.bin"));
+assert.equal(response.status, 503);
+assert.equal(response.headers.get("x-error-code"), "NoSource");
+ok("bytes matching the digest but not the git blob identity are refused");
+
+// A file the record gives no address for is refused even when a source hands
+// over exactly the right bytes. There is nothing to compare them to, and
+// passing for want of something to check is the one outcome that must not
+// happen.
+forget();
+response = await get(file("nameless.bin"));
+assert.equal(response.status, 503);
+assert.equal(response.headers.get("x-error-code"), "NoSource");
+ok("a file with no address of any kind is refused, not passed");
 
 // And a file no source holds is an entry that is not found, not a 503.
 response = await get(file("absent.bin"));

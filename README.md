@@ -280,6 +280,16 @@ Pirate Face web seed answers with a redirect to a volunteer which redirects to
 huggingface.co, so using one would build a failover path that ends at the host
 it was failing away from (`TEMPLATE-VERIFICATION.md`).
 
+Every address the record has is checked, not the first one it has. `HK-10`
+decides the SHA-256 and the git blob identity is compared beside it, in one
+pass over the bytes, and either failing refuses. The two differ in who chose
+them: a SHA-256 may come from a second witness, and a witness can also be a
+source, since `pirateface.co` witnesses addresses and `pirateface` serves
+bytes. A digest supplied by the party serving the bytes proves nothing about
+them, so the git blob identity - which only Hugging Face published, and which
+this repository signed into the record - is what stands between an unvetted
+source and a client. A file the record addresses in neither way is refused.
+
 Every response is hashed before it is sent, including one served from the
 cache, so nothing reaches a client that the kernel has not just accepted. That
 costs a pass over the file per request, which is the price of the guarantee;
@@ -314,6 +324,38 @@ fetches, verifies and leaves the bytes in the cache under their SHA-256. A
 client pointed at the runner with the same `CACHE_DIR` is then answered at
 once, from bytes the kernel has already accepted.
 
+## Keeping an address after Hugging Face stops giving one
+
+A model is self-verifying only against a digest from somewhere other than the
+party serving the bytes, so Pirate Face's own SHA-256 cannot check bytes from
+Pirate Face's swarm. While Hugging Face answers, the runner asks it for the
+address and the swarm for the bytes, and those are different parties. When it
+stops, `HK-19` refuses the swarm, correctly.
+
+`tools/swarm-index.mjs` writes down Hugging Face's addresses for the models
+that have a torrent, before that happens:
+
+    node tools/swarm-index.mjs data/swarm
+
+It walks Pirate Face's catalog, keeps the releases with a torrent, and records
+`{ repo, revision, files: [ { path, size, sha256 } ] }` from Hugging Face's
+tree. No magnet and no infohash: those are fetched live when a file is pulled,
+and they are not what is lost. A release whose revision has not moved is reused,
+so after the first run almost nothing is asked of Hugging Face.
+
+`.github/workflows/swarm.yml` runs it nightly and leaves it in the cache
+`pages` restores; it is not part of a deploy, because a full catalog walk is
+about 22,300 requests. The root is signed the way the index root is, and
+`runner/snapshot.mjs` checks that signature against the same pinned Sigstore
+roots before reading a shard, and each shard against the root.
+
+The runner uses it in exactly one place: a release that neither the signed
+index nor Hugging Face can describe. `SWARM_URL` points at it.
+
+A model Hugging Face has already removed is absent from the snapshot rather
+than addressed by the party serving its bytes, and
+`tests/index/swarm-shards.mjs` fails the build if any row carries no address.
+
 ## Finding what the swarm has
 
 Pulling is half of it. Pirate Face indexes far more models than this hub does,
@@ -325,9 +367,18 @@ searches its catalog and prints the models with a torrent, by seeders. The
 runner answers the same question over HTTP for one model, and adds the part
 that matters here:
 
+    GET /api/swarm/search?q=<query>
     GET /api/swarm/{repo}
 
-returns the revision, whether it is the revision this hub's record names, the
+The search answers from the swarm's own catalog, live: 669k models listed
+against this hub's 415, measured 2026-11-14, of which 25,825 have a magnet.
+Nothing is indexed to make that work and nothing goes stale, but nothing is
+checked either, and the answer says so - `claimedBy` names the party and
+`checked` is false. `docs/pirateface-catalog.md` has the measurements and why
+indexing all 669k is the wrong goal.
+
+The per-model answer returns the revision, whether it is the revision this
+hub's record names, the
 seeder count, the infohash recomputed from the metadata rather than believed,
 the file and piece counts, and `servable`: how many of the release's files this
 hub holds an address for. Those last two numbers are deliberately separate.

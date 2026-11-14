@@ -33,11 +33,12 @@ import { pipeline } from "node:stream/promises";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import * as edge from "../edge/edge.mjs";
-import { holdings } from "./discover.mjs";
+import { holdings, search } from "./discover.mjs";
+import * as snapshot from "./snapshot.mjs";
 import { lookup, fetchTorrent } from "./pirateface.mjs";
 import { announce, fetchPieces, peerId } from "./swarm.mjs";
-import { findFile, piecesOf } from "./torrent.mjs";
-import { checkTensorsOfFile, gitBlobSha1, loadManifest } from "./uor.mjs";
+import { findFile, piecesOf, readMagnet } from "./torrent.mjs";
+import { checkTensorsOfFile, loadManifest } from "./uor.mjs";
 
 const HF = "https://huggingface.co";
 // The edge's three, and the swarm as the fourth. The kernel has exactly four
@@ -52,6 +53,7 @@ let settings = {
   // Overridable so a test can stand a swarm index in front of the runner.
   piratefaceHost: undefined,
 };
+let addresses = null;
 let manifestCache = new Map();
 const lookups = new Map();
 const torrents = new Map();
@@ -64,8 +66,22 @@ const inflight = new Map();
 const quarantined = new Set();
 const id = peerId();
 
-export async function start({ holo, index, manifests = null, huggingFace = true, drain = [], cacheDir, piratefaceHost } = {}) {
+export async function start({ holo, index, manifests = null, huggingFace = true, drain = [], cacheDir, piratefaceHost, swarmIndex = null, swarmSigned = true } = {}) {
   const ready = await edge.start({ holo, index, huggingFace, drain });
+  addresses = null;
+  if (swarmIndex) {
+    try {
+      // Checked against the same pinned roots the index is, when the
+      // kernel's trust policy is available to check against.
+      addresses = await snapshot.open(swarmIndex, {
+        policy: edge.loaded().trust,
+        required: swarmSigned,
+      });
+    } catch (error) {
+      addresses = null;
+      console.error(`runner: the swarm address snapshot was refused (${error.message})`);
+    }
+  }
   settings = {
     cacheDir: cacheDir ?? settings.cacheDir,
     manifests,
@@ -73,7 +89,10 @@ export async function start({ holo, index, manifests = null, huggingFace = true,
     piratefaceHost,
   };
   await mkdir(settings.cacheDir, { recursive: true });
-  return { ...ready, runner: "local", sources: SOURCES, cache: settings.cacheDir };
+  return {
+    ...ready, runner: "local", sources: SOURCES, cache: settings.cacheDir,
+    addressed: snapshot.count(addresses),
+  };
 }
 
 // ------------------------------------------------------------------ facts
@@ -117,12 +136,6 @@ async function cached(address) {
   } catch {
     return null;
   }
-}
-
-async function hashFile(path) {
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(path)) hash.update(chunk);
-  return hash.digest("hex");
 }
 
 async function fetchHttp(url, destination, timeoutMs = 30 * 60000) {
@@ -232,7 +245,15 @@ function wantedRange(request, size) {
 async function serveFile(request, via, repo, revision, path, onNote) {
   const { kernel } = edge.loaded();
   const method = request.method;
-  const info = await edge.release(repo, revision);
+  let info = await edge.release(repo, revision);
+  // Neither the signed index nor Hugging Face can describe this release.
+  // The snapshot holds Hugging Face's own addresses for it, written down
+  // while Hugging Face was still answering, so the swarm's bytes can still
+  // be checked against a digest that is not the swarm's own.
+  if (info.state !== 0 || !info.revision) {
+    const kept = await snapshot.release(addresses, repo).catch(() => null);
+    if (kept && (revision === "main" || revision === kept.sha || kept.sha.startsWith(revision))) info = kept;
+  }
   const commitKind = /^[0-9a-f]{7,40}$/.test(revision) ? 1 : 0;
   const held = info.state === 0 && info.revision ? await edge.holders(repo, info) : null;
   const sibling = info.siblings?.get(path);
@@ -378,37 +399,59 @@ async function serveFile(request, via, repo, revision, path, onNote) {
   return refuse(17, method);
 }
 
-async function readAll(path) {
-  const chunks = [];
-  for await (const chunk of createReadStream(path)) chunks.push(chunk);
-  return Buffer.concat(chunks);
-}
-
-// `HK-10`: the kernel decides, from the expected and observed digest and size.
-// A small file has no SHA-256 in the index, so its git blob identity is
-// compared here instead - tested, not proved. `HK-19` is what makes that
-// safe: a source nobody vetted is never chosen for such a file.
+// Every address the record has, not the first one it has.
+//
+// `HK-10` decides the SHA-256, from the expected and observed digest and size.
+// The git blob identity is compared here instead - tested, not proved - and
+// for a small file it is the only address Hugging Face publishes at all.
+//
+// Both are checked when both exist, and either failing refuses. That is not
+// belt and braces; the two differ in who chose them. A SHA-256 may come from
+// a second witness, and a witness can also be a source: `pirateface.co`
+// witnesses addresses and `pirateface` serves bytes. Checking bytes from a
+// source against a digest that source supplied proves nothing, so the git
+// blob - which only Hugging Face ever published, and which this repository
+// signed into the record - is what actually stands between an unvetted source
+// and a client. Taking the SHA-256 as sufficient would replace an independent
+// check with a circular one, which is strictly worse than having only the
+// independent one.
+//
+// A file with neither is refused. Nothing passes for want of something to
+// check it against.
 async function check(kernel, file, { address, size, blobId, entry }) {
   const info = await stat(file);
-  if (!address) {
-    if (entry !== 1) return { ok: false, why: "the record names no address for a file it calls large" };
-    const bytes = await readAll(file);
-    const found = gitBlobSha1(bytes);
-    return found === blobId
-      ? { ok: true, by: "git blob" }
-      : { ok: false, why: `git blob ${found}, the record says ${blobId}` };
+  if (!address && !blobId) return { ok: false, why: "the record names no address for this file at all" };
+  if (entry === 2 && !address) return { ok: false, why: "the record names no digest for a file it calls large" };
+
+  // One pass over the bytes for both digests. The git blob prefix carries the
+  // length actually read, so a file of the wrong size fails it without a
+  // separate comparison.
+  const sha = createHash("sha256");
+  const blob = blobId ? createHash("sha1").update(`blob ${info.size}\0`) : null;
+  for await (const chunk of createReadStream(file)) {
+    sha.update(chunk);
+    blob?.update(chunk);
   }
-  const observed = await hashFile(file);
-  const request = new Uint8Array(81);
-  request[0] = 2;
-  request.set(Buffer.from(address, "hex"), 1);
-  request.set(Buffer.from(observed, "hex"), 33);
-  new DataView(request.buffer).setBigUint64(65, BigInt(size));
-  new DataView(request.buffer).setBigUint64(73, BigInt(info.size));
-  const answer = (await kernel.dispatch(request))[0];
-  return answer === 20
-    ? { ok: true, by: "sha256" }
-    : { ok: false, why: `sha256 ${observed} and ${info.size} bytes, the record says ${address} and ${size}` };
+
+  if (blob) {
+    const found = blob.digest("hex");
+    if (found !== blobId) return { ok: false, why: `git blob ${found}, the record says ${blobId}` };
+  }
+
+  if (address) {
+    const observed = sha.digest("hex");
+    const request = new Uint8Array(81);
+    request[0] = 2;
+    request.set(Buffer.from(address, "hex"), 1);
+    request.set(Buffer.from(observed, "hex"), 33);
+    new DataView(request.buffer).setBigUint64(65, BigInt(size));
+    new DataView(request.buffer).setBigUint64(73, BigInt(info.size));
+    if ((await kernel.dispatch(request))[0] !== 20) {
+      return { ok: false, why: `sha256 ${observed} and ${info.size} bytes, the record says ${address} and ${size}` };
+    }
+  }
+
+  return { ok: true, by: blob && address ? "git blob and sha256" : blob ? "git blob" : "sha256" };
 }
 
 async function witnessed(repo) {
@@ -439,6 +482,36 @@ export async function handle(request, { onNote = () => {} } = {}) {
       });
     }
   }
+  // Every model the swarm lists, answered live. There are far more of them
+  // than this hub indexes - 669k listed against 415 indexed, measured
+  // 2026-11-14 - and nothing is gained by snapshotting a seeder count that
+  // changes by the minute. What this cannot do is vouch for any of it: these
+  // are Pirate Face's claims, and whether a model's bytes can be checked is a
+  // different question, answered per file by `HK-19`.
+  if (path === "api/swarm/search" && (request.method === "GET" || request.method === "HEAD")) {
+    const q = url.searchParams.get("q") ?? "";
+    if (!q) return json({ error: "ask for something: /api/swarm/search?q=<query>" }, 400);
+    let rows;
+    try {
+      rows = await search(q, swarmHost());
+    } catch (error) {
+      return json({ query: q, error: String(error?.message ?? error) }, 502);
+    }
+    return json({
+      query: q,
+      found: rows.length,
+      claimedBy: "pirateface.co",
+      checked: false,
+      note: "Pirate Face's own listing, relayed unchecked. Seeder counts are its claims. Whether a file's bytes can be checked is decided per file against an address from somewhere else (HK-19); ask /api/swarm/{repo} for that.",
+      models: rows.map((r) => ({
+        repo: r.repo,
+        size: r.size,
+        seeders: r.seeders,
+        infohash: (() => { try { return readMagnet(r.magnet).infohash; } catch { return null; } })(),
+      })),
+    });
+  }
+
   // What the swarm holds for one model, and how much of it this hub could
   // actually check. The two are different questions and the answer keeps them
   // apart: peers decide whether bytes can be got, addresses decide whether
@@ -467,6 +540,7 @@ export async function handle(request, { onNote = () => {} } = {}) {
     return new Response(JSON.stringify({
       runner: "local", kernel: Boolean(kernel), index: index ? index.records.size : 0,
       huggingFace: useHuggingFace, sources: SOURCES, cache: settings.cacheDir,
+      addressed: snapshot.count(addresses),
     }), { status: 200, headers: { ...CORS, "content-type": "application/json" } });
   }
   // Everything that is not a file request is metadata, and the edge already

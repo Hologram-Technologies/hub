@@ -1086,6 +1086,123 @@ a separate `addressed` fact in the resolve request, which moves it from 104
 bytes to 108 and re-proves every theorem that names the slots. That is a change
 of its own and is not made here.
 
+## An address that outlives the host that gave it
+
+Measured 2026-11-14 against <https://pirateface.co>: 669k models listed,
+25,825 with a magnet, 38,257 seeding, against this hub's 415 indexed. So 3.9
+per cent of the catalog has a torrent and the rest is a link to Hugging Face
+and a checksum, both of which end when Hugging Face does.
+
+`/api/models` is cursor-paginated and hard-capped at 30 rows; `limit`,
+`seeded`, `filter`, `sort` and `hasTorrent` were each passed and each ignored,
+so a full sweep is about 22,300 requests. `sitemap.xml` has 42 entries and
+lists no models. `/s/<query>` returns only models with a magnet, which makes it
+a magnet-only view but a query-driven one.
+
+Indexing that catalog is the wrong goal, and the reason is the one that
+decides the design. A model is self-verifying only against a digest from
+somewhere other than the party serving the bytes, so Pirate Face's own SHA-256
+cannot check bytes from Pirate Face's swarm. `HK-19` already says it in the
+kernel's terms. While Hugging Face answers, the runner asks it for the address
+and the swarm for the bytes and they are different parties; when it stops,
+there is no second independent answer and the swarm is refused.
+
+So two things are built and kept apart. Discovery is answered live -
+`/api/swarm/search?q=` relays the catalog with `claimedBy` naming the party and
+`checked` false - and covers all 669k with no index and nothing to go stale.
+Addressing is written down, because it is the part that expires:
+`tools/swarm-index.mjs` records `{ repo, revision, files: [ { path, size,
+sha256 } ] }` from Hugging Face's tree for the seeded releases. No magnet and
+no infohash, which are fetched live and are not lost.
+
+Measured on a two-page walk: 9 releases scanned, 9 with a torrent, 8 addressed
+across 476 files, none already gone from Hugging Face. Run again against the
+same output, 8 of 8 were reused and nothing was fetched, which is what makes
+the nightly job cost the catalog walk and almost nothing else.
+
+`tests/index/swarm-shards.mjs` is the gate. It checks every shard against the
+root, that the root's count matches what the shards hold, that the snapshot
+names Hugging Face as the source of its addresses, and that every row carries
+a revision and at least one file with a 64-hex SHA-256 and a size - a row with
+no address is useless and a row addressed by the swarm would be worse. The
+planted defect is one byte inside one shard's first `"sha256":"`, which leaves
+the snapshot parsing and describing the same releases; it was refused.
+
+`runner/snapshot.mjs` is used in exactly one place: a release neither the
+signed index nor Hugging Face can describe. `tests/runner/snapshot.mjs` checks
+that such a release stops being answered as missing, that it then reaches the
+question of which source holds it rather than failing before it, that a HEAD
+is answered with the recorded address and revision and the SHA-256 ETag
+`HK-08` gives an addressed file, that a file the snapshot does not list is
+still not found and a repository it does not hold is still missing, and that a
+shard which does not match the root is refused and the release goes back to
+missing. Five checks, no network beyond the holo.
+
+Not established here. The snapshot has only ever been built two pages deep;
+the full walk has not been run, and its first run will take about two hours
+before the reuse above makes it cheap. Nothing is published yet, because the
+nightly workflow has not run, so `pages` finds no snapshot in the cache and
+publishes none - which it is written to tolerate. And the predicate type
+`https://hologram.foundation/hub/swarm/v1` is a constant in
+`runner/snapshot.mjs` rather than a field of the kernel's trust policy: the
+pinned Sigstore roots and the workflow identity are the kernel's, but that one
+string is not, and moving it there is a model change that has not been made.
+
+## Checking every address a record has, not the first one
+
+A second witness made two things that had always been the same thing
+different, and the difference is who chose a digest rather than how strong it
+is.
+
+`addressOf` on `claude/addressed-fact` returns the release's own
+`files[].sha256` and, failing that, an address from any witness. There is one
+witness on main and it is `pirateface.co`, which is also the operator of the
+`pirateface` source. Measured on the live record for `openai-community/gpt2`:
+`witnesses[0].source` is `pirateface.co` and 14 files are addressed by it
+alone - `README.md`, `config.json`, `generation_config.json` and the rest of
+the small ones. Letting a witness address stand for those files would have had
+the runner fetch bytes from Pirate Face's swarm and check them against Pirate
+Face's own digest.
+
+Worse than that, it would have removed a check rather than added one. `check`
+guarded the git-blob branch on `if (!address)`, so a non-null witness SHA-256
+did not supplement the independent SHA-1, it replaced it. The comment above
+`check` described the invariant - a source nobody vetted is never chosen for a
+file with no SHA-256 - and the code did not enforce it, because `address` and
+"independently addressed" were the same thing when it was written. A comment
+that is true when written and silently falsified by a widening elsewhere is a
+failure mode no gate here catches, and this is the first one recorded.
+
+The hash question is not the one it looks like. The attack on a git blob
+identity is a second preimage, not a collision: the genuine file already
+exists, its digest is fixed in a signed record the attacker cannot author, and
+the `blob <size>\0` prefix pins the length - which the record carries
+separately as well. SHAttered was a chosen-prefix collision, which needs the
+attacker to write both messages. Second preimage on SHA-1 is not broken.
+Against an adversary who is the source, an independent SHA-1 is worth more
+than a SHA-256 that adversary supplied, which is worth nothing.
+
+So `check` now computes both digests in one pass over the bytes and refuses if
+either fails, and refuses a file the record addresses in neither way rather
+than passing for want of something to compare. `tests/runner/serve.mjs` lists
+a file whose SHA-256 is right for the bytes the source serves and whose git
+blob identity is not - which is what a witness supplying an address for bytes
+it also serves looks like - and requires the refusal. It also lists a file
+with no address of any kind and requires that, which until now was refused
+only because a computed digest is not equal to `undefined`.
+
+All 14 of those gpt2 files carry a 40-hex `gitSha1` and a size in the signed
+record, so the independent address is written down here and does not depend on
+Hugging Face still answering.
+
+`tools/swarm-index.mjs` was recording only `f.lfs?.oid` and so kept weights
+and dropped every small file. Measured on four releases: 99 addressed files,
+57 by SHA-256 and 42 by git blob, where those 42 were being discarded. A
+snapshot of 25,825 models' weights without their `config.json` and tokenizer
+keeps the bytes and loses the models. Reading one gives a file with a SHA-256
+an LFS entry and a file with only a git blob identity a small entry, so
+`HK-08` hands back the ETag it would have.
+
 ## Prism accounts: the remembered passkey
 
 The sign-in page (`identity/id.mjs`) remembers which passkey this device last

@@ -11,6 +11,8 @@
 //   HOLO_URL       the kernel holo (this repository's published one)
 //   INDEX_URL      the signed index (this repository's published one)
 //   MANIFESTS_URL  the signed witness manifests, for tensor addresses
+//   SWARM_URL      the address snapshot, so a release Hugging Face no longer
+//                  answers for can still be checked against its own digest
 //   HF_API         "off" answers from the signed index alone
 //   DRAIN          sources to take out of rotation, comma-separated
 //   CACHE_DIR      where verified bytes are kept, addressed by their SHA-256
@@ -28,9 +30,12 @@ const ready = await start({
   huggingFace: process.env.HF_API !== "off",
   drain: (process.env.DRAIN ?? "").split(",").map((s) => s.trim()).filter(Boolean),
   cacheDir: process.env.CACHE_DIR,
+  swarmIndex: process.env.SWARM_URL ?? `${SITE}/data/swarm/`,
+  swarmSigned: process.env.SWARM_UNSIGNED !== "1",
 });
 console.log(`runner: kernel ${ready.fingerprint.slice(0, 16)}, ${ready.examples} examples replayed; index ${ready.index}`);
 console.log(`runner: sources ${SOURCES.join(", ")}; verified bytes cached in ${ready.cache}`);
+console.log(`runner: ${ready.addressed} releases addressed by the swarm snapshot`);
 
 const note = (line) => console.log(`runner: ${line}`);
 
