@@ -77,13 +77,15 @@ if (process.argv[1] && resolve(fileURLToPath(import.meta.url)) === resolve(proce
   if (!wanted.length) {
     // Every file the release addresses, which is every file the swarm may
     // serve: one with no address is refused rather than fetched (`HK-19`).
-    const info = await (await fetch(`${port ? `http://127.0.0.1:${port}` : SITE.replace(/.*/, "")}/api/models/${repo}?blobs=true`)
-      .catch(() => null))?.json?.() ?? null;
-    wanted = info?.siblings?.filter((s) => s.lfs?.sha256).map((s) => s.rfilename) ?? [];
+    const ask = `http://127.0.0.1${port ? `:${port}` : ""}/api/models/${repo}?blobs=true`;
+    const response = await (port ? fetch(ask) : handle(new Request(ask))).catch(() => null);
+    const info = response?.ok ? await response.json() : null;
+    wanted = (info?.siblings ?? []).filter((s) => s.lfs?.sha256).map((s) => s.rfilename);
     if (!wanted.length) {
-      console.error("pull: name the files to fetch; this release addresses none that could be listed here");
+      console.error(`pull: ${repo} names no addressed file to fetch; name the files instead`);
       process.exit(65);
     }
+    console.error(`pull: ${wanted.length} addressed files`);
   }
 
   const results = await pull(repo, wanted, { via, port, onNote: note });
