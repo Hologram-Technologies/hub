@@ -17,7 +17,11 @@
 //
 // A row is the smallest thing that keeps a release verifiable:
 //
-//   { repo, revision, files: [ { path, size, sha256 } ] }
+//   { repo, revision, files: [ { path, size, sha256 | gitSha1 } ] }
+//
+// A large file carries Hugging Face's SHA-256; a small one carries its git
+// blob identity, because Hugging Face publishes no SHA-256 for those and the
+// git blob is then the only independent address there is.
 //
 // No magnet and no infohash: those are fetched live when a file is actually
 // pulled, they change when a torrent is rebuilt, and recording them would
@@ -122,9 +126,18 @@ for await (const row of catalog()) {
     gone += 1;
     continue;
   }
+  // Weights and everything else. A snapshot of 25,825 models' weights without
+  // their `config.json` and tokenizer keeps the bytes and loses the models,
+  // and the small files are the ones Hugging Face gives no SHA-256 for, so
+  // their git blob identity is the only independent address that will exist
+  // once it stops answering. Recording an address nothing acts on yet costs a
+  // few bytes; not recording it means a later decision cannot be acted on
+  // backwards.
   const files = tree
-    .filter((f) => f.type === "file" && f.lfs?.oid)
-    .map((f) => ({ path: f.path, size: f.size, sha256: f.lfs.oid }));
+    .filter((f) => f.type === "file" && (f.lfs?.oid || f.oid))
+    .map((f) => (f.lfs?.oid
+      ? { path: f.path, size: f.size, sha256: f.lfs.oid }
+      : { path: f.path, size: f.size, gitSha1: f.oid }));
   if (!files.length) continue;
   rows.set(row.id, { repo: row.id, revision: row.revision, files });
   fetched += 1;
