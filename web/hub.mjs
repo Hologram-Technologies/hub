@@ -44,9 +44,9 @@ async function boot() {
 
 // ---------------------------------------------------------------- numbers
 const trim = (n) => (n >= 100 ? Math.round(n).toString() : n.toFixed(1).replace(/\.0$/, ""));
-// The source the roll's models come from. Named here rather than written out
-// at the one place that asks it, so a reader can see what the page calls.
-const HF_API = "https://huggingface.co";
+// The source the roll's models come from. Named here rather than written out
+// at the one place that asks it, so a reader can see what the page calls.
+const HF_API = "https://huggingface.co";
 const count = (n = 0) => (n >= 1e6 ? `${trim(n / 1e6)}M` : n >= 1e3 ? `${trim(n / 1e3)}k` : String(n));
 const params = (n) => (!n ? "" : n >= 1e12 ? `${trim(n / 1e12)}T` : n >= 1e9 ? `${trim(n / 1e9)}B` : n >= 1e6 ? `${Math.round(n / 1e6)}M` : `${Math.round(n / 1e3)}K`);
 const context = (n) => (!n ? "" : n >= 1048576 ? `${trim(n / 1048576)}M` : `${Math.round(n / 1024)}K`);
@@ -1127,7 +1127,7 @@ async function drawModel(main, id) {
   // check for themselves.
   const w = screens.models.swarm;
   const listed = m.state === "listed" && Boolean(w);
-  const host = listed ? w.host : chrome.host;
+  const host = listed ? w.host : s.endpoint;
   const command = (i) => (listed ? fill(w.command, { host, id: m.id }) : fill(s.tools[i][1], { host, repo: m.id }));
   const status = `<span class="${verified(m) ? "ok" : "dim"}">${esc(statusLabel(m))}</span>`;
   const facts = {

@@ -9,7 +9,7 @@
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { basename, dirname, join, normalize } from "node:path";
-import { openBrowse } from "../../web/browse.mjs";
+import { EXACT, openBrowse } from "../../web/browse.mjs";
 
 const dir = process.argv[2];
 if (!dir) {
@@ -25,12 +25,16 @@ const failures = [];
 const check = (name, ok, saw) => (ok ? console.log(`ok   ${name}`) : failures.push(`${name}: ${saw}`));
 
 let served = 0, bytesServed = 0;
+// Every path the reader asked for, so a check can say which files it went to
+// and not only what it returned.
+const asked = [];
 const server = createServer(async (req, res) => {
   const rel = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname))
     .split(/[\\/]+/).filter((p) => p && p !== "." && p !== "..").join("/");
   let body;
   try { body = await readFile(join(site, rel)); } catch { res.writeHead(404).end(); return; }
   served += 1;
+  asked.push(rel);
   const r = /^bytes=(\d+)-(\d+)$/.exec(req.headers.range ?? "");
   if (r) {
     const from = Number(r[1]), to = Math.min(Number(r[2]), body.length - 1);
@@ -147,6 +151,81 @@ check("a search and a filter intersect", withFilter.rows.every((r) => words(r[0]
   "a row did not hold both");
 check("and are no wider than either", withFilter.total <= Math.min(found.total, filtered.total),
   `${withFilter.total} against ${found.total} and ${filtered.total}`);
+
+// ---- one model by name, and what reaching it costs
+// `find` is how a model page opens a model the index never addressed, so it
+// runs on a click and its cost is a reader's wait. The buckets it may look in
+// are nothing like the same size, and the first version looked in all of
+// them: on the live site that was 2.27 MB and 11.1 s for one name, nearly all
+// of it a bucket that settled nothing. So this checks the answer and the
+// route to it, because the answer alone was already right.
+const sizes = root.search?.words?.sizes ?? {};
+const bucketFor = (w) => w.slice(0, 2);
+// How many rows hold a word is how far the walk gets on one: a word held by
+// more rows than `find` will read exactly cannot settle a name by itself, and
+// the walk rightly goes on to the next bucket. Counting it here rather than
+// assuming it is the difference between checking the rule and checking the
+// sample - an earlier version of this check assumed one bucket always
+// sufficed, passed on 711 models and failed on 418.
+const holders = new Map();
+for (const r of all) for (const w of words(r[0])) holders.set(w, (holders.get(w) ?? 0) + 1);
+// The buckets a name's words fall in, cheapest first, which is the order
+// `find` must walk them in.
+const routeOf = (id) => [...new Set(words(id).map(bucketFor))]
+  .filter((k) => sizes[k] !== undefined).sort((a, b) => sizes[a] - sizes[b]);
+const lookedAt = () => [...new Set(asked.filter((p) => p.includes("search/words/"))
+  .map((p) => p.split("/").pop().replace(".bin", "")))];
+
+// A name whose words span buckets of different sizes; on a name whose words
+// all share one bucket there is no cheaper route and nothing to check.
+const spread = all.find((r) => {
+  const keys = routeOf(r[0]);
+  return keys.length > 1 && new Set(keys.map((k) => sizes[k])).size > 1;
+});
+if (!spread) {
+  check("a name whose words span buckets of different sizes exists to test", false,
+    "every name's words shared one bucket, so the cheapest-first rule went unchecked");
+} else {
+  // A reader of its own, because the one above has these buckets cached and a
+  // cached bucket is not fetched, which would read as thrift that never ran.
+  const fresh = await openBrowse(base);
+  asked.length = 0;
+  const got = await fresh.find(spread[0]);
+  check("a model is found by name", got?.id === spread[0], `${got?.id} against ${spread[0]}`);
+  check("and carries the row the roll holds", got?.revision === spread[1], `${got?.revision} against ${spread[1]}`);
+
+  // However far it walked, it walked the cheap end first. This holds whatever
+  // the data is: it is the ordering rule itself.
+  const route = routeOf(spread[0]);
+  const looked = lookedAt();
+  check("the buckets it looked in are the cheapest ones",
+    JSON.stringify(looked) === JSON.stringify(route.slice(0, looked.length)),
+    `looked in ${looked.join(", ") || "none"} when cheapest first is ${route.join(", ")}`);
+
+  const absent = await fresh.find("zzzznosuchownerzzzz/zzzznosuchmodelzzzz");
+  check("a name nothing holds finds nothing", absent === undefined, String(absent));
+
+  // And where the cheapest word is rare enough to settle the name on its own,
+  // one bucket is all it may read. This is the check the 2.27 MB defect fails:
+  // the answer was right, only the route was wrong.
+  const alone = all.find((r) => {
+    const keys = routeOf(r[0]);
+    if (keys.length < 2) return false;
+    const first = words(r[0]).filter((w) => bucketFor(w) === keys[0]);
+    return first.some((w) => (holders.get(w) ?? Infinity) <= EXACT);
+  });
+  if (!alone) {
+    check("a name its rarest word settles on its own exists to test", false,
+      "no name had a cheapest-bucket word held by few enough rows");
+  } else {
+    const solo = await openBrowse(base);
+    asked.length = 0;
+    const one = await solo.find(alone[0]);
+    check("a name its rarest word settles is found", one?.id === alone[0], `${one?.id} against ${alone[0]}`);
+    check("and settled in one bucket, not every bucket of its name",
+      lookedAt().length === 1, `${lookedAt().join(", ") || "none"} of ${routeOf(alone[0]).join(", ")}`);
+  }
+}
 
 server.close();
 console.log(`\n${served} requests, ${(bytesServed / 1e3).toFixed(0)} kB served in all, out of a ${(body.length / 1e6).toFixed(0)} MB catalogue`);

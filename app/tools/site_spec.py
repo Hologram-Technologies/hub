@@ -7,16 +7,21 @@ module is the model, the guest serves each screen from it, and the renderer in
 run `python app/tools/gen_kernel.py`.
 """
 
-# Two hosts, because they are two things. HOST is where this site is served
-# from: the static interface, published from this repository. API_HOST is the
-# hub that answers a tool - the Hugging Face dialect, the OCI registry, MCP,
+# One host appears in this file, and that is the point. API_HOST is the hub
+# that answers a tool - the Hugging Face dialect, the OCI registry, MCP,
 # accounts and buckets - which a static host cannot do, since it has to set
-# `X-Repo-Commit` on a HEAD and redirect with headers. They were one name until
-# 2026-11-14, when the apex became this repository's Pages site and the hub
-# moved to a name of its own on the same machine. Every command, link and
-# endpoint a tool is given below names API_HOST; only the brand in the header
-# names HOST. `docs/cutover.md` has the records and the order.
-HOST = "gethologram.ai"
+# `X-Repo-Commit` on a HEAD and redirect with headers. The apex
+# `gethologram.ai` is where this site is served from, and a reader is already
+# there, so no screen prints it: every command, link and endpoint a tool is
+# given names API_HOST.
+#
+# There used to be a HOST constant beside this one, and its only reader was
+# the model page's endpoint and Get-it commands - the one place this comment
+# already said must not name it. So the page told every reader to point
+# `HF_ENDPOINT` at the apex, which answers today and stops answering the hour
+# the apex record moves to Pages. A name with one reader that is the wrong
+# reader is worse than no name, so it is gone rather than corrected.
+# `docs/cutover.md` has the records and the order.
 API_HOST = "api.gethologram.ai"
 API = f"https://{API_HOST}"
 
@@ -158,7 +163,6 @@ SCREENS = {
     },
     "chrome": {
         "brand": "Hologram",
-        "host": HOST,
         "api": API,
         "nav": [dict(n, route=ROUTE[n["route"]]) if "route" in n else n for n in NAV],
         "theme": "Theme",
@@ -316,6 +320,11 @@ SCREENS = {
     },
     "model": {
         "back": "Models",
+        # The host the address line and the three Get-it commands name. It is
+        # the hub that answers a tool, never the apex this site is served
+        # from: a static host cannot answer `HF_ENDPOINT`, so a command naming
+        # the apex would be an instruction that stops working at the cutover.
+        "endpoint": API_HOST,
         "address": "Address",
         "held": "Held on",
         "get": "Get it",

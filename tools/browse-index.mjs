@@ -271,6 +271,13 @@ const buckets = bucketsOf(rows);
 // the postings at that place.
 await mkdir(join(out, "search", "words"), { recursive: true });
 const order = new Map();
+// What each bucket costs to fetch. A reader looking a model up by name may
+// use any one of its words, and the buckets are nothing like the same size:
+// at three million models `17` holds every unix timestamp a generated name
+// ever carried and runs to megabytes, while `0x` is a few kilobytes. Without
+// this a reader has no way to tell them apart and pays the worst word in the
+// name. It is one number a bucket, under 20 kB in all.
+const wordSizes = {};
 let wordBytes = 0;
 for (const [key, held] of buckets) {
   const names = [...held.keys()].sort();
@@ -281,6 +288,7 @@ for (const [key, held] of buckets) {
   head.writeUInt32LE(blob.length, 4);
   const bytes = Buffer.concat([head, blob]);
   await writeFile(join(out, "search", "words", `${key}.bin`), bytes);
+  wordSizes[key] = bytes.length;
   wordBytes += bytes.length;
 }
 
@@ -306,7 +314,7 @@ for (const [name, compare] of Object.entries(SORTS)) {
   }
   search[name] = { path: `search/${name}/`, buckets: buckets.size, bytes: bytesWritten };
 }
-search.words = { path: "search/words/", buckets: buckets.size, bytes: wordBytes };
+search.words = { path: "search/words/", buckets: buckets.size, bytes: wordBytes, sizes: wordSizes };
 
 await writeFile(join(out, "root.json"), JSON.stringify({
   format: "hologram.hub.browse/v1",
