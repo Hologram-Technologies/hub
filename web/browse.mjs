@@ -63,6 +63,12 @@ export const words = (text) => [...new Set(String(text ?? "").toLowerCase()
   .split(/[^a-z0-9]+/).filter((w) => w.length >= 2 && w.length <= 24))];
 const bucketOf = (word) => word.slice(0, 2);
 
+// How many candidate rows `find` will read to settle a name exactly. It is
+// both the point at which the word walk stops and the number of rows read
+// after it, and those two have to be one number: stopping with more rows than
+// are then read would drop the row that was being looked for.
+export const EXACT = 64;
+
 export async function openBrowse(base) {
   const url = (path) => new URL(path, base).href;
   const root = await fetch(url("root.json")).then((r) => (r.ok ? r.json() : null));
@@ -184,21 +190,41 @@ export async function openBrowse(base) {
     // these" - and the facets are intersected.
     words,
     // One model by name. The word index already knows which rows hold every
-    // word of its id, so the rarest of them is a short list to look through -
+    // word of its id, so one selective word is a short list to look through -
     // no separate index, and no walk over three million rows.
+    //
+    // Which word, though, decides what this costs. Looking every word up is
+    // what the first version did, and an id like
+    // `0xfaskety/Qwen-Qwen1.5-7B-1717558334` then paid for the `17` bucket,
+    // 2.27 MB of unix timestamps, to learn nothing the 5 kB `0x` bucket had
+    // not already settled. Measured 2026-11-14 against the live index from
+    // Node, each request a real round trip: 15 requests, 2,644.5 kB, 8,114 ms
+    // for every word, against 3 requests, 5.5 kB, 1,099 ms for the cheapest
+    // word alone. The cost here is round trips, not bytes.
+    //
+    // So the words are tried cheapest bucket first and the walk stops as soon
+    // as few enough rows are left to name exactly. Stopping early widens the
+    // candidate list rather than narrowing it - every word still to come
+    // could only remove rows - and the exact comparison below decides, so a
+    // shorter walk cannot change the answer, only what it costs.
     async find(id) {
       const use = Object.keys(root.orders)[0];
       if (!root.search?.[use]) return undefined;
-      const terms = words(id);
+      const sizes = root.search.words?.sizes ?? {};
+      const cost = (w) => sizes[bucketOf(w)] ?? Number.MAX_SAFE_INTEGER;
+      const terms = words(id).sort((a, b) => cost(a) - cost(b));
       if (!terms.length) return undefined;
       let hits = null;
       for (const word of terms) {
         const found = await wordPositions(use, word);
         hits = hits === null ? found : intersect(hits, found);
         if (!hits.length) return undefined;
+        // Few enough to name exactly; every further word costs a fetch and
+        // can only remove rows this one already holds.
+        if (hits.length <= EXACT) break;
       }
       const order = url(root.orders[use].path);
-      const wanted = hits.slice(0, 64);
+      const wanted = hits.slice(0, EXACT);
       const numbers = await Promise.all(wanted.map(async (pos) => {
         const b = await range(order, pos * 4, 4);
         return new DataView(b.buffer, b.byteOffset, b.byteLength).getUint32(0);

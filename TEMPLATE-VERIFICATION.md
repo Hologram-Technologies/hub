@@ -2203,3 +2203,113 @@ taken at one time, from one host, checked later against another.
 
 The live half is deliberately not in CI. A run that failed because a host was
 slow would say nothing about this repository.
+## Two defects the live site showed that no gate did
+
+Both were found on 2026-11-14 by opening the published site after the index
+shipped, and both were in work this repository had already accepted. They are
+recorded together because they share a cause: a check that reads what a page
+returns cannot see what the page named or what it cost to get there.
+
+### The pull command named the host that is about to stop answering
+
+Every model page offered `HF_ENDPOINT=https://gethologram.ai hf download ...`,
+and the address line and the OCI and Ollama commands named the same host. That
+host answers today. It stops answering the hour the apex record moves to Pages,
+which is the next step in `docs/cutover.md`: a static host cannot set
+`X-Repo-Commit` on a HEAD or redirect with headers, measured earlier the same
+day as `commit_hash=None` and `LocalEntryNotFoundError`.
+
+What makes it worth recording is where it came from. `app/tools/site_spec.py`
+already carried the rule, in a comment above the constants: every endpoint a
+tool is given names `API_HOST`, and only the brand names `HOST`. `HOST` had
+exactly one reader in the whole repository - `web/hub.mjs`, filling the
+model page's endpoint and its three Get-it commands - which is the one place
+that comment forbids. A name whose only reader is the wrong reader reads as
+correct at every glance, because the rule and the breach are in different
+files and neither looks odd alone.
+
+So `HOST` is gone rather than corrected, and the model screen names its
+endpoint itself. The check is a grep, which is better evidence than a test
+here: every mention of the domain in the generated `app/src/Site.lex.tex` is
+now `api.gethologram.ai`, twelve of twelve, and the bare apex appears nowhere.
+A regenerated screens-only change moved exactly the three generated files and
+added no proof module, which is the fourth confirmation of that result.
+
+### Finding a model by name cost 11 seconds
+
+`find` opens a model the index never addressed, so it runs on a click. It
+looked up every word of the id. For `0xfaskety/Qwen-Qwen1.5-7B-1717558334`
+the words are `0xfaskety`, `qwen`, `qwen1`, `7b` and `1717558334`, and the
+last of those falls in the `17` bucket, which at three million models holds
+every unix timestamp a generated name ever carried: 2.27 MB. Measured on the
+live site, 11.1 s for one name, nearly all of it spent on a bucket that
+settled nothing the 5 kB `0x` bucket had not already settled.
+
+The reader had no way to choose, because the root published a bucket count
+and not a bucket size. It now publishes one number a bucket - 4.4 kB over 439
+buckets at 711 models, and under 20 kB at the 1,296 buckets two alphanumeric
+characters can spell - and `find` tries the cheapest first and stops as soon
+as few enough rows are left to name exactly.
+
+Stopping early can only widen the candidate list, never narrow it, and the
+exact comparison that follows decides, so a shorter walk cannot change the
+answer. The stop threshold and the number of rows then read are one constant,
+`EXACT`, because stopping with more rows than are afterwards read would drop
+the very row being looked for.
+
+Measured on the live index the same day, from Node rather than a browser,
+each request a real round trip: looking every word up costs 15 requests,
+2,644.5 kB and 8,114 ms; the cheapest word alone costs 3 requests, 5.5 kB and
+1,099 ms.
+
+The first figures recorded here were taken in a browser pane that was hidden,
+which runs a page as a background page and throttles it, and they were wrong
+in both directions - 11.1 s against a warm-cached 363 ms. Counts and byte
+totals from that pane were sound; its wall-clock was not, and the two were
+quoted side by side as though equally measured. Timings here are now taken
+off the browser for that reason.
+
+What the corrected numbers show is that the cost is round trips, not bytes:
+three requests still take about a second from this machine because each one
+is a round trip of some 250-350 ms. Cutting 15 round trips to 3 is the whole
+of the improvement, and the 2.6 MB saved is almost incidental.
+
+One caveat kept deliberately: the published sizes are uncompressed lengths
+while the wire is gzipped, so `17` costs 614 kB on the wire against its 2.27
+MB on disk. The order is what the choice depends on and compression preserves
+it; the absolute numbers in the map are not wire costs and are not read as
+such.
+
+### The planted defects, and the one this gate failed first
+
+The gate is `tests/browse/reader.mjs`, which now records every path the
+reader asks for, not only what it returns, and opens a fresh reader for each
+measurement because a reader that has already fetched a bucket will not fetch
+it again - which would read as thrift that never ran.
+
+The first version of this check assumed the cheapest bucket always settles a
+name on its own, and asserted that `find` looked in exactly one. That passed
+on a roll of 711 models and failed on the next one, 418 models, where the
+cheapest word was held by more rows than `find` reads exactly, so the walk
+rightly went on. The check was wrong, not the code. It is the same mistake as
+the sizing recorded further up: a rule confirmed against one sample and read
+as general. A gate that only holds for the data it was written beside is not
+a gate, so it now counts holders from the rows themselves and checks two
+things that hold whatever the data is - that the buckets looked in are the
+cheapest ones in order, and that a name whose rarest word is selective enough
+is settled in one bucket.
+
+Both defects were then planted against both samples:
+
+- No cheapest-first ordering, 418 rows: exit 1, `FAIL the buckets it looked in
+  are the cheapest ones: looked in co, sc, 7b, rb, s7, sa when cheapest first
+  is 7b, s7, sn, rb, 02, kl, sc, co, sa`. At 711 rows: exit 1, `looked in kl
+  when cheapest first is 2b, gg, ml, kv, kl`.
+- No early stop, 418 rows: exit 1, `FAIL and settled in one bucket, not every
+  bucket of its name: ml, 8b, fw, li of ml, 8b, fw, li`. At 711 rows: exit 1,
+  the same check over `2b, gg, ml, kv, kl`.
+
+Restored, both samples exit 0. In every planted run `ok a model is found by
+name` still passed, which is the point: the answer was right the whole time
+and only the route was wrong, so a gate that reads answers would have
+certified both defects.
