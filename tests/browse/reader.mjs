@@ -56,15 +56,32 @@ check("and does not claim its bytes were checked", index.checked === false, Stri
 
 // The slow, obvious answer, from the files directly.
 const root = JSON.parse(await readFile(join(dir, "root.json"), "utf8"));
-const locBytes = await readFile(join(dir, root.rows.locator));
-const lv = new DataView(locBytes.buffer, locBytes.byteOffset, locBytes.byteLength);
-const shards = await Promise.all(root.rows.shards.map((p) => readFile(join(dir, root.rows.from, p))));
-const body = shards.reduce((a, b) => a + b.length, 0) ? { length: shards.reduce((a, b) => a + b.length, 0) } : { length: 0 };
-const all = Array.from({ length: root.rows.count }, (_, n) => {
-  const shard = shards[lv.getUint32(n * 12)];
-  const at = lv.getUint32(n * 12 + 4), len = lv.getUint32(n * 12 + 8);
+// An order entry says where a row is; the shard names are a pattern where the
+// roll follows one, and a list otherwise.
+const shardSpec = root.rows.shards;
+const shardName = (i) => (Array.isArray(shardSpec)
+  ? shardSpec[i]
+  : shardSpec.name.replace("{label}", shardSpec.labels.slice(i * shardSpec.width, (i + 1) * shardSpec.width)));
+const shardCount = Array.isArray(shardSpec) ? shardSpec.length : shardSpec.labels.length / shardSpec.width;
+const shards = await Promise.all(Array.from({ length: shardCount }, (_, i) => readFile(join(dir, root.rows.from, shardName(i)))));
+const body = { length: shards.reduce((a, b) => a + b.length, 0) };
+const firstSort = Object.keys(root.orders)[0];
+const firstStep = root.orders[firstSort].stride ?? 8;
+const orderBytes = await readFile(join(dir, root.orders[firstSort].path));
+const ov = new DataView(orderBytes.buffer, orderBytes.byteOffset, orderBytes.byteLength);
+// Every row, read through the first sort's order, which names each exactly
+// once.
+const all = Array.from({ length: root.rows.count }, (_, pos) => {
+  const shard = shards[ov.getUint16(pos * firstStep)];
+  const at = ov.getUint32(pos * firstStep + 2), len = ov.getUint16(pos * firstStep + 6);
   return JSON.parse(shard.subarray(at, at + len).toString("utf8"));
 });
+// Back into the order the builder numbers rows in - created, then id - which
+// is the order a sort's ties fall in. Reading them through a sort's order file
+// would otherwise break ties differently from the index and fail a comparison
+// that is actually in agreement.
+all.sort((x, y) => x[2] - y[2] || (x[0] < y[0] ? -1 : 1));
+
 
 const F = index.field;
 const first = await index.page({ sort: "downloads", page: 1 });
@@ -76,6 +93,27 @@ check("it is the page sorting the lot would give", JSON.stringify(first.rows.map
 
 const bytesForAPage = bytesServed;
 check("a page costs kilobytes, not the catalogue", bytesForAPage < 1e6, `${(bytesForAPage / 1e3).toFixed(0)} kB`);
+
+// What an unfiltered page costs in round trips, which is the thing this
+// layout is for. A page is a contiguous run of a sort's order, so finding
+// where its rows live is one read of one file; the rows themselves are one
+// read each because they sit in the shards the roll's root names.
+//
+// It used to be two hops - 42 row numbers out of the order, then 42 ranges
+// out of a separate 37.8 MB locator table - which measured 2,129 ms of a
+// 4,365 ms page against the live site. Nothing about the answer changed when
+// that went away, so only a check that counts reads can tell the difference.
+{
+  const fresh = await openBrowse(base);
+  asked.length = 0;
+  const p = await fresh.page({ sort: "downloads", page: 1 });
+  const orderReads = asked.filter((x) => x.includes("/order/")).length;
+  const rowReads = asked.filter((x) => x.includes("/shards/")).length;
+  check("an unfiltered page finds its rows in one read", orderReads === 1, `${orderReads} reads of the order`);
+  check("and asks for no row twice", rowReads <= p.rows.length, `${rowReads} shard reads for ${p.rows.length} rows`);
+  check("and nothing else is fetched to place them", !asked.some((x) => x.includes("rows.loc")),
+    "it still read a locator table");
+}
 
 // A filter, taken from whatever the counts say is busiest.
 const taskCounts = await index.counts("downloads", "task");
