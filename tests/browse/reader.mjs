@@ -158,7 +158,17 @@ check("a value nothing holds gives nothing", none.total === 0 && none.rows.lengt
 
 // ---- search
 const { words } = await import("../../web/browse.mjs");
-const term = "qwen";
+// The word to search for is taken from the rows, not written in. It used to
+// be the literal "qwen", which held on every roll it was tried against and
+// then failed on a twenty-minute one that happened to contain no Qwen model -
+// a gate reporting the sample rather than the rule, for the second time in
+// this file. The commonest word in whatever rows are here is always a word
+// these rows hold.
+const holdersOf = new Map();
+for (const r of all) for (const w of words(r[0])) holdersOf.set(w, (holdersOf.get(w) ?? 0) + 1);
+const ranked = [...holdersOf].sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1));
+const term = ranked[0]?.[0] ?? "";
+check("the rows hold a word to search for", Boolean(term), "no row had a word at all");
 const found = await index.page({ sort: "downloads", q: term });
 const byHandSearch = all.filter((r) => words(r[0]).includes(term));
 check("a search finds rows", found.total > 0, String(found.total));

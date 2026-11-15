@@ -2399,3 +2399,86 @@ Labels are exact either way, so the gates now meet what production meets.
 
 Restored, both gates exit 0 over 441 requests and 89 kB, and one unfiltered
 page is 43 requests for 42 rows.
+
+## Five fetches that never depended on each other
+
+A models page waits for the addressed index before it draws, and #30 put it
+there for a good reason: it is the only place that says which source holds a
+release and whether this hub has checked it, so without it a release this hub
+had verified drew as Unverified. Deferring it would bring that back.
+
+It did not have to be slow, though. `readIndex` made five fetches - the index
+root, the Sigstore bundle, each index shard, the swarm catalogue, the owner
+marks - one after another, and only one of them depends on another: the
+shards need the root to know their names. Measured 2026-11-15 from Node
+against the published site, warmed first and then repeated so neither run
+pays for the handshake alone:
+
+| | first run | repeat |
+| --- | --- | --- |
+| serial, as it ran | 1,063 ms | 406 ms |
+| started together | 338 ms | 245 ms |
+
+The bundle, the swarm and the marks now start before the root is awaited, and
+the shards go together rather than in turn, each still judged against the
+signed root before a row of it is kept. Each early fetch carries its own
+catch, because a fetch begun before it is awaited would otherwise reject with
+nobody listening.
+
+### Checked against the behaviour it could have broken
+
+#30 added no test, so the thing most at risk had no gate. A roll of the last
+three hours was no use for checking it: it holds none of the 443 addressed
+models, so every card reads Unverified either way and the override never
+runs. So a roll was swept over the twenty minutes around an addressed model's
+creation - `higurashi-ai/Haru-4B`, 2026-11-12T11:05:59Z - which gives 56 rows
+with exactly one of them addressed.
+
+Served from a local preview, the file before and the file after give the same
+page: 56 rows, `Haru-4B` VERIFIED, 41 Unverified, the same listing pill. The
+override still wins, which is what #30 is for.
+
+## A change not made: the dictionaries stay in the root
+
+`library` is 44 kB of the root and `language` 24 kB, 61,700 B together, and
+moving them out to be fetched alongside the first page looked like the next
+obvious win. Measured, it is not one.
+
+Gzipped those two are 27,028 B of a 36,657 B root, so taking them out would
+leave about 9.6 kB. But the root costs 331 ms against 318 ms for a 2.3 kB
+file on the same connection - 13 ms for 34 kB - and a card draws the library
+and the languages, so those bytes still have to arrive before first paint.
+They would simply arrive in the next stage instead, which is bounded by a
+small ranged read and would grow by about what the first stage saved.
+
+Round trips are what this site pays for, not bytes, and the split trades no
+round trips. It would have added a request, two more failure modes and a
+partial-draw question, to move 27 kB from one stage to the next. Recorded
+because the reasoning that made it look worthwhile - a 110 kB root - was a
+disk figure standing in for a wire figure.
+
+### A third sample standing in for a rule
+
+`tests/browse/reader.mjs` searched for the literal word "qwen". That held on
+every roll it had been tried against - 333, 418, 711 rows - and failed on a
+twenty-minute roll of 56 that happened to contain no Qwen model: `FAIL a
+search finds rows: 0`. Nothing was wrong with the index.
+
+That is the third time this file has reported its sample instead of its rule,
+and all three were mine: the cheapest-bucket check assuming one bucket always
+settles a name, the row order assuming a locator's numbering, and now a
+search term assuming a particular model exists. The term is now the commonest
+word in whatever rows are present, which is by construction a word those rows
+hold.
+
+Both gates now pass on every sample to hand - 56, 333, 418 and 711 rows - and
+both planted defects are rejected on the smallest and the largest:
+
+- 56 rows: `FAIL an unfiltered page finds its rows in one read: 42 reads of
+  the order`, and `FAIL the buckets it looked in are the cheapest ones:
+  looked in ku when cheapest first is v3, 11, mi, ku, bi, nv`.
+- 711 rows: the same two, the second reading `looked in kl when cheapest
+  first is 2b, gg, ml, kv, kl`.
+
+A gate run against one sample size says less than it appears to. These are
+now run against four.
