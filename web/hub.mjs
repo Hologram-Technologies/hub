@@ -152,17 +152,31 @@ async function swarmByName(query) {
 }
 
 async function readIndex() {
+  // Five fetches, and only one of them depends on another: the shards need
+  // the root to know their names. They used to run one after the other, so a
+  // models page waited for the sum of them. Measured 2026-11-15 from Node
+  // against the published site, warmed and repeated: 1,063 ms then 406 ms
+  // serial, against 338 ms then 245 ms started together.
+  //
+  // Each carries its own catch, because a fetch begun before it is awaited
+  // would otherwise reject with nobody listening.
+  const bundleSoon = fetch(indexUrl("index.sigstore.json")).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const swarmSoon = swarmTop().catch(() => []);
+  const facesSoon = fetch(new URL("data/avatars/index.json", root)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+
   const bytes = new Uint8Array(await (await fetch(indexUrl("root.json"))).arrayBuffer());
   const rootJson = JSON.parse(new TextDecoder().decode(bytes));
   listing.rules = rootJson.rules ?? "";
-  listing.signed = await indexSigned(bytes);
-  const rows = [];
-  for (const shard of rootJson.browse ?? []) {
+  // The shards together rather than in turn, and each still judged against
+  // the signed root before a row of it is kept.
+  const perShard = await Promise.all((rootJson.browse ?? []).map(async (shard) => {
     const body = new Uint8Array(await (await fetch(indexUrl(shard.path))).arrayBuffer());
     if (!(await addressed(body, shard.sha256))) throw new Error(`the index shard ${shard.path} does not match the signed root`);
-    rows.push(...JSON.parse(new TextDecoder().decode(body)));
-    listing.shards += 1;
-  }
+    return JSON.parse(new TextDecoder().decode(body));
+  }));
+  const rows = perShard.flat();
+  listing.shards = perShard.length;
+  listing.signed = await indexSigned(bytes, await bundleSoon);
   // Counted before the swarm is merged: this is what the signed root covers,
   // and the pill that reports it would otherwise claim rows no signature
   // stands behind.
@@ -170,8 +184,8 @@ async function readIndex() {
   // Pirate Face's most seeded, merged in as ordinary rows. A release this hub
   // has indexed wins: its row is the one with addresses and signatures behind
   // it, and the swarm's copy of the same id would say less.
-  await mergeSwarm(rows, await swarmTop().catch(() => []));
-  const faces = await fetch(new URL("data/avatars/index.json", root)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+  await mergeSwarm(rows, await swarmSoon);
+  const faces = await facesSoon;
   for (const m of rows) {
     m.avatar = faces[m.org] ?? null;
     dress(m);
@@ -284,9 +298,8 @@ async function addressed(body, expected) {
 
 // The signature over the root, checked the way a model's manifest is: the
 // pinned Sigstore roots from screen 3, then the kernel's trust rule.
-async function indexSigned(bytes) {
+async function indexSigned(bytes, bundle) {
   const t = screens.model.trust;
-  const bundle = await fetch(indexUrl("index.sigstore.json")).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   if (!bundle) return false;
   const facts = await verifyBundle(bundle, bytes, { ...t.policy, predicateType: t.policy.indexPredicateType }).catch(() => null);
   const request = new Uint8Array(11);
