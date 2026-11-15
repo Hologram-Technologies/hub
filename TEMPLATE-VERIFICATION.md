@@ -2313,3 +2313,89 @@ Restored, both samples exit 0. In every planted run `ok a model is found by
 name` still passed, which is the point: the answer was right the whole time
 and only the route was wrong, so a gate that reads answers would have
 certified both defects.
+
+## A page was 86 requests because the order said who, not where
+
+Measured 2026-11-15 against the published site from Node, cold, each request
+a real round trip:
+
+| stage | cost | requests |
+| --- | --- | --- |
+| `root.json` | 945 ms | 1 |
+| order range | 743 ms | 1 |
+| `rows.loc` | 2,129 ms | 42 |
+| roll shards | 548 ms | 42 |
+| one unfiltered page | 4,365 ms | 86 |
+
+The third row delivered 504 bytes. It cost half the page because it was 42
+separate twelve-byte ranged reads into a 37.8 MB table: the order file held
+row numbers, and a row number had to be turned into a place before the row
+could be read. Two hops for every row on every page.
+
+The order file now holds the place itself - shard, first byte, length, eight
+bytes an entry - so a page's 42 locations are 336 contiguous bytes at a fixed
+offset. An unfiltered page is one read of the order and one read a row: 43
+requests where there were 86, and three serial stages where there were four.
+A filtered page still reads scattered entries, but one scattered read each
+rather than two.
+
+`rows.loc` is gone, and nothing needed it: a posting list already holds
+positions in its own sort's order, and a position now names a place in the
+roll directly. No row number survives outside the builder.
+
+### What it costs
+
+Order files go from 4 to 8 bytes an entry. At 3,148,764 rows and five sorts
+that is 125.9 MB where 63.0 MB of orders and a 37.8 MB table stood, so 25.2
+MB buys 43 round trips a page. The roll itself is untouched: the rows stay in
+the shards the roll's root names, which is the only copy a reader can check.
+
+Two numbers are now bounded at build time rather than silently wrapped, and
+the build exits 65 naming the row: a shard index past 65,535 and a row length
+past 65,535. Neither is reachable today - 2,048 shards, and the longest row
+measured in hundreds of bytes - which is exactly why it would have been found
+late.
+
+### The root, and a shape the gates never saw
+
+`root.json` is the first request of every page load and measured 110,875 B on
+disk, of which 43,008 was 2,048 literal shard paths. The roll names a shard
+after the bits of a hash, so the only thing those paths carry is which
+buckets hold rows. They are now the labels alone, three characters each: 6.1
+kB for the same information, exactly.
+
+What that is worth was nearly overstated here. GitHub Pages gzips, and 2,048
+near-identical paths are about as compressible as text gets: measured
+2026-11-15 on the published root, 110,956 B on disk is 36,657 B on the wire,
+and replacing the paths with labels takes it from 35,885 to 34,039 gzipped -
+34,763 B saved on disk, 1,846 B saved on the wire. A 36.6 kB root also costs
+331 ms against 318 ms for a 2.3 kB file on the same connection, so its size
+is nearly free either way.
+
+So this change is worth having for the disk budget, which the 1 GB limit
+makes real, and for not storing derivable data. It is not a first-request
+win, and calling it one would have been a measurement taken on disk and
+reported as though it were a measurement on the wire.
+
+The first attempt wrote a pattern and a count, falling back to the full list
+when the roll did not match it. That was worse than it looked. A roll holds
+only the buckets that have rows, so a full roll is dense and takes the
+pattern while every small roll is sparse and takes the list - which means the
+shape running in production would have been the one shape no gate ever read.
+Labels are exact either way, so the gates now meet what production meets.
+
+### The planted defects
+
+- The page reads the order once a row again, the old two-hop shape:
+  exit 1, `FAIL an unfiltered page finds its rows in one read: 42 reads of the
+  order`. The rows returned were correct, which is the point - only a check
+  that counts reads can see this defect at all.
+- Shard and length swapped in the order entry: exit 1, `shard 147 bytes
+  0..226 are not a row: "[\"Hapyr/svm-breast-cancer-wisconsin\",\"94f486efe9"`.
+  The first form of this rejection was an uncaught JSON error from inside
+  whichever shard the bad numbers landed in; entries are now bounded against
+  their shard before they are read, and bytes that are in bounds and still
+  not a row say which bytes they were.
+
+Restored, both gates exit 0 over 441 requests and 89 kB, and one unfiltered
+page is 43 requests for 42 rows.

@@ -159,24 +159,64 @@ rows.sort((x, y) => x.created - y.created || (x.id < y.id ? -1 : 1));
 // ------------------------------------------------------------------ write
 await mkdir(join(out, "order"), { recursive: true });
 
-// rows.ndjson, and the fixed-width table that says where each row is. The
-// table is what makes a row a ranged read rather than a search: row n starts
-// at the 8 bytes at offset n*8 of rows.idx, and runs for the 4 bytes after.
-// Where each row is in the roll: its shard, its first byte, its length. Three
-// numbers at a fixed place, so row n is one ranged read of this file and then
-// one of the shard it names.
-const loc = new DataView(new ArrayBuffer(rows.length * 12));
-rows.forEach((r, n) => {
-  loc.setUint32(n * 12, r.shardIndex);
-  loc.setUint32(n * 12 + 4, r.offset);
-  loc.setUint32(n * 12 + 8, r.length);
-});
-const body = Buffer.from(loc.buffer);
-await writeFile(join(out, "rows.loc"), body);
+// Where a row is in the roll - its shard, its first byte, its length - is
+// written into each sort's order file rather than into a table of its own.
+//
+// It used to be a table of its own, `rows.loc`, keyed by row number, and the
+// order files held row numbers. That cost a page two hops: read 42 row
+// numbers from the order, then read 42 twelve-byte ranges out of a 37.8 MB
+// table to find out where those rows live. Measured 2026-11-15 against the
+// live site from Node: that second hop took 2,129 ms of a 4,365 ms page and
+// 42 of its 86 requests, to deliver 504 bytes. The bytes were never the
+// problem; 42 round trips were.
+//
+// Written into the order instead, a page's 42 locations are 336 contiguous
+// bytes at a fixed offset, so an unfiltered page is one ranged read and the
+// hop disappears. A filtered page still reads scattered entries, but one
+// scattered read each rather than two. The order files grow from 4 to 8 bytes
+// an entry, and `rows.loc` is gone: at three million models and five sorts
+// that is 124 MB where 63 MB of orders and a 37.8 MB table stood, so 23 MB
+// buys 42 round trips a page.
+//
+// Nothing needs a row number any more. A posting list already holds positions
+// in its own sort's order, and a position now names a place in the roll
+// directly.
+const STRIDE = 8;
+const MAX_SHARD = 0xffff, MAX_LENGTH = 0xffff;
 
-// One file per sort: the row numbers, in that order, four bytes each. Page k
-// of a sort is the 168 bytes at offset k*42*4 - one ranged read, whatever the
-// catalogue's size.
+// The roll names its shards after the bits of a hash - `shards/4bb.ndjson` -
+// so the only thing a list of them carries is which buckets hold rows. At
+// three million models that is 2,048 literal paths, 43 kB of a 110 kB root,
+// and this file is the first request of every page load.
+//
+// Written as the bucket labels alone it is 3 characters each: the same
+// information, exactly, whether the roll is dense or sparse. A roll holding
+// only some buckets - which is every small roll, and so every test - reads
+// back the same way a full one does, so the shape a reader meets in
+// production is the shape a gate meets too. The full paths are written only
+// if the roll ever stops naming shards this way.
+const LABEL = /^shards\/([0-9a-f]{3})\.ndjson$/;
+const labels = root.shards.map((x) => LABEL.exec(x.path)?.[1]);
+const shardNames = labels.every(Boolean)
+  ? { labels: labels.join(""), width: 3, name: "shards/{label}.ndjson" }
+  : root.shards.map((x) => x.path);
+for (const r of rows) {
+  // Typed, loud, and at build time: a shard index or a row length past what
+  // the entry can hold would otherwise be written as a silently wrapped
+  // number and read back as a different row.
+  if (r.shardIndex > MAX_SHARD) {
+    console.error(`browse-index: shard ${r.shardIndex} does not fit the ${STRIDE}-byte order entry (max ${MAX_SHARD})`);
+    process.exit(65);
+  }
+  if (r.length > MAX_LENGTH) {
+    console.error(`browse-index: the row ${r.id} is ${r.length} bytes, past what the order entry holds (max ${MAX_LENGTH})`);
+    process.exit(65);
+  }
+}
+
+// One file per sort: where each row of that order lives, eight bytes each.
+// Page k of a sort is the 336 bytes at offset k*42*8 - one ranged read,
+// whatever the catalogue's size.
 // Which rows hold each facet value, once, since it does not depend on a sort.
 const members = Object.fromEntries(FACETS.map((f) => [f.key, new Map()]));
 for (const [n, row] of rows.entries()) {
@@ -195,11 +235,16 @@ const orders = {};
 const postings = {};
 for (const [name, compare] of Object.entries(SORTS)) {
   const numbers = rows.map((_, n) => n).sort((x, y) => compare(rows[x], rows[y]));
-  const buf = new DataView(new ArrayBuffer(numbers.length * 4));
-  numbers.forEach((n, i) => buf.setUint32(i * 4, n));
+  const buf = new DataView(new ArrayBuffer(numbers.length * STRIDE));
+  numbers.forEach((n, i) => {
+    const r = rows[n];
+    buf.setUint16(i * STRIDE, r.shardIndex);
+    buf.setUint32(i * STRIDE + 2, r.offset);
+    buf.setUint16(i * STRIDE + 6, r.length);
+  });
   const bytes = Buffer.from(buf.buffer);
-  await writeFile(join(out, "order", `${name}.u32`), bytes);
-  orders[name] = { path: `order/${name}.u32`, rows: numbers.length, sha256: sha256(bytes) };
+  await writeFile(join(out, "order", `${name}.loc`), bytes);
+  orders[name] = { path: `order/${name}.loc`, rows: numbers.length, stride: STRIDE, sha256: sha256(bytes) };
 
   // Where each row sits in this order, so a member list becomes a position
   // list and a filtered page is a slice rather than a search.
@@ -317,7 +362,7 @@ for (const [name, compare] of Object.entries(SORTS)) {
 search.words = { path: "search/words/", buckets: buckets.size, bytes: wordBytes, sizes: wordSizes };
 
 await writeFile(join(out, "root.json"), JSON.stringify({
-  format: "hologram.hub.browse/v1",
+  format: "hologram.hub.browse/v2",
   built: new Date().toISOString(),
   // Named so a reader can check this index against the roll it came from
   // rather than taking it on trust.
@@ -330,9 +375,12 @@ await writeFile(join(out, "root.json"), JSON.stringify({
   // The buckets the parameter and recency filters are cut at, so a reader
   // turns the interface's range back into a union of values without guessing.
   buckets: { parameters: PARAM_STOPS, recencyDays: RECENCY_DAYS },
-  // The locator, and the shards its numbers point into, in that order and
-  // relative to this file.
-  rows: { count: rows.length, locator: "rows.loc", locatorSha256: sha256(body), from: "../roll/", shards: root.shards.map((x) => x.path) },
+  // The shards an order entry's shard number points into, relative to this
+  // file. Their paths are listed rather than patterned only if the roll ever
+  // stops naming them the way it does: 2,048 literal names cost 43 kB of a
+  // 110 kB root to say what `shards/%03x.ndjson` says in a line, and this
+  // file is the first request of every page load.
+  rows: { count: rows.length, from: "../roll/", shards: shardNames },
   orders,
   postings,
   // A search term is looked up in the bucket its first two characters name.
@@ -340,11 +388,13 @@ await writeFile(join(out, "root.json"), JSON.stringify({
 }));
 
 const mb = (n) => `${(n / 1e6).toFixed(1)} MB`;
-const orderBytes = rows.length * 4 * Object.keys(orders).length;
+const orderBytes = rows.length * STRIDE * Object.keys(orders).length;
 let postingBytes = 0;
 for (const sort of Object.values(postings)) for (const f of Object.values(sort)) postingBytes += (await readFile(join(out, f.path))).length;
 const values = Object.values(postings[Object.keys(postings)[0]]).reduce((a, f) => a + f.values, 0);
-console.log(`browse-index: ${rows.length} rows | locator ${mb(body.length)} `
-  + `| ${Object.keys(orders).length} orders ${mb(orderBytes)} | postings ${mb(postingBytes)} over ${values} values `
-  + `| search ${mb(Object.values(search).reduce((a, x) => a + x.bytes, 0))} `
-  + `| total ${mb(body.length + orderBytes + postingBytes + Object.values(search).reduce((a, x) => a + x.bytes, 0))} beside the roll`);
+const searchBytes = Object.values(search).reduce((a, x) => a + x.bytes, 0);
+const rootBytes = (await readFile(join(out, "root.json"))).length;
+console.log(`browse-index: ${rows.length} rows | root ${(rootBytes / 1e3).toFixed(1)} kB `
+  + `| ${Object.keys(orders).length} orders ${mb(orderBytes)} holding where each row is | postings ${mb(postingBytes)} over ${values} values `
+  + `| search ${mb(searchBytes)} `
+  + `| total ${mb(orderBytes + postingBytes + searchBytes)} beside the roll`);

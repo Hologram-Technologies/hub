@@ -69,10 +69,23 @@ const bucketOf = (word) => word.slice(0, 2);
 // are then read would drop the row that was being looked for.
 export const EXACT = 64;
 
+// Bytes an order entry takes: shard, first byte, length. The root states it
+// too, and the root wins, so a reader built against one stride still reads an
+// index written with another.
+const STRIDE = 8;
+
+// The shard a number names. The root gives either the labels, three
+// characters each, or the full paths if the roll ever stops naming them that
+// way.
+const shardNameFrom = (spec) => (Array.isArray(spec)
+  ? (i) => spec[i]
+  : (i) => spec.name.replace("{label}", spec.labels.slice(i * spec.width, (i + 1) * spec.width)));
+const shardCountOf = (spec) => (Array.isArray(spec) ? spec.length : spec.labels.length / spec.width);
+
 export async function openBrowse(base) {
   const url = (path) => new URL(path, base).href;
   const root = await fetch(url("root.json")).then((r) => (r.ok ? r.json() : null));
-  if (!root || root.format !== "hologram.hub.browse/v1") return null;
+  if (!root || root.format !== "hologram.hub.browse/v2") return null;
 
   const field = Object.fromEntries(root.fields.map((f, i) => [f, i]));
   const headers = new Map();
@@ -122,21 +135,48 @@ export async function openBrowse(base) {
     return out;
   }
 
-  // The rows live in the roll, not here. The locator says which shard a row is
-  // in and which bytes, so a row is two ranged reads and the bytes stay in the
-  // shards the roll's root names - the only copy a reader can check.
-  const locUrl = url(root.rows.locator);
-  const shardUrl = (i) => new URL(root.rows.shards[i], new URL(root.rows.from, base)).href;
+  // The rows live in the roll, not here, and an order entry says where: which
+  // shard, which bytes. The bytes stay in the shards the roll's root names -
+  // the only copy a reader can check.
+  //
+  // The root gives the shard labels, three characters each, or the full paths
+  // if the roll ever stops naming them that way.
+  const rollBase = new URL(root.rows.from, base);
+  const nameOf = shardNameFrom(root.rows.shards);
+  const shardUrl = (i) => new URL(nameOf(i), rollBase).href;
 
-  async function rowsAt(numbers) {
-    if (!numbers.length) return [];
-    // Forty-two small ranged reads to one origin is what HTTP/2 is for.
-    const where = await Promise.all(numbers.map(async (n) => {
-      const b = await range(locUrl, n * 12, 12);
-      const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
-      return { shard: v.getUint32(0), at: v.getUint32(4), len: v.getUint32(8) };
+  const stride = (sort) => root.orders[sort].stride ?? STRIDE;
+  const placeAt = (view, i, step) => ({
+    shard: view.getUint16(i * step),
+    at: view.getUint32(i * step + 2),
+    len: view.getUint16(i * step + 6),
+  });
+
+  // One contiguous run of the order - a page, in other words - is one read.
+  async function placesInRun(sort, from, count) {
+    if (!count) return [];
+    const step = stride(sort);
+    const b = await range(await order(sort), from * step, count * step);
+    const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    return Array.from({ length: Math.floor(b.byteLength / step) }, (_, i) => placeAt(v, i, step));
+  }
+
+  // Scattered positions - what a filter or a search leaves - are one small
+  // read each. Still one read a row rather than the two a separate locator
+  // table cost.
+  async function placesAt(sort, at) {
+    const step = stride(sort);
+    const path = await order(sort);
+    return Promise.all(at.map(async (pos) => {
+      const b = await range(path, pos * step, step);
+      return placeAt(new DataView(b.buffer, b.byteOffset, b.byteLength), 0, step);
     }));
-    const bodies = await Promise.all(where.map((w) => range(shardUrl(w.shard), w.at, w.len)));
+  }
+
+  async function rowsFrom(places) {
+    if (!places.length) return [];
+    // Forty-two small ranged reads to one origin is what HTTP/2 is for.
+    const bodies = await Promise.all(places.map((w) => range(shardUrl(w.shard), w.at, w.len)));
     const decoder = new TextDecoder();
     return bodies.map((b) => JSON.parse(decoder.decode(b)));
   }
@@ -223,13 +263,7 @@ export async function openBrowse(base) {
         // can only remove rows this one already holds.
         if (hits.length <= EXACT) break;
       }
-      const order = url(root.orders[use].path);
-      const wanted = hits.slice(0, EXACT);
-      const numbers = await Promise.all(wanted.map(async (pos) => {
-        const b = await range(order, pos * 4, 4);
-        return new DataView(b.buffer, b.byteOffset, b.byteLength).getUint32(0);
-      }));
-      const rows = await rowsAt(numbers);
+      const rows = await rowsFrom(await placesAt(use, hits.slice(0, EXACT)));
       const row = rows.find((r) => r[0].toLowerCase() === id.toLowerCase());
       return row && { id: row[0], revision: row[1], created: row[2], browse: row[6] ?? null };
     },
@@ -256,20 +290,13 @@ export async function openBrowse(base) {
       const pages = Math.max(1, Math.ceil(total / root.pageSize));
       const at = Math.min(Math.max(1, page), pages) - 1;
       const from = at * root.pageSize;
-      let numbers;
-      if (hits === null) {
-        const slice = await range(await order(use), from * 4, Math.min(root.pageSize, total - from) * 4);
-        const v = new DataView(slice.buffer, slice.byteOffset, slice.byteLength);
-        numbers = Array.from({ length: slice.byteLength / 4 }, (_, i) => v.getUint32(i * 4));
-      } else {
-        const wanted = hits.slice(from, from + root.pageSize);
-        const path = await order(use);
-        numbers = await Promise.all(wanted.map(async (pos) => {
-          const b = await range(path, pos * 4, 4);
-          return new DataView(b.buffer, b.byteOffset, b.byteLength).getUint32(0);
-        }));
-      }
-      return { total, pages, page: at + 1, rows: await rowsAt(numbers) };
+      // Unfiltered, a page is a contiguous run of the order, so it is one
+      // read. Filtered, the positions are scattered and it is one small read
+      // each.
+      const places = hits === null
+        ? await placesInRun(use, from, Math.min(root.pageSize, total - from))
+        : await placesAt(use, hits.slice(from, from + root.pageSize));
+      return { total, pages, page: at + 1, rows: await rowsFrom(places) };
     },
   };
 }

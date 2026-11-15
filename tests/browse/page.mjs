@@ -20,19 +20,47 @@ const failures = [];
 const check = (name, ok, saw) => (ok ? console.log(`ok   ${name}`) : failures.push(`${name}: ${saw}`));
 
 const root = JSON.parse(await readFile(join(dir, "root.json"), "utf8"));
-// The rows live in the roll the index was built from; the locator says which
-// shard each is in and which bytes.
-const locBytes = await readFile(join(dir, root.rows.locator));
-const loc = new DataView(locBytes.buffer, locBytes.byteOffset, locBytes.byteLength);
-const shards = await Promise.all(root.rows.shards.map((p) => readFile(join(dir, root.rows.from, p))));
+// The rows live in the roll the index was built from; an order entry says
+// which shard each is in and which bytes. The shard names are a pattern
+// where the roll follows one, and a list otherwise.
+const shardSpec = root.rows.shards;
+const shardName = (i) => (Array.isArray(shardSpec)
+  ? shardSpec[i]
+  : shardSpec.name.replace("{label}", shardSpec.labels.slice(i * shardSpec.width, (i + 1) * shardSpec.width)));
+const shardCount = Array.isArray(shardSpec) ? shardSpec.length : shardSpec.labels.length / shardSpec.width;
+const shards = await Promise.all(Array.from({ length: shardCount }, (_, i) => readFile(join(dir, root.rows.from, shardName(i)))));
 
 const FIELD = Object.fromEntries(root.fields.map((f, i) => [f, i]));
 
 // ---- what a browser does
-const rowAt = (n) => {
-  const shard = shards[loc.getUint32(n * 12)];
-  const at = loc.getUint32(n * 12 + 4), len = loc.getUint32(n * 12 + 8);
-  return JSON.parse(shard.subarray(at, at + len).toString("utf8"));
+// A position in a sort's order, straight to the bytes it names.
+const placeIn = (view, pos, step) => ({
+  shard: view.getUint16(pos * step),
+  at: view.getUint32(pos * step + 2),
+  len: view.getUint16(pos * step + 6),
+});
+// An order entry names three numbers, and three numbers in the wrong places
+// still parse as three numbers. So they are bounded before they are read: a
+// corrupt entry says which entry and what it claimed, rather than throwing a
+// JSON error from somewhere inside the shard it landed in.
+const outOfBounds = ({ shard, at, len }) => {
+  if (!(shard < shards.length)) return `shard ${shard} of ${shards.length}`;
+  if (at + len > shards[shard].length) return `bytes ${at}..${at + len} of a ${shards[shard].length}-byte shard`;
+  if (!len) return "no bytes at all";
+  return null;
+};
+const rowOf = (place) => {
+  const bad = outOfBounds(place);
+  if (bad) throw new Error(`an order entry names ${bad}`);
+  const text = shards[place.shard].subarray(place.at, place.at + place.len).toString("utf8");
+  try {
+    return JSON.parse(text);
+  } catch {
+    // In bounds and still not a row: the three numbers are in the wrong
+    // places, or the wrong file is being read. Say which bytes, because the
+    // parse error on its own says only that they are not JSON.
+    throw new Error(`shard ${place.shard} bytes ${place.at}..${place.at + place.len} are not a row: ${JSON.stringify(text.slice(0, 48))}`);
+  }
 };
 
 const orderCache = new Map();
@@ -87,11 +115,26 @@ async function page(sort, filters, k = 0) {
   const slice = hits === null
     ? Array.from({ length: Math.min(root.pageSize, root.rows.count - k * root.pageSize) }, (_, i) => k * root.pageSize + i)
     : hits.slice(k * root.pageSize, (k + 1) * root.pageSize);
-  return { total: hits === null ? root.rows.count : hits.length, rows: slice.map((pos) => rowAt(order.getUint32(pos * 4))) };
+  const step = root.orders[sort].stride ?? 8;
+  return { total: hits === null ? root.rows.count : hits.length, rows: slice.map((pos) => rowOf(placeIn(order, pos, step))) };
 }
 
 // ---- the slow, obvious way, for something to check against
-const all = Array.from({ length: root.rows.count }, (_, n) => rowAt(n));
+// Every row, read through the first sort's order, which names every row
+// exactly once.
+const firstSort = Object.keys(root.orders)[0];
+const firstOrder = await orderOf(firstSort);
+const firstStep = root.orders[firstSort].stride ?? 8;
+const places = Array.from({ length: root.rows.count }, (_, pos) => placeIn(firstOrder, pos, firstStep));
+const firstBad = places.map((pl, i) => [i, outOfBounds(pl)]).find(([, bad]) => bad);
+check("every order entry names bytes inside a shard", !firstBad, firstBad ? `entry ${firstBad[0]} names ${firstBad[1]}` : "");
+const all = firstBad ? [] : places.map(rowOf);
+// Back into the order the builder numbers rows in - created, then id - which
+// is the order a sort's ties fall in. Reading them through a sort's order file
+// would otherwise break ties differently from the index and fail a comparison
+// that is actually in agreement.
+all.sort((x, y) => x[2] - y[2] || (x[0] < y[0] ? -1 : 1));
+
 const holds = (row, facet, value) => {
   const b = row[6];
   if (!b) return false;
