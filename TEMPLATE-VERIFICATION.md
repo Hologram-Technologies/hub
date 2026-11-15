@@ -2165,3 +2165,41 @@ Against a month of the Hub, 96,629 models: `qwen` narrows 96.6k to 1.6k,
 `qwen gguf` to 108, and the cards are Qwen GGUF repositories. A search costs
 three requests and 4 kB; the page in total, including the catalogue load, is
 221 requests and 164 kB with nothing larger than 65 kB.
+
+## What a torrent's checksums prove, measured against what an address proves
+
+`tests/uor/addressing.mjs` builds real BitTorrent v1 torrents over real
+safetensors bytes and runs both schemes against the same four situations. It
+exists because the comparison was being made in prose, and prose is where an
+overclaim survives.
+
+It caught one immediately. The first version asserted that a bad piece always
+covers more than one tensor, so it can never name one. That is false: a piece
+can land wholly inside a large tensor, and with these sizes it did. The claim
+that holds is narrower and is what the test now makes - a piece names a byte
+range of everything concatenated, nothing makes that range a tensor, and
+going from the range to a tensor needs the safetensors header, which is
+layout the torrent does not carry. Measured on the fixture: 3 of 6 pieces
+cover more than one tensor, and 2 cover more than one file.
+
+The result that matters is substitution. A torrent built over *different*
+weights of the same size, with the same tensor names and shapes, verifies
+perfectly: its infohash is its own, and 0 of its 6 pieces are bad. The
+witnessed addresses refuse all 4 tensors. So "every checksum passed" is a
+statement about delivery and never about which model was delivered - not
+because SHA-1 is weak, but because the party packaging the bytes also defines
+what the bytes should be. That is the same circularity recorded earlier for
+`pirateface.co` as a witness of itself.
+
+Repackaging is the other half: a file added, the piece length changed, and the
+torrent renamed give three different infohashes over byte-identical weights,
+and not one tensor address moves.
+
+Run with `--live` it recomputes a published manifest against the bytes Hugging
+Face serves now. Measured 2026-11-15: all 104 tensors of
+`sentence-transformers/all-MiniLM-L6-v2`, recomputed from 90,868,376
+downloaded bytes, matched the addresses this repository published - an address
+taken at one time, from one host, checked later against another.
+
+The live half is deliberately not in CI. A run that failed because a host was
+slow would say nothing about this repository.

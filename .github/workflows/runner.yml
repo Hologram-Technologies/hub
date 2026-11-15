@@ -40,6 +40,14 @@ jobs:
       - name: A tensor address follows its bytes
         shell: bash
         run: node tests/runner/uor.mjs
+      - name: What a torrent's checksums prove, and what a tensor address proves
+        # Builds real torrents over real safetensors and runs both schemes
+        # against the same tampering, repackaging and substitution. The live
+        # half, which recomputes a published manifest against Hugging Face, is
+        # left out: a run that failed because a host was slow would say
+        # nothing about this repository.
+        shell: bash
+        run: node tests/uor/addressing.mjs
       - name: The kernel still answers the way the runner is built around
         # Lean proves these for every input; this pins the answers for the
         # handful the runner depends on, against the kernel the hub is
