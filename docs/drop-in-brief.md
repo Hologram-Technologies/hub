@@ -226,13 +226,28 @@ The product sentence is "every open model tensor indexed by its unique content,
 giving it a self-verifying hash". Decide and justify each of these, with
 measurement wherever measurement is possible:
 
-1. **What a tensor κ is over.** Recommendation to test: `blake3:<hex>` over the
+1. **What a tensor κ is over.** Decided on 2026-11-16: `blake3:<hex>` over the
    tensor's raw little-endian bytes alone, so dtype, shape, model, file and
-   position change nothing, and BLAKE3's tree mode lets a receiver check any
-   range without the whole file. State what `uor-addr` gives today in
-   `Hologram-Technologies/hologram` — the 71-byte `KappaLabel71`, the `blake3:`
-   default, `verify_kappa` on receipt — and whether a range proof exists or is
-   owed upstream.
+   position change nothing. It is the number `runner/uor.mjs` already emits and
+   the one `hologram`'s `address_bytes()` mints, and that is the whole argument
+   for it: one identity across hologram, this hub and the Q engine.
+
+   Two things that were part of the argument and did not survive contact, kept
+   here because the next person will reach for them too. BLAKE3's tree mode does
+   allow a receiver to check one range without the whole file, but the SDK-owned
+   implementation in `try/vendor/prism-code/src/blake3.mjs` exposes no chunk or
+   subtree accessors, so no slice proof can be made today and checking one tensor
+   means hashing its whole range — identical work under either hash. And
+   `uor-addr`'s own default is SHA-256, not BLAKE3: its `AddressLabel` alias and
+   its README's `sha256:<64hex>` are the default axis, while `blake3:` is one of
+   five the crate admits.
+
+   Keep `uor-addr`'s canonical-form leaf beside the κ and label it as uor-addr's.
+   In the GGUF and ONNX forms that leaf is SHA-256 by definition of the form, so
+   `address_blake3` yields `blake3(skeleton-with-sha256-leaves)`: the two numbers
+   answer different questions, and only one of them is this hub's. Both labels
+   are 71 bytes, because both prefixes are seven characters, so read the axis
+   prefix and never the length.
 2. **The layout.** Per file, the header bytes plus an ordered list of tensor κs
    that rebuild the file byte for byte. safetensors first, then GGUF, then the
    `HOLK1` weight container the Q engine already reads.
