@@ -2482,3 +2482,125 @@ both planted defects are rejected on the smallest and the largest:
 
 A gate run against one sample size says less than it appears to. These are
 now run against four.
+
+## The surface Hugging Face publishes, and the map that claims against it
+
+Hugging Face publishes `/.well-known/openapi.json`: read on 2026-11-15, 379
+operations across 310 paths in 28 tags. `docs/hf-surface.md` is generated from
+a pinned reduction of it and gives every operation one verdict, so what
+"drop-in replacement" is measured against is a number rather than a feeling.
+
+The map has three inputs and no fourth: `tools/hf-surface/inventory.json` (the
+operations, the digest of the surface, and the date it was read),
+`tools/hf-surface/policy.json` (the verdict for each tag, the overrides, and
+where each declared hub route lives in the specification), and
+`app/tools/site_spec.py`, which stays the one source for what the hub answers.
+A route added there with no mapping fails the gate rather than disappearing
+from the map.
+
+The counts, as generated: 6 `answered` from the index, 1 `partial`, 25
+`passthrough`, 36 `refused`, 9 `unreachable`, 302 `out-of-scope`. The hub
+declares 12 operations; 4 of them Hugging Face does not document in its own
+specification, `HEAD` on the resolve route and the three model listing and
+information routes among them.
+
+### The digest of that file is not a pin
+
+Measured 2026-11-15: two downloads seconds apart differ. The first difference
+is at character 299,930, and it is a query parameter's default: a date-time of
+`2026-11-13T11:07:28.058Z` in one response against `2026-11-13T22:14:26.392Z`
+in the next. The file carries the time of the request, so its bytes move on
+every read while the surface stands still, and a response's digest records one
+response and nothing more. The byte length moves as well, between clients and
+across the day: 1,227,789 bytes from `fetch` and 1,227,297 from `curl` within
+the hour.
+
+So the pin is a digest over the operations themselves, each method, path and
+tag, which `--refresh` prints and the gate recomputes:
+`d3acb92cb9ba07c23e09fe8b950013c8f7b1b0d4af5e7536b12dc8d129ac57f4`. Two
+refreshes in a row now report `the surface is unchanged`, and then say plainly
+that the published file's own bytes moved underneath it. A gate written against
+the response digest would have failed on Hugging Face's clock.
+
+### What the gate proves and what it does not
+
+It proves the document was generated from these inputs and is not stale, that
+the inventory's own digest is the digest of its own rows, and that the claims
+are consistent in both directions. It does not prove the inventory still
+matches huggingface.co: a gate that reached the network would fail on an outage
+rather than on a defect, and `node tools/hf-surface.mjs --refresh` is what
+checks that instead. Nothing here is tested against a client. `answered` means
+built from the index and read from `edge/edge.mjs` on 2026-11-15, not measured
+against `huggingface_hub`. The recorded transcripts that would make it tested
+are the half of that work still owed.
+
+### The planted defects
+
+Five, one per rule the map rests on. Each was planted, rejected, and restored.
+On the restored tree `node tests/surface/map.mjs` reports `ok surface map: 379
+operations, 12 declared by the hub, 7 answered from the index`, and
+`docs/hf-surface.md` is sha256
+`4f511d59aa50f59edd1d198a268e29c084463c843ce6b87deac48bc78ed419c8`.
+
+1. **A refused operation called answered.** `GET /api/trending` given the
+   verdict `answered` in `policy.json`. `node tools/hf-surface.mjs` exits 65:
+   `hf-surface: the map calls GET /api/trending answered, and site_spec.py does
+   not answer it`. The second reader fails four of its checks.
+2. **The generated document edited by hand.** The `refused` count in
+   `docs/hf-surface.md` changed from 36 to 3: `docs/hf-surface.md is not what
+   these inputs generate: it is sha256 215fa728..., they generate 4f511d59...`.
+3. **A route declared with nowhere to live.** A `GET /api/datasets` row added
+   to `ENDPOINTS` in `site_spec.py`. Exit 65: `site_spec.py answers GET
+   /api/datasets and policy.json does not say where it lives in the
+   specification`, and from the second reader `not ok every operation the hub
+   declares is mapped: GET /api/datasets`.
+4. **Rows filtered out of the rendered tables.** The renderer changed to skip
+   every `out-of-scope` row. This is the one defect the generator cannot catch:
+   it rewrote the document, `--check` compared the new bytes with the same
+   generator's output and agreed, and only the second reader failed, with `not
+   ok the map draws a row for every operation: 77 rows for 379 operations`.
+5. **The inventory edited to move an operation.** `GET /api/trending` refiled
+   from the `models` tag to `repo-search`: `not ok the inventory's surface
+   digest is the digest of its own operations: it records d3acb92c...`.
+
+The fourth is why there are two readers. A gate that regenerates and compares
+bytes proves only that nobody edited the output by hand; a defect in the
+generator passes it by agreeing with itself. `tests/surface/map.mjs` reads the
+same three inputs independently and checks the claims, so the two fail on
+different mistakes.
+
+### What the map found about this hub
+
+Three things, all read from `edge/edge.mjs` on 2026-11-15 and none of them
+measured against a running edge:
+
+- Every write the hub refuses is refused `400 BadRequest`, because the
+  fallthrough answer is the kernel's any-other case. Hugging Face answers an
+  unauthenticated write with 401 or 403, so `huggingface_hub` raises a
+  different exception against the hub than against Hugging Face for the same
+  call. The refusal is typed and modelled, and it is the wrong type for
+  drop-in.
+- Any method other than POST under `/api/models/` that the index cannot answer
+  is relayed to huggingface.co, `DELETE`, `PUT` and `PATCH` included, with no
+  token attached. Nothing can be destroyed, because the hub holds no
+  credential, but a client's `DELETE` receives Hugging Face's 401 rather than
+  the hub's typed refusal, and the hub makes an outbound request it could have
+  refused locally.
+- `GET /api/models/{repo}/refs` answers with `main` and three empty lists and
+  sends no `X-Hub-Partial` header, unlike the commits route beside it, so a
+  client cannot tell the list is narrower than Hugging Face's rather than
+  genuinely empty. `HK-15` is the rule it does not keep.
+
+And one about the model: `site_spec.py` lists `GET /api/whoami-v2` in the read
+surface as "Who the token belongs to", and the hub always refuses it. The
+refusal is the right answer, because the hub has no accounts and every request
+is anonymous, which is what huggingface.co answers an anonymous client. The
+description is what over-claims, and it is on the live documentation screen.
+Not changed here: the words on that screen are generated from the kernel, so
+correcting them is a model change with its own gate run, not a note in a map.
+
+The relay is also the shipped default, `useHuggingFace` being true unless the
+edge is configured otherwise. An edge run with it off refuses all 25
+`passthrough` operations and answers the listing from the browse index, so the
+decentralization claim rests on a configuration in which 25 of the 32
+operations this map calls answered in some form become refusals, and 7 survive.
