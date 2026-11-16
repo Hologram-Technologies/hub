@@ -1,0 +1,23 @@
+# The edge runner as gethologram.ai runs it, at /root/hub-edge on the VPS.
+# Caddy reaches it on the twenty_default network as hub-edge:8787; no host port is published.
+# The image is built from an exact commit of this repository by deploy.sh, which writes EDGE_IMAGE to .env.
+name: hub-edge
+services:
+  edge:
+    image: ${EDGE_IMAGE:?deploy.sh sets EDGE_IMAGE in .env}
+    restart: unless-stopped
+    environment:
+      PORT: "8787"
+      HOST: 0.0.0.0
+    mem_limit: 256m
+    cpus: 0.5
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "5" }
+    networks:
+      default:
+        aliases: [hub-edge]
+networks:
+  default:
+    name: twenty_default
+    external: true

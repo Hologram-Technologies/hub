@@ -3,6 +3,15 @@
 Written 2026-11-14. Measurements are dated; everything else is read from code
 or from a page, and said to be.
 
+## Since 2026-11-16
+
+The edge answers gethologram.ai's Hugging Face dialect: Caddy on the VPS sends
+`/{repo}/resolve/…` and `/api/models…` to it (`deploy/caddy/gethologram.ai.caddy`),
+and every other path still reaches hologram-live. A Hugging Face client sees
+no difference on the public name (`tests/edge/observe.py`, 14 of 14). The
+domain stays one name; `docs/cutover.md` has the decision and the order for
+the rest. The measurements below are from before that.
+
 ## What gethologram.ai is today
 
 A running service on one Contabo VPS, not a static site and not GitHub Pages.

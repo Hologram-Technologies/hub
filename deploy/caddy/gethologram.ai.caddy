@@ -1,0 +1,72 @@
+# The routes this repository answers on gethologram.ai. They go at the top of the `gethologram.ai, hub.uor.foundation`
+# site block in the VPS's front Caddyfile (/root/twenty/Caddyfile), before every other handle: Caddy tries handle
+# blocks in the order they are written, and the first match answers. Every other path still reaches the services
+# of Hologram-Technologies/hologram-live until it moves here (docs/cutover.md).
+#
+# Rollback for any one block: delete it and `caddy reload`. Nothing else depends on it.
+
+	# Live since 2026-11-16. The Hugging Face dialect's files and model API.
+	@edge {
+		path_regexp edge ^(/api/models(/|$)|/[^/]+/[^/]+/resolve/)
+		not path /via/*
+	}
+	handle @edge {
+		# Clients send their Hugging Face token to whatever HF_ENDPOINT names; it never reaches the edge.
+		request_header -Authorization
+		request_header -Cookie
+		reverse_proxy hub-edge:8787
+	}
+
+	# Live since 2026-11-16: /via/<source>/ file requests and Hugging Face API. Measured the same day against hub-resolve, all three sources, a small and a
+	# large file, an unknown source and a source that lacks the file: the same status, source, redirect host and error
+	# code in all 18 cases; the ETag of a small file is its git blob SHA-1 instead of its SHA-256, as the tree says.
+	# The published source names (huggingface, modelscope) are the old hub's; this repository's are the kernel's
+	# (huggingface.co, modelscope.cn, app/tools/site_spec.py), so they are translated here rather than added to the
+	# proved model. SHA256SUMS stays where it is: the edge's records carry no SHA-256 for a small file, so it cannot
+	# synthesise one. The API under /via/ answers Hugging Face's rows, with no hologram block; a Hugging Face client
+	# pinned to each source matches huggingface.co (observe.py: ipfs 13/13 pinned, huggingface 14/14, modelscope 13/13 pinned).
+	@via_edge {
+		path_regexp via_edge ^/via/(huggingface|modelscope|ipfs|huggingface\.co|modelscope\.cn)/([^/]+/[^/]+/resolve/|api/)
+		not path */SHA256SUMS
+	}
+	handle @via_edge {
+		request_header -Authorization
+		request_header -Cookie
+		uri path_regexp ^/via/huggingface/ /via/huggingface.co/
+		uri path_regexp ^/via/modelscope/ /via/modelscope.cn/
+		reverse_proxy hub-edge:8787
+	}
+
+	# Next, once the site names the apex (API_HOST, #45) and Pages has published it: this repository's site for
+	# browsers. Place these two blocks after @server_other and before the final catch-all `handle`, which keeps
+	# serving the old site and its agent negotiation at / unchanged. Rehearsed 2026-11-16 in a throwaway Caddy
+	# against the live upstreams: the home page and a model page render with every request answered except
+	# data/swarm/catalog/root.json, which Pages does not publish either.
+	#
+	# Pages that this site draws, for a browser. /buckets/, /docs/, /registry/ and the Spaces apps under
+	# /spaces/<id>/ stay on the old site until each is decided (docs/cutover.md, step 4).
+	@hubpage {
+		header Accept *text/html*
+		path / /models /models/ /models/* /spaces /spaces/
+	}
+	handle @hubpage {
+		rewrite * /hub{uri}
+		reverse_proxy https://hologram-technologies.github.io {
+			header_up Host hologram-technologies.github.io
+		}
+	}
+	# Files this site asks for, recognised by the Referer: a page above, or one of this site's own stylesheets and
+	# modules. They come from Pages first, because the two sites share names with different bytes (/tokens.css;
+	# about 2,669 old pages load it by absolute path), and from the old site when Pages has no such file.
+	@fromhub header_regexp fromhub Referer ^https?://[^/]+/((models(/[^?]*)?|spaces/?)?|hub\.(css|mjs)|tokens\.css|(browse|browsekey|icons|swarmkey|sigstore)\.mjs|app/[^?]*)(\?.*)?$
+	handle @fromhub {
+		rewrite * /hub{uri}
+		reverse_proxy https://hologram-technologies.github.io {
+			header_up Host hologram-technologies.github.io
+			@missing status 404
+			handle_response @missing {
+				rewrite * {http.request.orig_uri}
+				reverse_proxy hub-site:8080
+			}
+		}
+	}
