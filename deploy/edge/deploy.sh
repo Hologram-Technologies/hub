@@ -29,9 +29,14 @@ docker compose up -d >/dev/null
 probe() { docker exec "$CADDY" wget -q -S -O "${2:--}" "http://hub-edge:8787$1" 2>&1; }
 ok=1
 for _ in $(seq 1 60); do probe /health /dev/null >/dev/null && break; sleep 1; done
-probe /health | grep -q '"kernel":true' || { echo "FAIL health"; ok=0; }
-probe "/$MODEL/resolve/main/config.json" /dev/null | grep -qi 'x-repo-commit' || { echo "FAIL resolve headers"; ok=0; }
-probe "/api/models/$MODEL/tree/main" | grep -qE '"oid":"[0-9a-f]{40}"' || { echo "FAIL tree oid"; ok=0; }
+# Each answer is read whole before it is searched: under pipefail, `grep -q` closing the pipe early would fail the
+# pipeline on a correct answer.
+health=$(probe /health || true)
+resolve=$(probe "/$MODEL/resolve/main/config.json" /dev/null || true)
+tree=$(probe "/api/models/$MODEL/tree/main" || true)
+grep -q '"kernel":true' <<<"$health" || { echo "FAIL health"; ok=0; }
+grep -qi 'x-repo-commit' <<<"$resolve" || { echo "FAIL resolve headers"; ok=0; }
+grep -qE '"oid":"[0-9a-f]{40}"' <<<"$tree" || { echo "FAIL tree oid"; ok=0; }
 
 if [ "$ok" = 1 ]; then
   echo "edge at $rev (was ${previous:-none})"
