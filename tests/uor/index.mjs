@@ -103,7 +103,10 @@ ok("the root's counts are the shards' own");
 // What was not addressed is named, file by file, with a reason. A coverage
 // figure without this is a claim about the part nobody listed.
 for (const entry of root.unaddressed) {
-  assert.ok(entry.repo && entry.path, "an unaddressed entry names its file");
+  // A file this build could not address names its path; a model the index no
+  // longer holds has no file to name, and says that instead.
+  assert.ok(entry.repo, "an unaddressed entry names its repository");
+  assert.ok(entry.path !== undefined, "an unaddressed entry says which file, or says there is none");
   assert.ok(entry.why, `${entry.repo}/${entry.path} is unaddressed with no reason given`);
 }
 assert.equal(root.unaddressed.length, root.counts.unaddressed);

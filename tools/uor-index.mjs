@@ -85,9 +85,24 @@ async function named(file) {
 
 const root = JSON.parse(await readFile(join(indexDir, "root.json"), "utf8"));
 const held = new Map(root.records.map((r) => [r.repo.toLowerCase(), r]));
-const wanted = await named("uor.txt");
-const missing = wanted.filter((r) => !held.has(r.toLowerCase()));
-if (missing.length) throw new Error(`uor-index: models named in manifests/uor.txt that the index does not hold: ${missing.join(", ")}`);
+const listed = await named("uor.txt");
+// A model on the list that the index does not hold is recorded, not fatal.
+//
+// The index is rebuilt from a live catalogue on every run, so a model can
+// leave it between one build and the next with nobody editing this list. That
+// is what happened the first time this ran in CI: `Cudecnik/Qwen3.8-Flash-Next-
+// refusal-projection` was in the index when the list was written and gone a few
+// hours later, and refusing to go on meant the whole site did not deploy. A
+// name the catalogue has lost is a fact about the catalogue. It goes in
+// `unaddressed` with every other thing this build could not address, where a
+// reader sees it, rather than stopping the build that would have told them.
+const rows = [];
+const unaddressed = [];
+const wanted = listed.filter((repo) => held.has(repo.toLowerCase()));
+for (const repo of listed.filter((r) => !held.has(r.toLowerCase()))) {
+  unaddressed.push({ repo, path: null, size: null, why: "named in manifests/uor.txt, but the signed index no longer holds it" });
+  console.log(`${repo}: the index does not hold it, left unaddressed`);
+}
 
 // One file's label and leaves, from bytes this process streamed and hashed.
 // The file is written to disk because it is read whole, and removed straight
@@ -146,8 +161,6 @@ async function addressOne(repo, revision, file, work) {
   return { minted, seconds: (Date.now() - started) / 1000 };
 }
 
-const rows = [];
-const unaddressed = [];
 for (const repo of wanted) {
   const record = JSON.parse(await readFile(join(indexDir, "models", `${held.get(repo.toLowerCase()).repo}.json`), "utf8"));
   const gguf = record.files.filter((f) => f.path.toLowerCase().endsWith(".gguf"));
