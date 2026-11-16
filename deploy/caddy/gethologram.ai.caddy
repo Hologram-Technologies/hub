@@ -55,21 +55,22 @@
 			header_up Host hologram-technologies.github.io
 		}
 	}
-	# Files only this repository's site has. The Referer rule below exists because the two sites share names with
-	# different bytes; these names the old site does not have at all, so there is nothing to disambiguate and no
-	# reason to wait for a Referer. That distinction is not cosmetic: the apex's own front page is addressed to
-	# agents -- "every read below is anonymous" -- and an agent reading an address with curl sends no Referer.
+	# Files only this repository's site has, served to anyone that asks. On the VPS these names are a path list in a
+	# matcher named @hubfiles, which this file did not record until now; the live Caddyfile has several blocks this
+	# one does not, so treat it as the routes this repository owns rather than as the whole site block.
 	#
-	# Measured 2026-11-16, before this block: data/uor/root.json answered 404 at the apex and 200 at Pages, while a
-	# browser on a model page got 200 for the same file. The addresses were readable by people and not by the
-	# agents they are for, which is backwards for a thing whose point is that you need not trust the host.
-	# data/roll and uorkey.mjs were in the same position.
+	# /data/uor/*, /data/roll/* and /uorkey.mjs were added 2026-11-16. Before that the apex answered
+	# data/uor/root.json with 404 to curl and 200 to a browser on a model page, because the only route to them was
+	# the Referer rule below. The addresses were readable by people and not by the agents they are for, which is
+	# backwards for a thing whose point is that a reader need not trust the host. The Referer rule is right for
+	# names both sites have -- /tokens.css is loaded by about 2,669 old pages by absolute path -- and wrong for
+	# names only this site has, which need nothing to disambiguate them.
 	#
-	# Rehearsed 2026-11-16 in a throwaway Caddy against the live Pages, with a 404 catch-all standing in for the
-	# old site: the four names answer 200 without a Referer, and /tokens.css and /data/index/root.json still fall
-	# through to the catch-all, so nothing the old site owns is taken from it.
-	@hubonly path /data/uor/* /data/roll/* /uorkey.mjs
-	handle @hubonly {
+	# A caddy reload did not apply this on the running container; `docker restart twenty-caddy-1` did. Measured
+	# after it: the four names answer 200 with no Referer, every other path on the apex still answers, and so do
+	# the other sites in the same Caddyfile.
+	@hubfiles path /app/* /data/index/* /data/avatars/* /data/manifests/* /data/browse/* /data/swarm/* /data/uor/* /data/roll/* /hub.css /hub.mjs /browse.mjs /browsekey.mjs /icons.mjs /swarmkey.mjs /sigstore.mjs /uorkey.mjs
+	handle @hubfiles {
 		rewrite * /hub{uri}
 		reverse_proxy https://hologram-technologies.github.io {
 			header_up Host hologram-technologies.github.io
