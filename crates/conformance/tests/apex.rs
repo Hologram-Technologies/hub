@@ -119,13 +119,196 @@ fn apex_hk_30() {
             continue;
         }
         if let Some(path) = apex_path(command) {
-            let answered = path.starts_with("/api/models")
-                || (path.starts_with("/via/") && path.contains("/resolve/"))
-                || path.starts_with("/api/v1/objects/sha256:");
             assert!(
-                answered,
+                answered(&path, &routes),
                 "{command} asks the apex for {path}, which no route sends to a runner of this repository"
             );
         }
     }
+}
+
+/// Whether the record answers a tool's request for `path`: the edge's
+/// Hugging Face dialect, the object store, or, for the bare name, the guide.
+fn answered(path: &str, routes: &str) -> bool {
+    let segments: Vec<&str> = path.split('/').collect();
+    path.starts_with("/api/models")
+        || (path.starts_with("/via/") && path.contains("/resolve/"))
+        || (segments.len() > 4 && segments[3] == "resolve" && !path.starts_with("/via/"))
+        || path.starts_with("/api/v1/objects/sha256:")
+        || (path == "/" && block(routes, HTTPS).contains(&tool_route()))
+}
+
+const HTTPS: &str = "gethologram.ai, hub.uor.foundation {";
+const HTTP: &str = "http://gethologram.ai, http://hub.uor.foundation {";
+
+/// One site block of the record, every line trimmed, from its address line to
+/// the next site block's or the end. A block that is absent is empty.
+fn block(routes: &str, head: &str) -> String {
+    let lines: Vec<&str> = routes.lines().map(str::trim).collect();
+    let Some(start) = lines.iter().position(|l| *l == head) else {
+        return String::new();
+    };
+    lines[start..]
+        .iter()
+        .skip(1)
+        .take_while(|l| **l != HTTPS && **l != HTTP)
+        .copied()
+        .collect::<Vec<_>>()
+        .join(
+            "
+",
+        )
+}
+
+/// The route that sends a tool's bare request to the guide Pages publishes.
+fn tool_route() -> String {
+    [
+        "@tool {",
+        "path /",
+        "header_regexp tool User-Agent ^(curl|Wget|HTTPie|xh)/",
+        "}",
+        "header / Vary User-Agent",
+        "handle @tool {",
+        "rewrite * /hub/agent.txt",
+        "reverse_proxy https://hologram-technologies.github.io {",
+        "header_up Host hologram-technologies.github.io",
+        "}",
+        "}",
+    ]
+    .join(
+        "
+",
+    )
+}
+
+/// The strings of the home screen's `guide`, read from the model as generated.
+fn guide(site: &str) -> Vec<String> {
+    let text = site.replace("\\\"", "\"");
+    let at = text
+        .find("\"guide\":[")
+        .expect("the home screen has a guide")
+        + 9;
+    let list = &text[at..at + text[at..].find(']').expect("a closed guide")];
+    list.split('"')
+        .skip(1)
+        .step_by(2)
+        .map(str::to_string)
+        .collect()
+}
+
+/// `HK-33`: A tool that asks the apex for its bare name, curl gethologram.ai over http or https, gets a plain-text guide published as a static file and written from the home screen's model, every curl in it reaches a route the apex answers, and the home page prints that command
+#[test]
+fn apex_hk_33() {
+    let site = read("app/src/Site.lex.tex");
+    let home = site
+        .split("name: screenHome,")
+        .nth(1)
+        .and_then(|rest| rest.split("name: screenModels,").next())
+        .expect("the model has a home screen")
+        .replace("\\\"", "\"");
+    assert!(
+        home.contains("\"command\":\"curl gethologram.ai\""),
+        "the home screen must print curl gethologram.ai"
+    );
+
+    let lines = guide(&home);
+    assert!(lines.len() > 5, "the guide is a page, not {lines:?}");
+    let file = read("web/agent.txt");
+    assert_eq!(
+        file,
+        lines.join(
+            "
+"
+        ) + "
+",
+        "web/agent.txt must be the model's guide exactly; run python app/tools/gen_kernel.py"
+    );
+    let routes = routes();
+    for line in &lines {
+        assert!(
+            line.len() <= 100,
+            "the guide line {line:?} is wider than 100 columns"
+        );
+        let words: Vec<&str> = line.split_whitespace().collect();
+        if words.first() != Some(&"curl") {
+            continue;
+        }
+        let command = words
+            .iter()
+            .map(|w| w.trim_matches(['\'', '"']))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let path = apex_path(&command).unwrap_or_else(|| panic!("{line} must ask the apex"));
+        assert!(
+            answered(&path, &routes),
+            "the guide's {line} asks the apex for {path}, which no route answers"
+        );
+    }
+
+    let https = block(&routes, HTTPS);
+    let http = block(&routes, HTTP);
+    for (name, site_block) in [("https", &https), ("http", &http)] {
+        let at = site_block.find(&tool_route());
+        assert!(
+            at.is_some(),
+            "the {name} block must send a tool's bare request to the guide"
+        );
+        let fallback = site_block
+            .find(
+                "handle {
+",
+            )
+            .unwrap_or(usize::MAX);
+        assert!(
+            at < Some(fallback),
+            "in the {name} block the guide must be routed before the catch-all handle"
+        );
+    }
+    assert!(
+        http.contains(
+            "handle {
+redir https://{host}{uri} 308
+}"
+        ),
+        "every other plain-http request must move to https"
+    );
+}
+
+/// The stylesheet's rules, with its block comments removed, each rule's
+/// whitespace collapsed.
+fn css(path: &str) -> String {
+    let text = read(path);
+    let mut out = String::new();
+    let mut rest = text.as_str();
+    while let Some(at) = rest.find("/*") {
+        out.push_str(&rest[..at]);
+        rest = &rest[at + rest[at..].find("*/").expect("a closed comment") + 2..];
+    }
+    out.push_str(rest);
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// `HK-34`: The landing hero fits every screen from 320 pixels wide: no part of it is wider than the window, so nothing is cut off and the page never scrolls sideways
+#[test]
+fn apex_hk_34() {
+    let rules = css("web/hub.css");
+    assert!(
+        rules.contains(".land, .land-copy { grid-template-columns: minmax(0, 1fr); }"),
+        "the landing and its copy must lay out in one column the window bounds"
+    );
+    assert!(
+        rules.contains(".land-copy > *, .land-second { max-width: 100%; }"),
+        "no child of the hero, and not the command line, may be wider than its column"
+    );
+    let smoke = read("tools/smoke.mjs");
+    for width in ["[320, 568]", "[1440, 900]"] {
+        assert!(
+            smoke.contains(width),
+            "the published-site check must open the landing at {width}"
+        );
+    }
+    assert!(
+        smoke.contains("wider than the window"),
+        "the published-site check must fail on any part of the landing wider than the window"
+    );
 }

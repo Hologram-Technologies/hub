@@ -91,6 +91,38 @@ for (const [w, h] of [[1440, 900], [390, 844]]) {
   await page.close();
 }
 
+// The landing hero at the narrowest phone and at desktop sizes (HK-34). Until 2026-11-16 one long command widened
+// the hero past a phone's edge and the headline was cut off on the right, while the stylesheet looked fine: so this
+// measures every box in the hero, and the page itself, against the window.
+for (const [w, h] of [[320, 568], [360, 740], [375, 812], [390, 844], [412, 915], [768, 1024], [1440, 900], [1920, 1080]]) {
+  const page = await browser.newPage({ viewport: { width: w, height: h } });
+  const where = `${new URL("", base).href} at ${w}x${h}`;
+  try {
+    await page.goto(new URL("", base).href, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".land-second", { timeout: 30000 });
+    const over = await page.evaluate(() => [document.documentElement, ...document.querySelectorAll(".land-copy, .land-copy *")]
+      .map((el) => [el, el === document.documentElement ? { left: 0, right: el.scrollWidth, width: 1 } : el.getBoundingClientRect()])
+      .filter(([, r]) => r.width > 0 && (r.left < -0.5 || r.right > innerWidth + 0.5))
+      .map(([el, r]) => `${typeof el.className === "string" && el.className ? el.className : el.tagName} ${Math.round(r.left)}..${Math.round(r.right)}`));
+    if (over.length) failures.push(`${where}: wider than the window: ${over.join(", ")}`);
+    else console.log(`ok   ${where}: the hero fits`);
+  } catch (error) {
+    failures.push(`${where}: ${error.message.split("\n")[0]}`);
+  }
+  await page.close();
+}
+
+// What `curl gethologram.ai` prints is this file as Pages publishes it (HK-33): plain text, byte for byte the model's.
+{
+  const url = new URL("agent.txt", base).href;
+  const response = await fetch(url);
+  const text = await response.text();
+  const expected = readFileSync(new URL("../web/agent.txt", import.meta.url), "utf8");
+  if (response.status !== 200 || !/^text\/plain/.test(response.headers.get("content-type") ?? "") || text !== expected) {
+    failures.push(`${url}: HTTP ${response.status} ${response.headers.get("content-type")}, ${text === expected ? "same" : "different"} bytes`);
+  } else console.log(`ok   ${url}: the guide, as plain text`);
+}
+
 await browser.close();
 for (const failure of failures) console.error(`FAIL ${failure}`);
 process.exit(failures.length ? 1 : 0);

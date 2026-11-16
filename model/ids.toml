@@ -201,3 +201,15 @@ id = "HK-30"
 level = "build"
 suite = "apex"
 statement = "Every command the model page gives a tool is one whose requests the apex routes to this repository, so the site never offers a command that reaches nothing"
+
+[[id]]
+id = "HK-33"
+level = "build"
+suite = "apex"
+statement = "A tool that asks the apex for its bare name, curl gethologram.ai over http or https, gets a plain-text guide published as a static file and written from the home screen's model, every curl in it reaches a route the apex answers, and the home page prints that command"
+
+[[id]]
+id = "HK-34"
+level = "build"
+suite = "apex"
+statement = "The landing hero fits every screen from 320 pixels wide: no part of it is wider than the window, so nothing is cut off and the page never scrolls sideways"

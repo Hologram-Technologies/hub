@@ -1,0 +1,26 @@
+gethologram.ai
+
+A drop-in Hugging Face Hub. No account, no key, every read anonymous.
+Every file is named by the hash of its bytes, so check the bytes, not us.
+
+Point any Hugging Face tool here:
+
+  export HF_ENDPOINT=https://gethologram.ai
+  hf download openai-community/gpt2
+
+Or ask directly:
+
+  curl 'https://gethologram.ai/api/models?search=qwen&limit=3'
+  curl https://gethologram.ai/api/models/openai-community/gpt2/tree/main
+  curl -LO https://gethologram.ai/openai-community/gpt2/resolve/main/config.json
+
+Check what arrived against the hash the tree names:
+
+  sha256sum <file>                       large files, against lfs.oid
+  git hash-object --no-filters <file>    small files, against oid
+
+The same file from one named source, to compare two hosts:
+
+  curl -L https://gethologram.ai/via/modelscope/openai-community/gpt2/resolve/main/config.json
+
+Browse: https://gethologram.ai

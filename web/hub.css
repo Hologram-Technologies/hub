@@ -450,6 +450,11 @@ kbd {
 @keyframes land-drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(1.6%, -1.2%, 0); } }
 
 .land-copy { display: grid; justify-items: center; }
+/* The hero is never wider than the window (HK-34). An implicit grid column is as wide as its widest line, and a command does
+   not wrap, so on a phone one long command widened the whole hero and pushed the headline off the right edge.
+   With the columns bounded, the command shortens with an ellipsis instead, and its copy button still copies all of it. */
+.land, .land-copy { grid-template-columns: minmax(0, 1fr); }
+.land-copy > *, .land-second { max-width: 100%; }
 
 /* ---- the star badge above the headline.
    The page's own capsule: the control language of every other button here, the count behind a hairline, and
