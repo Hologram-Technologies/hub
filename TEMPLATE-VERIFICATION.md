@@ -2681,6 +2681,89 @@ the catalogue cannot fill the panel the page says so and reads the full index,
 which is the whole catalogue at about a second - the honesty half of the
 scenario, and the second defect above is what happens without it.
 
+## A word that named the thing it would not fit
+
+The theme panel offered three modes. The first was drawn **Immer..**
+
+`.theme-panel` was `min(21rem, ...)` and `.seg` laid its three buttons in
+`repeat(3, minmax(0, 1fr))`, so the widest label was squeezed to the width of
+the narrowest, and `.seg .mode span` carried `text-overflow: ellipsis`, which
+turned the squeeze into a clipped word rather than an overflow anybody would
+notice. The word was "Immersive", which is the one word in that panel a reader
+has to be able to read: it names what the pictures below it are for.
+
+The panel is `26rem` now, the three columns size to their own content, and the
+ellipsis is gone - a label that must be legible is not a label to truncate.
+
+### Measured, not styled
+
+A width is a thing that drifts, so `tools/smoke.mjs` now measures the words
+rather than trusting the stylesheet. It opens the panel in a real browser at
+1440x900 and at 390x844 - narrow, where the whole group folds behind the menu
+button and the theme control is inside it - and fails if any label, the
+heading or the credit has `scrollWidth` past its `clientWidth`.
+
+Planted by putting the three old rules back. Both widths rejected it, and the
+diagnostic is the measurement:
+
+    FAIL http://localhost:8099/ at 1440x900: clipped: Immersive (66 into 45)
+    FAIL http://localhost:8099/ at 390x844: clipped: Immersive (66 into 63)
+
+Restored, both pass: `every theme label fits`, at both widths.
+
+Where it runs is narrower than it looks, and saying so is part of the
+record. `tools/smoke.mjs` is invoked only by `pages.yml`, which triggers on
+push to `main`, and its `smoke` job `needs: deploy`. The check therefore does
+not run on a pull request at all, and on `main` it runs after the site is
+published: it turns the run red, it does not hold the page back. That is
+where every other interface check in this repository already sits, so it is
+consistent - but it detects rather than prevents, and the two are not the
+same claim.
+
+The gate itself was wrong twice before it was right, which is the reason to
+plant rather than assume. It first waited for `#theme-button` before opening
+the folded menu, and that control does not exist on screen until the menu is
+open: `locator resolved to hidden`, 44 times, then a timeout. Corrected to
+wait for `#theme-menu` instead, it timed out at both widths, because that menu
+carries `hidden` until it is opened and Playwright's default wait is for
+visibility. `state: "attached"` is what was meant: the chrome has been drawn,
+not the menu is on screen.
+
+### The pictures
+
+Six now, three to a row, which is Prism AI Foundry's own grid. They are
+Foundry's own six, read off its Appearance panel 2026-11-16 rather than
+guessed: Jeremy Thomas' Milky Way, Aldebaran S' nebula, Bryan Goff's
+Andromeda, NASA's Earth at night, ActionVance's Earth horizon, Dns Dgn's Milky
+Way over mountains. A reader moving between the two sites sees one set of
+pictures rather than two.
+
+Every one is an Unsplash photo, and until now only a *searched* photo named
+its photographer: the three wallpapers this site shipped carried no name, so
+the credit line the licence asks for was simply absent for them. Each shipped
+picture now carries its photographer and the line is drawn for all six. The
+smoke gate asserts it reads `Photo by <someone> on Unsplash`, and that the
+panel holds six.
+
+### Highest quality, which is not the largest file
+
+The full-quality originals are 3.9 MB at `w=3840&q=95` and 6.3 MB at `q=100`.
+Six of those is about 23 MB on a site that the deploy of 2026-11-16 put at
+888 MB of the 1,024 MB GitHub allows, and a multi-megabyte background is a
+first paint nobody wants.
+
+So each ships at `w=1920&q=85` - 297 kB to 845 kB, 3.0 MB for six against the
+1.9 MB the three they replace took - and that copy is what paints. The page
+then asks the proxy for a render at the width this screen can actually show,
+at `q=90` rather than the 85 even searched photos used to get, and swaps it in
+when it has decoded. Measured in the page: **2560x1707 at q=90** on a
+2560-wide display; `wallWidth()` goes to 3840. If the proxy cannot be reached
+the shipped picture stays, which is a whole picture rather than the 480px tile
+the old code fell back to.
+
+So the copy a reader gets is the best Unsplash will render for the display in
+front of them, rather than whichever one happened to ship.
+
 ## The surface Hugging Face publishes, and the map that claims against it
 
 Hugging Face publishes `/.well-known/openapi.json`: read on 2026-11-15, 379
