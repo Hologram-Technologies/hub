@@ -8,7 +8,7 @@ definition{name: routeCount, parameters: [], result: Nat, body: 7}
 
 definition{name: navCount, parameters: [], result: Nat, body: 4}
 
-definition{name: linkCount, parameters: [], result: Nat, body: 6}
+definition{name: linkCount, parameters: [], result: Nat, body: 9}
 
 definition{name: routeChrome, parameters: [], result: Nat, body: 0}
 
@@ -44,7 +44,7 @@ definition{
   name: linkRoute,
   parameters: [link : Nat],
   result: Nat,
-  body: (if (link =? 0) then (routeModels) else (if (link =? 1) then (routeModels) else (if (link =? 2) then (routeModel) else (if (link =? 3) then (routeModels) else (if (link =? 4) then (routeModels) else (if (link =? 5) then (routeDocs) else (routeCount)))))))
+  body: (if (link =? 0) then (routeModels) else (if (link =? 1) then (routeModel) else (if (link =? 2) then (routeSpaces) else (if (link =? 3) then (routeModels) else (if (link =? 4) then (routeModels) else (if (link =? 5) then (routeModel) else (if (link =? 6) then (routeModels) else (if (link =? 7) then (routeModels) else (if (link =? 8) then (routeDocs) else (routeCount))))))))))
 }
 
 definition{name: facetCount, parameters: [], result: Nat, body: 13}
@@ -76,7 +76,7 @@ definition{
   name: screenChrome,
   parameters: [],
   result: Bytes,
-  body: (prim utf8_encode "{\"brand\":\"Hologram\",\"api\":\"https://api.gethologram.ai\",\"nav\":[{\"label\":\"Models\",\"icon\":\"grid\",\"route\":2},{\"label\":\"Spaces\",\"icon\":\"cpu\",\"route\":5},{\"label\":\"Buckets\",\"icon\":\"bucket\",\"route\":6},{\"label\":\"Docs\",\"icon\":\"file\",\"route\":4}],\"theme\":\"Theme\",\"themes\":[[\"immersive\",\"Immersive\",\"image\"],[\"dark\",\"Dark\",\"moon\"],[\"light\",\"Light\",\"sun\"]],\"wallpapers\":[[\"alps\",\"Alpine Dawn\"],[\"galaxy\",\"Galaxy\"],[\"aurora\",\"Aurora\"]],\"photos\":{\"proxy\":\"https://prism-unsplash.trinity-03d.workers.dev/\",\"utm\":\"utm_source=prism&utm_medium=referral\",\"site\":\"https://unsplash.com/\",\"search\":\"Search Unsplash\",\"query\":\"landscape\",\"by\":\"Photo by {name} on\",\"source\":\"Unsplash\",\"unavailable\":\"Search is unavailable right now.\",\"label\":\"Photos\"},\"menu\":\"Menu\",\"proof\":\"Proved by Lean\",\"proofDetail\":\"{passed} of {total} examples hold\",\"proofHref\":\"app/\"}" : Bytes)
+  body: (prim append (prim append (prim append (prim utf8_encode "{\"brand\":\"Hologram\",\"api\":\"https://api.gethologram.ai\",\"nav\":[{\"label\":\"Models\",\"icon\":\"grid\",\"route\":2},{\"label\":\"Spaces\",\"icon\":\"cpu\",\"route\":5},{\"label\":\"Buckets\",\"icon\":\"bucket\",\"route\":6},{\"label\":\"Docs\",\"icon\":\"file\",\"route\":4}],\"theme\":\"Theme\",\"themes\":[[\"immersive\",\"Immersive\",\"image\"],[\"dark\",\"Dark\",\"moon\"],[\"light\",\"Light\",\"sun\"]],\"wallpapers\":[[\"alps\",\"Alpine Dawn\"],[\"galaxy\",\"Galaxy\"],[\"aurora\",\"Aurora\"]],\"photos\":{\"proxy\":\"https://prism-unsplash.trinity-03d.workers.dev/\",\"utm\":\"utm_source=prism&utm_medium=referral\",\"site\":\"https://unsplash.com/\",\"search\":\"Search Unsplash\",\"query\":\"landscape\",\"by\":\"Photo by {name} on\",\"source\":\"Unsplash\",\"unavailable\":\"Search is unavailable right now.\",\"label\":\"Photos\"},\"menu\":\"Menu\",\"search\":{\"placeholder\":\"Search models and Spaces\",\"label\":\"Search\",\"hint\":\"Ctrl K\",\"hintMac\":\"" : Bytes) 0xe28c98 : Bytes) (prim append (prim utf8_encode " K\",\"models\":\"Models\",\"spaces\":\"Spaces\",\"looking\":\"Looking" : Bytes) (prim append 0xe280a6 (prim utf8_encode "\",\"deeper\":\"Searching the whole catalogue" : Bytes) : Bytes) : Bytes) : Bytes) (prim append (prim append 0xe280a6 (prim append (prim utf8_encode "\",\"empty\":\"Nothing matches that.\",\"all\":\"View all results for " : Bytes) 0xe2809c : Bytes) : Bytes) (prim append (prim utf8_encode "{q}" : Bytes) (prim append 0xe2809d (prim utf8_encode "\",\"allRoute\":2,\"spacesRoute\":5,\"navigate\":\"Navigate\",\"select\":\"Select\",\"close\":\"esc\"},\"proof\":\"Proved by Lean\",\"proofDetail\":\"{passed} of {total} examples hold\",\"proofHref\":\"app/\"}" : Bytes) : Bytes) : Bytes) : Bytes) : Bytes)
 }
 
 definition{

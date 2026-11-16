@@ -189,3 +189,66 @@ fn index_hk_21() {
         "a catalog row's only source is the swarm that listed it"
     );
 }
+
+/// `HK-23`: A suggestion the header offers is filed under the words the page resolves a query with, and a panel the head of the catalogue could not fill says so and is completed from the full index, so a short list is never mistaken for the whole answer
+#[test]
+fn index_hk_23() {
+    let builder = without_comments("tools/browse-index.mjs");
+    let reader = without_comments("web/browse.mjs");
+    let rule = without_comments("web/browsekey.mjs");
+
+    // Half of this is the same hazard HK-21 guards for the swarm's shards: the
+    // builder files a name under a bucket and the page looks in a bucket, and
+    // if those are two spellings of one rule the page quietly stops finding
+    // what the builder wrote. So there is one of it, and both import it.
+    assert!(
+        builder.contains("from \"../web/browsekey.mjs\""),
+        "the builder must file suggestions by the shared rule, not its own"
+    );
+    assert!(
+        reader.contains("from \"./browsekey.mjs\""),
+        "the page must resolve a query by the shared rule, not its own"
+    );
+    for (name, source) in [("the builder", &builder), ("the page", &reader)] {
+        assert!(
+            !source.contains("[^a-z0-9]+"),
+            "{name} spells out a word rule of its own; there must be only one"
+        );
+        assert!(
+            !source.contains("slice(0, 2)"),
+            "{name} spells out a bucket rule of its own; there must be only one"
+        );
+    }
+    assert!(
+        rule.contains("export const words") && rule.contains("export const bucketOf"),
+        "the shared rule must be the one that says what a word is and which bucket it falls in"
+    );
+    // The suggestion index files by `quickWords`, and the page matches by the
+    // same call through `suggests`. A page matching on `words` would offer a
+    // name the file does not hold, and miss ones it does.
+    assert!(
+        builder.contains("quickWords(") && rule.contains("quickWords(id)"),
+        "the builder must file suggestions by the suggestion rule"
+    );
+    assert!(
+        rule.contains("const held = quickWords(id)"),
+        "a suggestion must be matched on the words it was filed under"
+    );
+
+    // The honesty half. The head of the catalogue is QUICK_ROWS names; a panel
+    // it could not fill must say it is not complete, and the caller must then
+    // read the full index rather than leave a short list standing.
+    assert!(
+        reader.contains("complete: rows.length >= want || names.length < QUICK_ROWS"),
+        "a panel is complete only when it was filled, or the bucket held everything there was"
+    );
+    let page = without_comments("web/hub.mjs");
+    assert!(
+        page.contains("if (complete || !index) return;"),
+        "the page must stop only when the panel is complete; an incomplete one is finished from the full index"
+    );
+    assert!(
+        page.contains("index.page({ sort: \"trending\", q, page: 1 })"),
+        "an incomplete panel must be completed from the full index, which reads the whole catalogue"
+    );
+}

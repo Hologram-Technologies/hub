@@ -153,3 +153,9 @@ id = "HK-22"
 level = "build"
 suite = "kernel"
 statement = "A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts"
+
+[[id]]
+id = "HK-23"
+level = "build"
+suite = "index"
+statement = "A suggestion the header offers is filed under the words the page resolves a query with, and a panel the head of the catalogue could not fill says so and is completed from the full index, so a short list is never mistaken for the whole answer"
