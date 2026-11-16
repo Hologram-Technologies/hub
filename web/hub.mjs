@@ -28,7 +28,7 @@ const decoder = new TextDecoder();
 async function boot() {
   kernel = await load(new URL("app/app.holo", root).href);
   if (!kernel.identities.verified) throw new Error("the kernel's holo failed its identity check");
-  const routes = ["chrome", "home", "models", "model", "docs", "registry", "apps", "buckets"];
+  const routes = ["chrome", "home", "models", "model", "docs", "spaces", "buckets"];
   for (const [i, name] of routes.entries()) screens[name] = JSON.parse(decoder.decode(await kernel.dispatch(new Uint8Array([3, i]))));
   chrome = screens.chrome;
   drawChrome();
@@ -441,8 +441,7 @@ async function route() {
     else if (section === "models" && parts.length === 1) await drawModels(main);
     else if (section === "models" && parts.length >= 3) await drawModel(main, `${parts[1]}/${parts[2]}`);
     else if (section === "docs") drawDocs(main);
-    else if (section === "registry") await drawRegistry(main);
-    else if (section === "apps") await drawApps(main);
+    else if (section === "spaces") await drawSpaces(main);
     else if (section === "buckets") drawBuckets(main);
     else { section = ""; html.dataset.page = "landing"; await drawHome(main); }
   } catch (error) {
@@ -454,8 +453,150 @@ async function route() {
   }
 }
 
+// ---------------------------------------------------------------- search
+// The header's box. Hugging Face's own opens a panel under the bar and
+// answers from a server in about half a second (measured 2026-11-16: 597,
+// 492, 464 ms). This answers from the page, because the index it reads is
+// built for exactly this: `data/browse/search/quick/<bucket>.bin` holds the
+// most trending names whose words fall in that bucket, so the first two
+// characters cost one fetch and every keystroke after them costs nothing.
+//
+// A query the head of the catalogue cannot fill is handed to the full search,
+// which reads the whole index and takes about a second. The panel says which
+// of the two it is doing rather than leaving a reader to wonder, the way the
+// Models page says "Looking through the catalogue" for the same wait.
+let searchRows = [];
+let searchAt = -1;
+let searchSeq = 0;
+let spacesForSearch;
+// The owners' own marks, from the file the browse page already reads. A
+// panel row without one falls back to the owner's initials, like every
+// other card on the site.
+let searchFaces = {};
+fetch(new URL("data/avatars/index.json", root)).then((r) => (r.ok ? r.json() : {})).then((f) => { searchFaces = f; }).catch(() => {});
+
+function wireSearch(s) {
+  const panel = $("#search-panel");
+  const box = $("#search-input");
+  const open = $("#search-open");
+  const results = $("#search-results");
+
+  const show = (on) => {
+    panel.hidden = !on;
+    open.setAttribute("aria-expanded", String(on));
+    html.classList.toggle("searching", on);
+    if (on) { box.focus(); box.select(); } else { searchRows = []; searchAt = -1; }
+  };
+  open.addEventListener("click", () => show(true));
+  panel.addEventListener("mousedown", (e) => { if (e.target === panel) show(false); });
+  addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); show(panel.hidden); return; }
+    if (!panel.hidden && e.key === "Escape") { e.preventDefault(); show(false); }
+  });
+
+  // Only the model rows move the selection; the section headings and the
+  // "view all" row are drawn in the same list, so the index is over the rows
+  // that can actually be opened.
+  const mark = () => {
+    for (const [i, el] of [...results.querySelectorAll("[data-go]")].entries()) {
+      el.classList.toggle("on", i === searchAt);
+      if (i === searchAt) el.scrollIntoView({ block: "nearest" });
+    }
+  };
+  box.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Enter") return;
+    const go = [...results.querySelectorAll("[data-go]")];
+    if (!go.length) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      (go[Math.max(0, searchAt)] ?? go[0]).click();
+      return;
+    }
+    e.preventDefault();
+    searchAt = e.key === "ArrowDown"
+      ? (searchAt + 1) % go.length
+      : (searchAt <= 0 ? go.length : searchAt) - 1;
+    mark();
+  });
+  results.addEventListener("click", (e) => {
+    const go = e.target.closest("[data-go]");
+    if (go) show(false);
+  });
+
+  let timer;
+  box.addEventListener("input", () => {
+    clearTimeout(timer);
+    // The head of the catalogue answers in the page, so there is nothing to
+    // debounce for; the wait only exists for the deeper read behind it.
+    timer = setTimeout(() => drawSuggestions(s, box.value.trim(), results, mark), 90);
+  });
+}
+
+// Drawn in two passes: what the page already holds, immediately, and then the
+// full search if the first pass did not fill the panel. `seq` drops a slow
+// second pass whose query the visitor has already typed past.
+async function drawSuggestions(s, q, results, mark) {
+  const seq = ++searchSeq;
+  searchAt = -1;
+  if (!q) { results.innerHTML = ""; searchRows = []; return; }
+
+  const spaces = await spacesFor(q);
+  const index = await openRoll();
+  let models = [];
+  let complete = true;
+  if (index?.suggest) {
+    results.innerHTML = section(s.models, [], s.looking);
+    const head = await index.suggest(q);
+    if (seq !== searchSeq) return;
+    models = head.rows;
+    complete = head.complete;
+  }
+  paint(s, q, models, spaces, results, complete ? "" : s.deeper);
+  mark();
+  if (complete || !index) return;
+
+  // The head did not fill it. The full index does, at about a second, and the
+  // panel has said so since the line above.
+  try {
+    const page = await index.page({ sort: "trending", q, page: 1 });
+    if (seq !== searchSeq) return;
+    const more = page.rows.map((r) => r[0]).filter((id) => !models.includes(id));
+    paint(s, q, [...models, ...more].slice(0, 6), spaces, results, "");
+    mark();
+  } catch {
+    if (seq === searchSeq) paint(s, q, models, spaces, results, "");
+  }
+}
+
+// The Spaces this hub ships are twelve rows in a file the Spaces screen
+// already reads, so they are matched here rather than indexed.
+async function spacesFor(q) {
+  spacesForSearch ??= fetch(new URL("data/spaces.json", root)).then((r) => r.json()).catch(() => ({ spaces: [] }));
+  const { spaces = [] } = await spacesForSearch;
+  const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+  return spaces.filter((a) => terms.every((t) => `${a.name} ${a.id} ${a.task ?? ""}`.toLowerCase().includes(t))).slice(0, 3);
+}
+
+const section = (title, rows, note = "") =>
+  `<div class="search-group"><h2>${esc(title)}</h2>${note ? `<p class="search-note">${esc(note)}</p>` : ""}${rows.join("")}</div>`;
+
+function paint(s, q, models, spaces, results, note) {
+  searchRows = [...models, ...spaces.map((a) => a.id)];
+  const modelRows = models.map((id) => {
+    const [owner, name] = id.includes("/") ? [id.slice(0, id.indexOf("/")), id.slice(id.indexOf("/") + 1)] : ["", id];
+    return `<a class="search-row" role="option" data-go data-in href="${href(`models/${id}/`)}">${avatar({ org: owner, avatar: searchFaces[owner] ?? null }, "avatar small")}<span class="who">${esc(owner)}${owner ? "/" : ""}</span><span class="what">${esc(name)}</span></a>`;
+  });
+  const spaceRows = spaces.map((a) => `<a class="search-row" role="option" data-go data-in href="${href("spaces/")}">${art(a.root || a.id)}<span class="what">${esc(a.name)}</span><span class="tag">${esc(a.task ?? "")}</span></a>`);
+  const all = `<a class="search-all" data-go data-in href="${href(`models/?${encodeURIComponent(screens.models.searchParam)}=${encodeURIComponent(q)}`)}">${esc(fill(s.all, { q }))}${ICON.right}</a>`;
+  const parts = [];
+  if (modelRows.length || note) parts.push(section(s.models, modelRows, note));
+  if (spaceRows.length) parts.push(section(s.spaces, spaceRows));
+  if (!modelRows.length && !spaceRows.length && !note) parts.push(`<p class="search-note">${esc(s.empty)}</p>`);
+  results.innerHTML = parts.join("") + all;
+}
+
 // ---------------------------------------------------------------- chrome
-const ROUTE_PATH = { 1: "", 2: "models/", 3: "models/", 4: "docs/", 5: "registry/", 6: "apps/", 7: "buckets/" };
+const ROUTE_PATH = { 1: "", 2: "models/", 3: "models/", 4: "docs/", 5: "spaces/", 6: "buckets/" };
 // The switch carries all three marks and CSS draws the one in use.
 const forTheme = (icon, mode) => ICON[icon].replace('class="i"', `class="i" data-for="${mode}"`);
 function drawChrome() {
@@ -471,8 +612,25 @@ function drawChrome() {
   const modes = chrome.themes.map(([key, label, ic]) => `<button type="button" class="mode" role="radio" aria-checked="false" data-theme-mode="${esc(key)}">${ICON[ic]}<span>${esc(label)}</span></button>`).join("");
   const lockup = (tone, cls) => `<img class="mark ${cls}" src="logos/Hologram_Logomark_${tone}.svg" alt="" width="32" height="32" /><img class="word ${cls}" src="logos/Hologram_Wordmark_${tone}.svg" alt="${esc(chrome.brand)}" width="172" height="16" />`;
   const p = chrome.photos;
+  const s = chrome.search;
+  // The chip says what this visitor would actually press.
+  const mac = /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent);
   $("#chrome").innerHTML = `
     <a class="brand" data-in href="${href("")}" aria-label="${esc(chrome.brand)}">${lockup("White", "on-dark")}${lockup("Black", "on-light")}</a>
+    <div class="search-slot">
+      <button type="button" class="search-open" id="search-open" aria-haspopup="dialog" aria-expanded="false" aria-label="${esc(s.label)}">
+        ${ICON.search}<span class="say">${esc(s.placeholder)}</span><kbd>${esc(mac ? s.hintMac : s.hint)}</kbd>
+      </button>
+    </div>
+    <div class="search-panel" id="search-panel" role="dialog" aria-modal="true" aria-label="${esc(s.label)}" hidden>
+      <div class="search-sheet">
+        <label class="field search-field">${ICON.search}<input id="search-input" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search"
+          placeholder="${esc(s.placeholder)}" aria-label="${esc(s.label)}" aria-controls="search-results" role="combobox" aria-expanded="true" aria-autocomplete="list" />
+          <kbd>${esc(s.close)}</kbd></label>
+        <div class="search-results" id="search-results" role="listbox" aria-label="${esc(s.label)}"></div>
+        <div class="search-feet"><span><kbd>↑</kbd><kbd>↓</kbd> ${esc(s.navigate)}</span><span><kbd>↵</kbd> ${esc(s.select)}</span></div>
+      </div>
+    </div>
     <div class="top-end">
       <div class="top-menu" id="top-menu">
         <nav class="top-nav" aria-label="Sections">${nav}</nav>
@@ -489,11 +647,12 @@ function drawChrome() {
               </div>
             </div>
           </div>
-          <div class="account"><a class="sign-in" id="sign-in-button" href="${esc(chrome.signInHref)}">${ICON.user}<span class="label">${esc(chrome.signIn)}</span></a></div>
         </div>
       </div>
       <button type="button" class="menu-button" id="menu-button" aria-expanded="false" aria-controls="top-menu" aria-label="${esc(chrome.menu)}" title="${esc(chrome.menu)}">${ICON.menu}${ICON.close}</button>
     </div>`;
+  wireSearch(s);
+
   const themeButton = $("#theme-button");
   const themeMenu = $("#theme-menu");
   themeButton.addEventListener("click", (e) => {
@@ -1373,104 +1532,24 @@ async function drawWitnesses(m, w) {
     ${(record.witnesses ?? []).map((x) => `<p><code>${esc(fill(w.read, { source: x.source, date: x.date }))}</code></p>`).join("")}`;
 }
 
-// ---------------------------------------------------------------- registry
-// The registry and apps lists are copies of the live hub's, taken when the
-// site was built (tools/web-data.mjs); each page says when, from where, and
-// the SHA-256 of what was copied.
+// ------------------------------------------------------------------ spaces
+// The list of Spaces is a copy of the live hub's, taken when the site was
+// built (tools/web-data.mjs); the page says when, from where, and the
+// SHA-256 of what was copied.
 const copied = (s, from) => `<p class="copied-from">${esc(fill(s.snapshot, { source: from.source, date: from.date, hash: from.hash.slice(0, 16) }))}...</p>`;
-let registryData, appsData;
-async function drawRegistry(main) {
-  const s = screens.registry;
-  registryData ??= fetch(new URL("data/registry.json", root)).then((r) => r.json());
-  const { from, images } = await registryData;
-  const q = new URLSearchParams(location.search);
-  const st = { q: q.get("q") ?? "", sort: q.get("sort") ?? "pulls", page: 1, picked: Object.fromEntries(s.facets.map(([k]) => [k, q.getAll(k)])) };
-  main.innerHTML = `
-    <div class="lead"><h1>${esc(s.title)}</h1><span class="pill" id="count"></span></div>
-    <p class="intro">${esc(s.lead)}</p>
-    <div class="browse">
-      <aside class="panel filters" id="filters"><div class="sections" id="filters-body"></div></aside>
-      <section class="results">
-        <div class="results-head"><div class="bar">
-          <label class="field search">${ICON.search}<input id="q" type="search" placeholder="${esc(s.search)}" autocomplete="off" aria-label="${esc(s.search)}" /></label>
-          ${sortControl(s.sorts, st.sort)}
-        </div></div>
-        <div class="grid" id="cards"></div>
-        <nav class="pager" id="pager" aria-label="Pages"></nav>
-        ${copied(s, from)}
-      </section>
-    </div>`;
-  $("#q").value = st.q;
-  const value = (row, key) => (row[key] == null ? [] : [String(row[key])]);
-  const match = (row, skip) => {
-    const hay = `${row.id} ${row.description ?? ""}`.toLowerCase();
-    if (st.q && !st.q.toLowerCase().split(/\s+/).every((w) => hay.includes(w))) return false;
-    return s.facets.every(([key]) => key === skip || !st.picked[key].length || st.picked[key].some((v) => value(row, key).includes(v)));
-  };
-  const order = { pulls: (r) => r.pulls ?? -1, stars: (r) => r.stars ?? -1 };
-  const draw = () => {
-    const shown = images.filter((r) => match(r));
-    if (st.sort === "name") shown.sort((a, b) => a.id.localeCompare(b.id));
-    else shown.sort((a, b) => order[st.sort](b) - order[st.sort](a));
-    $("#count").textContent = count(shown.length);
-    $("#filters-body").innerHTML = s.facets.map(([key, label]) => {
-      const counts = new Map();
-      for (const r of images) if (match(r, key)) for (const v of value(r, key)) counts.set(v, (counts.get(v) ?? 0) + 1);
-      const rows = [...counts].sort((a, b) => b[1] - a[1]);
-      const chips = rows.map(([v, n]) => `<button type="button" class="chip" data-facet="${esc(key)}" data-value="${esc(v)}" aria-pressed="${st.picked[key].includes(v)}"><span class="label">${esc(v)}</span><span class="n">${count(n)}</span></button>`).join("");
-      return rows.length ? `<section class="facet"><header><h2>${esc(label)}</h2><button type="button" class="control reset" data-reset="${esc(key)}"${st.picked[key].length ? "" : " disabled"}>${ICON.reset}${esc(s.reset)}</button></header><div class="chips clamped">${chips}</div><button type="button" class="control more" hidden></button></section>` : "";
-    }).join("");
-    clampChips();
-    const pages = Math.max(1, Math.ceil(shown.length / s.pageSize));
-    st.page = Math.min(st.page, pages);
-    const slice = shown.slice((st.page - 1) * s.pageSize, st.page * s.pageSize);
-    $("#cards").innerHTML = slice.length ? slice.map((r) => {
-      const commands = r.digest ? s.commands.filter(([reg]) => reg === "*" || reg === r.registry).map(([, t]) => fill(t, { ref: r.id, tag: r.tag ?? "latest", digest: r.digest })) : [];
-      const facts = [r.pulls != null ? `<span>${ICON.down}${count(r.pulls)} ${esc(s.pulls)}</span>` : "", r.stars != null ? `<span>${ICON.star}${count(r.stars)}</span>` : "", r.size ? `<span>${esc(bytes(r.size))}</span>` : ""].join("");
-      return `<article class="card entry">${art(r.digest || r.id)}
-        <span class="tags"><span class="tag">${esc(r.registry)}</span>${r.kind ? `<span class="tag">${esc(r.kind)}</span>` : ""}${r.official ? `<span class="tag state addressed">official</span>` : ""}</span>
-        <span class="title">${esc(r.org ? `${r.org}/` : "")}${esc(r.name)}${r.tag ? `:${esc(r.tag)}` : ""}</span>
-        ${r.description ? `<span class="desc">${esc(r.description)}</span>` : ""}
-        <span class="meta">${facts}</span>
-        <span class="entry-actions">${commands.map((c) => copyLine(c, "endpoint section-tag copy")).join("")}${r.home ? `<a class="control" href="${esc(r.home)}" rel="noopener">${esc(s.open)}${ICON.external}</a>` : ""}</span>
-      </article>`;
-    }).join("") : `<div class="empty"><p>${esc(s.empty)}</p><button type="button" class="link" data-clear>${esc(s.clear)}</button></div>`;
-    $("#pager").innerHTML = pagerHtml(st.page, pages, { previous: s.previous, next: s.next });
-    const url = new URLSearchParams();
-    if (st.q) url.set("q", st.q);
-    if (st.sort !== "pulls") url.set("sort", st.sort);
-    for (const [k, vs] of Object.entries(st.picked)) for (const v of vs) url.append(k, v);
-    history.replaceState(null, "", `${href("registry/")}${url.size ? `?${url}` : ""}`);
-  };
-  let timer;
-  $("#q").addEventListener("input", (e) => { clearTimeout(timer); timer = setTimeout(() => { st.q = e.target.value.trim(); st.page = 1; draw(); }, 144); });
-  wireSort(main, (key) => { st.sort = key; st.page = 1; draw(); });
-  main.querySelector(".browse").addEventListener("click", (e) => {
-    const t = e.target.closest("button, a[data-page]");
-    if (!t || t.dataset.copy !== undefined) return;
-    if (t.dataset.facet) { const vs = st.picked[t.dataset.facet]; const i = vs.indexOf(t.dataset.value); i < 0 ? vs.push(t.dataset.value) : vs.splice(i, 1); st.page = 1; }
-    else if (t.dataset.reset) st.picked[t.dataset.reset] = [];
-    else if (t.dataset.more) { const chips = t.previousElementSibling; const open = chips.classList.toggle("clamped"); t.textContent = open ? t.dataset.more : s.less; return; }
-    else if (t.dataset.page) { e.preventDefault(); st.page = +t.dataset.page; }
-    else if ("clear" in t.dataset) { for (const k in st.picked) st.picked[k] = []; st.q = ""; $("#q").value = ""; }
-    else return;
-    draw();
-  });
-  draw();
-}
+let spacesData;
 
-// ---------------------------------------------------------------- apps
-async function drawApps(main) {
-  const s = screens.apps;
-  appsData ??= fetch(new URL("data/apps.json", root)).then((r) => r.json());
-  const { from, apps } = await appsData;
+async function drawSpaces(main) {
+  const s = screens.spaces;
+  spacesData ??= fetch(new URL("data/spaces.json", root)).then((r) => r.json());
+  const { from, spaces } = await spacesData;
   main.innerHTML = `
-    <div class="lead"><h1>${esc(s.title)}</h1><span class="pill">${apps.length}</span><div class="lead-end">${sortControl(s.sorts, "featured")}</div></div>
+    <div class="lead"><h1>${esc(s.title)}</h1><span class="pill">${spaces.length}</span><div class="lead-end">${sortControl(s.sorts, "featured")}</div></div>
     <p class="intro">${esc(s.lead)}</p>
-    <div class="grid apps" id="cards"></div>
+    <div class="grid spaces" id="cards"></div>
     ${copied(s, from)}`;
   const draw = (sort) => {
-    const list = [...apps];
+    const list = [...spaces];
     if (sort === "name") list.sort((a, b) => a.name.localeCompare(b.name));
     if (sort === "smallest") list.sort((a, b) => (a.modelBytes ?? 0) - (b.modelBytes ?? 0));
     if (sort === "largest") list.sort((a, b) => (b.modelBytes ?? 0) - (a.modelBytes ?? 0));

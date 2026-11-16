@@ -299,6 +299,7 @@ jobs:
           set -euo pipefail
           node tools/browse-index.mjs "$RUNNER_TEMP/roll" "$RUNNER_TEMP/browse"
           node tests/browse/page.mjs "$RUNNER_TEMP/browse"
+          node tests/browse/quick.mjs "$RUNNER_TEMP/browse"
 
       - name: Take the swarm address snapshot the nightly run left
         # Written by `.github/workflows/swarm.yml`, not here: a full catalog

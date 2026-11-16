@@ -56,6 +56,7 @@ jobs:
           node tools/roll.mjs "$site/roll" --from "$from" --to "$to"
           node tools/browse-index.mjs "$site/roll" "$site/browse"
           node tests/browse/page.mjs "$site/browse"
+          node tests/browse/quick.mjs "$site/browse"
 
       # And the reader the page itself uses, over real HTTP, because its whole
       # job is ranged reads and a test that bypassed them would be testing

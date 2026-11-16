@@ -35,6 +35,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { QUICK_ROWS, bucketOf, quickWords, words } from "../web/browsekey.mjs";
 
 const [rollDir, out] = process.argv.slice(2);
 if (!rollDir || !out) {
@@ -91,20 +92,9 @@ const FACETS = [
   { key: "recency", of: (r) => recencyBucket(r.b?.[MODIFIED]) },
 ];
 
-// The words a model can be found by: its owner and its name, cut at anything
-// that is not a letter or a digit and lowercased. `Qwen/Qwen3.8-27B` is found
-// by qwen, 27b and 8. Measured 2026-11-14 over 103,000 models: 5.5 words each,
-// 79,561 distinct, and 60 per cent of those held by a single model.
-//
-// Two characters is the shortest worth keeping - one letter matches too much
-// to narrow anything - and twenty-four the longest, past which a token is a
-// hash somebody pasted into a name.
-export const words = (id) => [...new Set(id.toLowerCase().split(/[^a-z0-9]+/)
-  .filter((w) => w.length >= 2 && w.length <= 24))];
-// Which file a word's postings live in. Two characters gives about 1,300
-// buckets, so a bucket holds a couple of thousand words at three million
-// models and a search term is one fetch of some tens of kilobytes.
-export const bucketOf = (word) => word.slice(0, 2);
+// The words a model is filed under, and the bucket a word falls in, are
+// `web/browsekey.mjs` - the one copy, which the page imports too, so a word
+// this writes cannot be a word the page never asks for.
 
 // A varint, little end first, seven bits at a time. Positions in a sort's
 // order only ever increase, so what is written is the gap from the last one:
@@ -361,6 +351,80 @@ for (const [name, compare] of Object.entries(SORTS)) {
 }
 search.words = { path: "search/words/", buckets: buckets.size, bytes: wordBytes, sizes: wordSizes };
 
+// ------------------------------------------------------------- quicksearch
+// What the header's box offers while somebody is typing, and the one thing on
+// this site that has to be instant.
+//
+// The full search is four round trips deep: the bucket's word list, then two
+// reads for the word's postings, then a read per row into the order and
+// another into the roll. Measured 2026-11-16 against the published index,
+// five rows: qwen 1,102 ms, llama 749 ms, mistral 1,332 ms, bert 1,140 ms.
+// Every stage waits on the one before it, so no amount of parallelism inside
+// a stage helps. Hugging Face answers the same box in about half a second
+// from a server, measured the same day: 597, 492 and 464 ms.
+//
+// So this is not an index of postings at all. It is, per bucket, the names
+// themselves - the most trending QUICK_ROWS models holding any word in that
+// bucket, in that order, one per line. The page fetches the file the first
+// time a visitor types two characters and answers every keystroke after it
+// from memory, without another request. A name is all the panel draws, and
+// the words to match are read back out of the name by the same rule that
+// filed it, so nothing else has to be stored.
+//
+// It holds the head of the catalogue, not all of it. A query that finds too
+// few here is handed to the full search, which reads the complete index - so
+// nothing is unfindable, only un-suggested.
+// Ranked the way the Models page ranks by default, so the first name the
+// box offers is the first row that page would show. Hugging Face orders its
+// own quicksearch the same way, by what is trending rather than by what
+// matched best.
+const quick = "trending";
+{
+  const compare = SORTS[quick];
+  const ranked = rows.map((_, n) => n).sort((x, y) => compare(rows[x], rows[y]));
+  // Which buckets a row touches, once per row rather than once per word.
+  const held = new Map();
+  for (const key of buckets.keys()) held.set(key, []);
+  for (const n of ranked) {
+    for (const key of new Set(quickWords(rows[n].id).map(bucketOf))) {
+      const list = held.get(key);
+      if (list && list.length < QUICK_ROWS) list.push(rows[n].id);
+    }
+  }
+  await mkdir(join(out, "search", "quick"), { recursive: true });
+  const sizes = {};
+  let quickBytes = 0;
+  for (const [key, names] of held) {
+    if (!names.length) continue;
+    const bytes = Buffer.from(names.join("\n"), "utf8");
+    await writeFile(join(out, "search", "quick", `${key}.bin`), bytes);
+    sizes[key] = bytes.length;
+    quickBytes += bytes.length;
+  }
+  const each = Object.values(sizes);
+  // The published site is the binding constraint, not this file. Measured on
+  // the deploy of 2026-11-16: 863 MB of the 1024 MB GitHub allows, and the
+  // assembly step refuses its own output over 950 MB. Refusing here instead
+  // names the number that has to change - QUICK_ROWS in web/browsekey.mjs -
+  // where the assembly step could only say the site was too big.
+  const BUDGET = 64e6;
+  if (quickBytes > BUDGET) {
+    throw new Error(`quicksearch is ${(quickBytes / 1e6).toFixed(1)} MB over ${each.length} buckets, past the ${BUDGET / 1e6} MB it is allowed `
+      + `beside a roll this size; lower QUICK_ROWS in web/browsekey.mjs (it is ${QUICK_ROWS}) or raise this budget with the site's own figure in hand`);
+  }
+  search.quick = {
+    path: "search/quick/",
+    sort: quick,
+    rows: QUICK_ROWS,
+    buckets: each.length,
+    bytes: quickBytes,
+    // The largest file is what the slowest first keystroke waits for, so the
+    // figure a reader would want is stated rather than left to be computed.
+    largest: each.length ? Math.max(...each) : 0,
+    sizes,
+  };
+}
+
 await writeFile(join(out, "root.json"), JSON.stringify({
   format: "hologram.hub.browse/v2",
   built: new Date().toISOString(),
@@ -396,5 +460,5 @@ const searchBytes = Object.values(search).reduce((a, x) => a + x.bytes, 0);
 const rootBytes = (await readFile(join(out, "root.json"))).length;
 console.log(`browse-index: ${rows.length} rows | root ${(rootBytes / 1e3).toFixed(1)} kB `
   + `| ${Object.keys(orders).length} orders ${mb(orderBytes)} holding where each row is | postings ${mb(postingBytes)} over ${values} values `
-  + `| search ${mb(searchBytes)} `
+  + `| search ${mb(searchBytes)}, of which quicksearch ${mb(search.quick.bytes)} over ${search.quick.buckets} buckets, largest ${(search.quick.largest / 1e3).toFixed(0)} kB `
   + `| total ${mb(orderBytes + postingBytes + searchBytes)} beside the roll`);

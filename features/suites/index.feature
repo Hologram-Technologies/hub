@@ -22,13 +22,21 @@ Feature: index
     And every row in it carries the state listed and names no source but the swarm
 
   @HK-23 @build
+  Scenario: A suggestion the header offers is filed under the words the page resolves a query with, and a panel the head of the catalogue could not fill says so and is completed from the full index, so a short list is never mistaken for the whole answer
+    Given a quicksearch index built by tools/browse-index.mjs
+    When the header's box resolves what has been typed
+    Then the bucket it reads and the words it matches are web/browsekey.mjs, the rule the builder filed by
+    And a panel the head of the catalogue filled says it is complete, and one it could not does not
+    And an incomplete panel is completed from the full index rather than left short
+
+  @HK-24 @build
   Scenario: Every row in the UOR address index carries a canonical address and the canonical-form version that minted it, taken here from bytes this build streamed rather than copied from any host, and is filed under the shard key the page resolves a model with
     Given a UOR address index built by tools/uor-index.mjs
     When a reader opens the model one of its rows belongs to
     Then the shard the page reads is the shard web/uorkey.mjs filed that row under
     And every row carries a canonical address and the canonical form that minted it, taken from the bytes this build streamed and not from a field of the record
 
-  @HK-24 @build
+  @HK-25 @build
   Scenario: The page shows a tensor address as checked only when the kernel accepted bytes the page fetched itself, so an address the hub published is never drawn as proof of bytes nobody read
     Given a model page drawing a tensor's published address
     When a reader asks the page to check that address

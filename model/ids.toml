@@ -158,10 +158,16 @@ statement = "A source nobody vetted is chosen only for a file the release itself
 id = "HK-23"
 level = "build"
 suite = "index"
-statement = "Every row in the UOR address index carries a canonical address and the canonical-form version that minted it, taken here from bytes this build streamed rather than copied from any host, and is filed under the shard key the page resolves a model with"
+statement = "A suggestion the header offers is filed under the words the page resolves a query with, and a panel the head of the catalogue could not fill says so and is completed from the full index, so a short list is never mistaken for the whole answer"
 
 [[id]]
 id = "HK-24"
+level = "build"
+suite = "index"
+statement = "Every row in the UOR address index carries a canonical address and the canonical-form version that minted it, taken here from bytes this build streamed rather than copied from any host, and is filed under the shard key the page resolves a model with"
+
+[[id]]
+id = "HK-25"
 level = "build"
 suite = "index"
 statement = "The page shows a tensor address as checked only when the kernel accepted bytes the page fetched itself, so an address the hub published is never drawn as proof of bytes nobody read"

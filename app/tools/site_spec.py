@@ -8,12 +8,12 @@ run `python app/tools/gen_kernel.py`.
 """
 
 # One host appears in this file, and that is the point. API_HOST is the hub
-# that answers a tool - the Hugging Face dialect, the OCI registry, MCP,
-# accounts and buckets - which a static host cannot do, since it has to set
-# `X-Repo-Commit` on a HEAD and redirect with headers. The apex
-# `gethologram.ai` is where this site is served from, and a reader is already
-# there, so no screen prints it: every command, link and endpoint a tool is
-# given names API_HOST.
+# that answers a tool - the Hugging Face dialect, the OCI registry, MCP and
+# buckets - which a static host cannot do, since it has to set `X-Repo-Commit`
+# on a HEAD and redirect with headers. The apex `gethologram.ai` is where this
+# site is served from once the cutover is done, and a reader is already there,
+# so no screen prints it: every command, link and endpoint a tool is given
+# names API_HOST.
 #
 # There used to be a HOST constant beside this one, and its only reader was
 # the model page's endpoint and Get-it commands - the one place this comment
@@ -22,25 +22,43 @@ run `python app/tools/gen_kernel.py`.
 # the apex record moves to Pages. A name with one reader that is the wrong
 # reader is worse than no name, so it is gone rather than corrected.
 # `docs/cutover.md` has the records and the order.
+#
+# Measured 2026-11-16: `api.gethologram.ai` does not resolve - nslookup
+# answers "Non-existent domain", curl exits 6 - because step 1 of
+# `docs/cutover.md`, the operator's `A api 217.216.66.62` record and the Caddy
+# line, has not been applied. Until it is, every command, link and endpoint
+# this site prints is dead, the Buckets check's own example included. That is
+# a record to add, not a name to change back: the apex answers today only
+# because it still points at the VPS, and it stops answering a tool the hour
+# it moves to Pages, taking every command a reader has copied with it.
 API_HOST = "api.gethologram.ai"
 API = f"https://{API_HOST}"
 
 # Routes the guest renders, by number. Request `03 nn` asks for route nn.
-ROUTES = ["chrome", "home", "models", "model", "docs", "registry", "apps", "buckets"]
+ROUTES = ["chrome", "home", "models", "model", "docs", "spaces", "buckets"]
 ROUTE = {name: i for i, name in enumerate(ROUTES)}
 
-# The header. `route` is internal (the renderer asks the guest for that
-# screen); `href` leaves the hub for a page milestone 1 does not rebuild.
+# The header. `route` is internal: the renderer asks the guest for that
+# screen. The items and their order are Hugging Face's own header, read
+# 2026-11-16 - Models, Datasets, Spaces, Buckets, Docs - minus Datasets,
+# which this hub does not index, so a reader who knows one header knows this
+# one. Nothing sits here that a reader cannot use: there is no Log In,
+# because the hub has no accounts.
 NAV = [
     {"label": "Models", "icon": "grid", "route": "models"},
-    {"label": "Registry", "icon": "box", "route": "registry"},
-    {"label": "Apps", "icon": "cpu", "route": "apps"},
+    {"label": "Spaces", "icon": "cpu", "route": "spaces"},
     {"label": "Buckets", "icon": "bucket", "route": "buckets"},
     {"label": "Docs", "icon": "file", "route": "docs"},
 ]
 
 # Every link a screen can follow inside the hub, with the route it opens.
 LINKS = [
+    # The header's search panel: a suggestion opens a model, a Space opens
+    # the Spaces screen, and "View all results" hands the query to the full
+    # catalogue. HK-11 covers them the way it covers the nav.
+    ("chrome", "searchAll", "models"),
+    ("chrome", "searchModel", "model"),
+    ("chrome", "searchSpace", "spaces"),
     ("home", "cta", "models"),
     ("home", "family", "models"),
     ("models", "card", "model"),
@@ -83,7 +101,11 @@ ENDPOINTS = [
     ("GET", "/api/models/{repo}/commits/{revision}", "The commits the index knows; partial, because it holds the release"),
     ("GET", "/api/models-tags-by-type", "Every tag the listed models carry, by kind"),
     ("GET", "/api/quicksearch", "Models whose name matches, for a search box"),
-    ("GET", "/api/whoami-v2", "Who the token belongs to"),
+    # The hub has no accounts, so this is a refusal and nothing else:
+    # `edge/edge.mjs` answers 10 for it, which the Answers table below reads
+    # as 401 RepoNotFound. The row says what a tool receives, not what the
+    # route is called on a hub that does have accounts.
+    ("GET", "/api/whoami-v2", "Always refused: the hub has no accounts, so no token belongs to anyone"),
 ]
 
 # The query a client may put to /api/models, and what the hub does with it.
@@ -105,31 +127,14 @@ LIST_QUERY = [
 LIST_SORTS = ["downloads", "likes", "createdAt", "lastModified", "trendingScore"]
 
 SCREENS = {
-    "registry": {
-        "title": "Registry",
-        "lead": "Every image and artifact the hub can name: models, runtimes and indexes from Docker Hub, GitHub, Quay and the hub itself, each pinned by its digest.",
-        "search": "Search the registry",
-        "facets": [["registry", "Registry"], ["kind", "Kind"], ["sizeBucket", "Size"], ["updatedBucket", "Updated"], ["license", "License"]],
-        "sorts": [["pulls", "Most pulled"], ["stars", "Most starred"], ["name", "Name"]],
-        "pageSize": 42,
-        "empty": "Nothing matches those filters.",
-        "clear": "Clear filters",
-        "reset": "Reset",
-        "more": "+{n} more",
-        "less": "Show less",
-        "previous": "Previous",
-        "next": "Next",
-        "pulls": "pulls",
-        "stars": "stars",
-        "digest": "Digest",
-        "open": "Open on source",
-        # Each command names the registry it applies to; "*" is any entry with a digest.
-        "commands": [["Docker Hub", "docker pull {ref}:{tag}"], ["*", "crane manifest {ref}@{digest}"]],
-        "snapshot": "Copied from {source} on {date}. sha256 {hash}",
-    },
-    "apps": {
-        "title": "Apps",
-        "lead": "Apps that run entirely in your browser, every file and every model weight named by its hash.",
+    # Hugging Face calls these Spaces and so does this hub: every entry here
+    # is a Hugging Face Space, re-hosted so that each file and each model
+    # weight is named by its hash. The screen's key, its route and its URL are
+    # all `spaces`, so a reader who knows /spaces on Hugging Face is already
+    # at home.
+    "spaces": {
+        "title": "Spaces",
+        "lead": "Spaces that run entirely in your browser, every file and every model weight named by its hash.",
         "sorts": [["featured", "Featured"], ["name", "Name"], ["smallest", "Smallest model"], ["largest", "Largest model"]],
         "open": "Open",
         "source": "View the source",
@@ -142,7 +147,7 @@ SCREENS = {
     },
     "buckets": {
         "title": "Buckets",
-        "lead": f"A bucket is a named place for your own objects, each stored and fetched by its address. Writing to a bucket needs an account on {API_HOST}; reading and checking any object needs nothing.",
+        "lead": "A bucket is a named place for objects, each stored and fetched by its address. Reading any object, and checking it against its address yourself, needs nothing at all.",
         "manage": "Open buckets on the hub",
         "manageHref": f"{API}/buckets/",
         "command": "buckets create <owner>/<name>",
@@ -183,8 +188,35 @@ SCREENS = {
             "label": "Photos",
         },
         "menu": "Menu",
-        "signIn": "Sign in",
-        "signInHref": f"{API}/",
+        # The search box, beside the lockup, where Hugging Face puts its own
+        # (read 2026-11-16: "Search models, datasets, users...", a Ctrl K chip,
+        # and a panel of sections under the header). This hub indexes models and
+        # ships Spaces and says only those two: a box offering to search datasets
+        # it does not hold would be the promise the Sign in button was.
+        #
+        # What makes it instant is `data/browse/search/quick/`: one fetch the
+        # first time two characters name a bucket, then every keystroke after it
+        # answered in the page without a request. `web/browsekey.mjs` holds the
+        # rule the builder files by and the page resolves by.
+        "search": {
+            "placeholder": "Search models and Spaces",
+            "label": "Search",
+            "hint": "Ctrl K",
+            "hintMac": "\u2318 K",
+            "models": "Models",
+            "spaces": "Spaces",
+            # Said while the head of the catalogue is being fetched, and again
+            # when a query is rare enough that the full index has to be read.
+            "looking": "Looking\u2026",
+            "deeper": "Searching the whole catalogue\u2026",
+            "empty": "Nothing matches that.",
+            "all": "View all results for \u201c{q}\u201d",
+            "allRoute": ROUTE["models"],
+            "spacesRoute": ROUTE["spaces"],
+            "navigate": "Navigate",
+            "select": "Select",
+            "close": "esc",
+        },
         "proof": "Proved by Lean",
         "proofDetail": "{passed} of {total} examples hold",
         "proofHref": "app/",
@@ -484,7 +516,7 @@ SCREENS = {
              "commands": [f"curl -I {API}/via/ipfs/openai-community/gpt2/resolve/main/config.json"]},
             {"id": "limits", "title": "Limits and scope",
              "body": ["Open-weight models only: gated and private repositories are refused, and a missing repository and a private one get the same answer, so the hub never tells them apart.",
-                      "Reads only for now. Uploads, discussions, Spaces and inference are not part of the hub."]},
+                      "Reads only for now. Uploads, discussions and inference are not part of the hub, and neither is publishing a Space: the Spaces it lists are re-hosted to run in your browser."]},
         ],
         "back": "Browse models",
         "backRoute": ROUTE["models"],

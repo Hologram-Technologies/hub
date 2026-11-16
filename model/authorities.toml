@@ -18,4 +18,4 @@ citation = "https://crates.io/crates/uor-addr/0.2.0"
 checksum = "none"
 checksum_reason = "The crate is a pinned registry dependency, not an artifact committed here: `Cargo.lock` records its digest and `cargo deny` refuses an unknown registry, so the bytes are held to by the lock rather than by a second copy of the hash."
 statement = "A canonical form for GGUF v3, hashed to a 71-byte kappa-label `sha256:<64hex>`, in which every variable-length leaf is represented by the streamed SHA-256 of its own bytes, and under which two files that decode to the same logical content -- modulo metadata-key order, tensor order and tensor-data layout -- canonicalize to byte-identical skeletons and so to the same label."
-realized_by = ["HK-23", "HK-24"]
+realized_by = ["HK-24", "HK-25"]

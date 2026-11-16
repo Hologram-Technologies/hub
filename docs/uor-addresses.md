@@ -68,7 +68,7 @@ All three equal the leaf the canonical form publishes. So a visitor's own browse
 can check a tensor's canonical address against the source, over one ranged read,
 without the file and without this hub's word for anything. That is what the
 model page's address tab offers, and the verdict it shows is the kernel's accept
-rule (`HK-24`), not a comparison the page made.
+rule (`HK-25`), not a comparison the page made.
 
 Two of the files addressed in the same run are worth a line. The `additive` and
 `projection` GGUFs of that release are different file names and the same 483,520

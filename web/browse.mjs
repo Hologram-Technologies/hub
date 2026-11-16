@@ -14,6 +14,10 @@
 // The roll itself stays checkable: its shards are small, named by its root,
 // and `tests/roll/published.mjs` refuses to publish one that is not.
 
+import { QUICK_ROWS, QUICK_SHOWN, bucketOf, suggests, words } from "./browsekey.mjs";
+
+export { words };
+
 const u32 = (view, at) => view.getUint32(at, true);
 
 async function range(url, from, length) {
@@ -57,11 +61,10 @@ const union = (lists) => {
   return [...seen].sort((a, b) => a - b);
 };
 
-// The same cut the builder makes, and it has to stay the same cut: a word the
-// index was written under is the only word that will find it.
-export const words = (text) => [...new Set(String(text ?? "").toLowerCase()
-  .split(/[^a-z0-9]+/).filter((w) => w.length >= 2 && w.length <= 24))];
-const bucketOf = (word) => word.slice(0, 2);
+// The cut the builder makes and the bucket it files under are
+// `./browsekey.mjs`, imported above. There is one copy of that rule on
+// purpose: a second spelling here would be a word the index was written
+// under that this file never asks for.
 
 // How many candidate rows `find` will read to settle a name exactly. It is
 // both the point at which the word walk stops and the number of rows read
@@ -184,6 +187,10 @@ export async function openBrowse(base) {
   // Which words a bucket holds, in the order its postings are stored in. One
   // small file a bucket, fetched whole and kept, because every search term
   // beginning with those two characters needs the same list.
+  // One file a bucket, fetched whole the first time its two characters are
+  // typed and kept for the session; see `suggest` below.
+  const quickNames = new Map();
+
   const bucketWords = new Map();
   async function wordsIn(key) {
     if (!bucketWords.has(key)) {
@@ -266,6 +273,41 @@ export async function openBrowse(base) {
       const rows = await rowsFrom(await placesAt(use, hits.slice(0, EXACT)));
       const row = rows.find((r) => r[0].toLowerCase() === id.toLowerCase());
       return row && { id: row[0], revision: row[1], created: row[2], browse: row[6] ?? null };
+    },
+    // ------------------------------------------------------ quicksearch
+    // What the header's box offers while somebody is typing. One fetch the
+    // first time two characters name a bucket, then every keystroke after it
+    // is answered from memory without a request.
+    //
+    // The file is the bucket's most trending names, one per line, and nothing
+    // else: the words to match are read back out of each name by the same
+    // rule that filed it (`./browsekey.mjs`), so there is no second table to
+    // keep in step.
+    //
+    // `complete` is false when the head of the catalogue did not fill the
+    // panel. The caller then runs the full search, which reads the whole
+    // index - the suggestion list is the fast path, never the only one.
+    async suggest(query, want = QUICK_SHOWN) {
+      const terms = words(query);
+      if (!terms.length || !root.search?.quick) return { rows: [], complete: true };
+      const key = bucketOf(terms[0]);
+      if (!root.search.quick.sizes?.[key]) return { rows: [], complete: false };
+      if (!quickNames.has(key)) {
+        quickNames.set(key, (async () => {
+          const r = await fetch(url(`${root.search.quick.path}${key}.bin`));
+          if (!r.ok) return [];
+          return (await r.text()).split("\n").filter(Boolean);
+        })());
+      }
+      const names = await quickNames.get(key);
+      const rows = [];
+      for (const id of names) {
+        if (suggests(id, terms)) rows.push(id);
+        if (rows.length >= want) break;
+      }
+      // The head held enough, or it held everything there was to hold. Either
+      // way there is nothing the full search would add above these.
+      return { rows, complete: rows.length >= want || names.length < QUICK_ROWS };
     },
     async page({ sort, filters = {}, page = 1, q = "" }) {
       const use = root.orders[sort] ? sort : Object.keys(root.orders)[0];

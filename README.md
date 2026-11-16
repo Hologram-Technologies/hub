@@ -445,7 +445,7 @@ content -- modulo metadata-key order, tensor order and tensor-data layout --
 address alike, so the same tensors have the same address wherever they come
 from. `crates/uor-label` calls it, `tools/uor-index.mjs` publishes a label and
 every tensor's leaf under `data/uor/`, and a model page offers to check one
-(`HK-23`, `HK-24`). The leaf of a tensor is the SHA-256 of that tensor's own
+(`HK-24`, `HK-25`). The leaf of a tensor is the SHA-256 of that tensor's own
 data region, so the check is a ranged read of one tensor and the verdict is the
 kernel's: measured 2026-11-16, 10,240 bytes of a 483,520-byte file in a browser,
 206 and cross-origin, matching. GGUF today; `docs/uor-addresses.md` has the
