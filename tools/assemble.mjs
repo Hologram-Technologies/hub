@@ -3,7 +3,7 @@
 // repository just built, a page per route, and the copied catalog, registry
 // and apps lists.
 //
-//   node tools/assemble.mjs [out dir] [hub origin]
+//   node tools/assemble.mjs [out dir]
 //
 // The witnessed manifests and the signed index are not built here: they take a
 // long download and a signature this workflow alone can make, so a model page
@@ -12,7 +12,7 @@ import { spawnSync } from "node:child_process";
 import { cp, mkdir, readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 
-const [out = "preview", origin = "https://gethologram.ai"] = process.argv.slice(2);
+const [out = "preview"] = process.argv.slice(2);
 const builds = join("app", ".prism", "build");
 // The newest holo, by when it was written. A build directory is named by the
 // digest of its inputs, so proving a changed model leaves the previous build
@@ -47,9 +47,9 @@ await rm(join(out, "app", "vendor", "prism-code", "fixtures"), { recursive: true
 
 // Both tools read the signed index from <out>/data/index, which this preview
 // does not build, so they say so and the preview shows no owner marks and no
-// model pages. Only web-data still needs an origin, for the registry and the
-// apps list.
-for (const [tool, args] of [["web-data.mjs", [out, origin]], ["web-routes.mjs", [out]]]) {
+// model pages. Nothing here reads another hub: the Spaces list is this
+// repository's own catalog.
+for (const [tool, args] of [["web-data.mjs", [out]], ["web-routes.mjs", [out]]]) {
   const run = spawnSync(process.execPath, [join("tools", tool), ...args], { stdio: "inherit" });
   if (run.status !== 0) process.exit(run.status ?? 70);
 }

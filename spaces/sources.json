@@ -1,0 +1,187 @@
+{
+ "format": "hologram.hub.spaces-sources/1",
+ "imported": {
+  "repository": "Hologram-Technologies/hologram-live",
+  "commit": "329335dcbfb9130463a05072ee14d392d0c6a2ed",
+  "from": "apps/model-hub/web/public/spaces",
+  "catalog": "spaces.json -> catalog.json",
+  "date": "2026-11-16"
+ },
+ "compat": [
+  {
+   "to": "compat/hologram-warm.css",
+   "from": "apps/model-hub/web/vendor/hologram-brand-kit/hologram-warm.css",
+   "sha256": "689dc95fe1304f85b2e8c077d6cfeaa0fa156b1906e31485cf60ef6988add4ef",
+   "served": "/kit/hologram-warm.css"
+  },
+  {
+   "to": "compat/hologram-gap-tokens.css",
+   "from": "apps/model-hub/web/vendor/hologram-brand-kit/hologram-gap-tokens.css",
+   "sha256": "32721cc1f99f0403b5d9a41101178f3ecdea8c4e4a711e08ba29b3a8605d0c1e",
+   "served": "/kit/hologram-gap-tokens.css"
+  },
+  {
+   "to": "compat/tokens.css",
+   "from": "apps/model-hub/web/src/tokens.css",
+   "sha256": "d57e35a25c1f66a0328861f5f09c9e6a97046e81e3b1426b42b63c16c0f2c54a",
+   "served": "/tokens.css"
+  }
+ ],
+ "runtime": {
+  "onnxruntime-web-1.17.1": {
+   "package": "onnxruntime-web",
+   "version": "1.17.1",
+   "tarball": "https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.17.1.tgz",
+   "integrity": "sha512-EotY9uJU4xFY/ZVZ2Zrl2OZmBcbTVTWn/2OOh4cCWODPwtsYN2xeJYgoz8LfCgZSrhenGg0q4ceYUWATXqEsYQ==",
+   "files": [
+    {
+     "path": "dist/ort-wasm-simd-threaded.jsep.wasm",
+     "to": "ort-wasm-simd-threaded.jsep.wasm",
+     "sha256": "b081048a1c9973a0e054d9966a23c1925be414235b0507b2ac612136b67b6c8d"
+    },
+    {
+     "path": "dist/ort-wasm-simd.jsep.wasm",
+     "to": "ort-wasm-simd.jsep.wasm",
+     "sha256": "adf595aa5fab7390d413dd259ceb28711b0591a52059f1ea9e5efe6040479681"
+    }
+   ]
+  },
+  "transformers-2.14.1": {
+   "package": "@xenova/transformers",
+   "version": "2.14.1",
+   "tarball": "https://registry.npmjs.org/@xenova/transformers/-/transformers-2.14.1.tgz",
+   "integrity": "sha512-aj4aXxci3pTf6BEavm8ASu4doGPQP3l5KPXTnem4jMTWuXV2ZFhea0L5MWrYWgSWqtptwN6UqHzW6npKExsaQQ==",
+   "files": [
+    {
+     "path": "dist/ort-wasm-simd-threaded.wasm",
+     "to": "ort-wasm-simd-threaded.wasm",
+     "sha256": "ac23f2f3cbd519a65a0796f7c79eb34ead4c1f6f31eb06e14ed8a9579d697ef6"
+    },
+    {
+     "path": "dist/ort-wasm-simd.wasm",
+     "to": "ort-wasm-simd.wasm",
+     "sha256": "9bd07bababc65f53d061f457233eeae501be7ceb8a2adb9eef52d87fe776d865"
+    },
+    {
+     "path": "dist/ort-wasm-threaded.wasm",
+     "to": "ort-wasm-threaded.wasm",
+     "sha256": "2ee2f715093aaacc0344bfb1610313eb49a3474e8afde5e4635f30ddfc7615c8"
+    },
+    {
+     "path": "dist/ort-wasm.wasm",
+     "to": "ort-wasm.wasm",
+     "sha256": "bbdcb6b3c7d294577d806077630460be4e13ca35a345acb5e81188e9649fa74a"
+    }
+   ]
+  },
+  "transformers-3.0.0-alpha.7": {
+   "package": "@huggingface/transformers",
+   "version": "3.0.0-alpha.7",
+   "tarball": "https://registry.npmjs.org/@huggingface/transformers/-/transformers-3.0.0-alpha.7.tgz",
+   "integrity": "sha512-ECiT9KLTwJHBeSmDdzRrHekMyTVyP5N75PJug1OEM19mpitj8/Yd5IPbJlrPWBedL+WjCrVW/1RAKSt+nDbuBA==",
+   "files": [
+    {
+     "path": "dist/ort-wasm-simd-threaded.jsep.wasm",
+     "to": "ort-wasm-simd-threaded.jsep.wasm",
+     "sha256": "85576a5fc99abf4dd1fa749074ae47c11d707831429182d177b5171c88ad45ba"
+    }
+   ]
+  },
+  "transformers-3.2.1": {
+   "package": "@huggingface/transformers",
+   "version": "3.2.1",
+   "tarball": "https://registry.npmjs.org/@huggingface/transformers/-/transformers-3.2.1.tgz",
+   "integrity": "sha512-GTKnLUP5WX1L05f46mErDY11uAAmvU5+ONuFP5ggTKB8yuNzq45MUlpWZeWpMM4kewOOOEfOX6FyxDPulZQRbA==",
+   "files": [
+    {
+     "path": "dist/ort-wasm-simd-threaded.jsep.wasm",
+     "to": "ort-wasm-simd-threaded.jsep.wasm",
+     "sha256": "a22f8354b697c58d85fe11d831e727182a90875029cc294f96dddf14c50ff764"
+    }
+   ]
+  },
+  "transformers-3.3.1": {
+   "package": "@huggingface/transformers",
+   "version": "3.3.1",
+   "tarball": "https://registry.npmjs.org/@huggingface/transformers/-/transformers-3.3.1.tgz",
+   "integrity": "sha512-ypduhicsjFQAIcYPBicojDGz9jpvU+abCuoRFYj/V9glTmMVLlGxCwssAGSGmoC+T+FV9JFI5U8i2H+zpOxVbg==",
+   "files": [
+    {
+     "path": "dist/ort-wasm-simd-threaded.jsep.mjs",
+     "to": "ort-wasm-simd-threaded.jsep.mjs",
+     "sha256": "9cee9463024309bdda66ace9b818b7bf9f284a5e6af7f1ea5b65ddb0aea0f7ca"
+    },
+    {
+     "path": "dist/ort-wasm-simd-threaded.jsep.wasm",
+     "to": "ort-wasm-simd-threaded.jsep.wasm",
+     "sha256": "719a76c6d550f926da215dff9e711bb90ea68a7e246e8745d47331d6059c8e2f"
+    }
+   ]
+  },
+  "transformers-3.3.3": {
+   "package": "@huggingface/transformers",
+   "version": "3.3.3",
+   "tarball": "https://registry.npmjs.org/@huggingface/transformers/-/transformers-3.3.3.tgz",
+   "integrity": "sha512-OcMubhBjW6u1xnp0zSt5SvCxdGHuhP2k+w2Vlm3i0vNcTJhJTZWxxYQmPBfcb7PX+Q6c43lGSzWD6tsJFwka4Q==",
+   "files": [
+    {
+     "path": "dist/ort-wasm-simd-threaded.jsep.mjs",
+     "to": "ort-wasm-simd-threaded.jsep.mjs",
+     "sha256": "2004e7fc76dd246901aaec08a7268cfb9832dcafa9e5a889b7f23f990ffe16ab"
+    },
+    {
+     "path": "dist/ort-wasm-simd-threaded.jsep.wasm",
+     "to": "ort-wasm-simd-threaded.jsep.wasm",
+     "sha256": "d7de09721a4bbc4f3c8a8b8824da82475189bda7ebcfd9ac83e5b162a7d7d479"
+    }
+   ]
+  },
+  "transformers-3.5.0": {
+   "package": "@huggingface/transformers",
+   "version": "3.5.0",
+   "tarball": "https://registry.npmjs.org/@huggingface/transformers/-/transformers-3.5.0.tgz",
+   "integrity": "sha512-/KE7pb22NIJw30gjA56MKuvOI7KgipfcP2n1PSmNKfxXnaBE6T75JUVYWAExp1UNmrwaMm20yzDhSgoCk2NL7w==",
+   "files": [
+    {
+     "path": "dist/ort-wasm-simd-threaded.jsep.mjs",
+     "to": "ort-wasm-simd-threaded.jsep.mjs",
+     "sha256": "08fb86ec433c78bfb032c5d84a68b8e8e5a8d81268fa39e24314179a5767a5b9"
+    },
+    {
+     "path": "dist/ort-wasm-simd-threaded.jsep.wasm",
+     "to": "ort-wasm-simd-threaded.jsep.wasm",
+     "sha256": "c46655e8a94afc45338d4cb2b840475f88e5012d524509916e505079c00bfa39"
+    }
+   ]
+  }
+ },
+ "resealed": [
+  {
+   "id": "kokoro-tts",
+   "was": "sha256:2fe30a8f8a5b577e18bffa9e98f3786921e1093b12536d06236f103e5e34d88e",
+   "is": "sha256:2bb82cc243632dc7525c4095f698b74b174e18de872af7d8cefedc2c965da2b0",
+   "file": "runtime/holo-spaces-hf-fetch.mjs",
+   "sealed": "4c587387766446847db97380972f3f8c7bc3b9156f61b4beec0417e5a52f1d1d",
+   "now": "41c210d503c17357559a3885488a7d36d6be5db40582b26fd2e7f218f06bd9a3",
+   "why": "The sealed bytes of this file exist in no source (hologram-live history, its registry, IPFS); gethologram.ai served the shared runtime instead. Re-sealed with the file the Space runs; the IPFS root is dropped because that tree is no longer this artifact."
+  },
+  {
+   "id": "remove-background",
+   "was": "sha256:c357b95f103f587e7f5b8efeba9cc94d0865db691ad76fed05241ebfe9866307",
+   "is": "sha256:11e7f7d43e22842ee6098c6957566b4f39569b43955ab7a6da999c20fb5fa7ea",
+   "file": "runtime/holo-spaces-hf-fetch.mjs",
+   "sealed": "4c587387766446847db97380972f3f8c7bc3b9156f61b4beec0417e5a52f1d1d",
+   "now": "41c210d503c17357559a3885488a7d36d6be5db40582b26fd2e7f218f06bd9a3",
+   "why": "The sealed bytes of this file exist in no source (hologram-live history, its registry, IPFS); gethologram.ai served the shared runtime instead. Re-sealed with the file the Space runs; the IPFS root is dropped because that tree is no longer this artifact."
+  },
+  {
+   "id": "smollm-chat",
+   "was": "sha256:f36335960618128cde809fc2057c088a44c9d942a802099b8e8a4a201f20df4b",
+   "is": "sha256:88491b1139c90fb233c9cc2d9154adcf6a24d8c7640ce4e6f3592a13fdfefa2d",
+   "file": "runtime/holo-spaces-hf-fetch.mjs",
+   "sealed": "4c587387766446847db97380972f3f8c7bc3b9156f61b4beec0417e5a52f1d1d",
+   "now": "41c210d503c17357559a3885488a7d36d6be5db40582b26fd2e7f218f06bd9a3",
+   "why": "The sealed bytes of this file exist in no source (hologram-live history, its registry, IPFS); gethologram.ai served the shared runtime instead. Re-sealed with the file the Space runs; the IPFS root is dropped because that tree is no longer this artifact."
+  }
+ ]
+}

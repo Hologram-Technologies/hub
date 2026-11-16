@@ -234,6 +234,8 @@ name = "repo-conformance"
 version = "0.1.0"
 dependencies = [
  "repo-model",
+ "serde_json",
+ "sha2 0.11.1",
 ]
 
 [[package]]

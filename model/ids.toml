@@ -177,3 +177,9 @@ id = "HK-26"
 level = "build"
 suite = "index"
 statement = "A filter the panel offers is one whatever is driving the list can act on, so a control is never drawn that cannot narrow anything"
+
+[[id]]
+id = "HK-27"
+level = "build"
+suite = "spaces"
+statement = "Every Space the site publishes is the sealed artifact its catalog names: each file hashes to its lock entry, the manifest hashes to the root, and the runtime comes from locked packages whose bytes match the lock too"

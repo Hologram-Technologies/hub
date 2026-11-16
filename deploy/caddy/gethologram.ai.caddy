@@ -82,3 +82,26 @@
 			}
 		}
 	}
+
+	# The Spaces (HK-27), served by this repository's deploy/spaces/ from the VPS rather than Pages. Each app lives under
+	# /spaces/<id>/; the list the Spaces screen draws stays on Pages. The three style files the Spaces were sealed to
+	# load from the origin come from the same server: /kit/*, and /tokens.css when a Space asks for it, which is not the
+	# hub site's /tokens.css. Place these blocks before @fromhub.
+	@spaceapp {
+		path_regexp spaceapp ^/spaces/[^/]+/
+	}
+	handle @spaceapp {
+		reverse_proxy hub-spaces:8080
+	}
+	@spacekit path /kit/hologram-warm.css /kit/hologram-gap-tokens.css /spaces/spaces.json
+	handle @spacekit {
+		reverse_proxy hub-spaces:8080
+	}
+	@spacetokens {
+		path /tokens.css
+		header_regexp spacetokens Referer ^https?://[^/]+/spaces/[^/]+/
+	}
+	handle @spacetokens {
+		rewrite * /spaces-compat/tokens.css
+		reverse_proxy hub-spaces:8080
+	}

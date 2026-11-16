@@ -1,7 +1,7 @@
-// Copies what the hub's pages need and the signed index does not carry: the
-// list of Spaces, because the live hub does not let another origin read it,
-// and one avatar per owner, because a picture is decoration rather than a
-// fact about the bytes.
+// Writes what the hub's pages need and the signed index does not carry: the
+// list of Spaces, from this repository's own catalog (spaces/catalog.json,
+// whose every Space HK-27 checks), and one avatar per owner, because a picture
+// is decoration rather than a fact about the bytes.
 //
 // The models the browse page lists are NOT here. They come from the signed
 // index (`tools/index.mjs`, `data/index/`), so the page and the wire read one
@@ -9,25 +9,26 @@
 // are read from that same index rather than asked of the live hub, so the
 // marks match the rows the page draws.
 //
-//   node tools/web-data.mjs <site dir> <hub origin>
+//   node tools/web-data.mjs <site dir>
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const [site, origin] = process.argv.slice(2);
-if (!site || !origin) {
-  console.error("usage: node tools/web-data.mjs <site dir> <hub origin>");
+const [site] = process.argv.slice(2);
+if (!site) {
+  console.error("usage: node tools/web-data.mjs <site dir>");
   process.exit(64);
 }
 await mkdir(join(site, "data"), { recursive: true });
 
-async function take(path) {
-  const response = await fetch(new URL(path, origin), { signal: AbortSignal.timeout(60000) });
-  if (!response.ok) throw new Error(`${path}: the hub answered ${response.status}`);
-  const bytes = Buffer.from(await response.arrayBuffer());
+// The catalog as this repository carries it. `from` names where its Spaces were imported from and when, which is
+// what the Spaces screen says under the list.
+async function catalog() {
+  const bytes = await readFile(new URL("../spaces/catalog.json", import.meta.url));
+  const { imported } = JSON.parse(await readFile(new URL("../spaces/sources.json", import.meta.url), "utf8"));
   return {
     data: JSON.parse(bytes.toString("utf8")),
-    from: { source: new URL(path, origin).href, date: new Date().toISOString().slice(0, 10), hash: createHash("sha256").update(bytes).digest("hex") },
+    from: { source: `${imported.repository}@${imported.commit.slice(0, 7)}`, date: imported.date, hash: createHash("sha256").update(bytes).digest("hex") },
   };
 }
 
@@ -72,7 +73,7 @@ await Promise.all(owners.map(async (owner) => {
 await writeFile(join(site, "data", "avatars", "index.json"), JSON.stringify(Object.fromEntries([...faces].sort())));
 
 // ---- the Spaces
-const spaces = await take("/spaces/spaces.json");
+const spaces = await catalog();
 await writeFile(join(site, "data", "spaces.json"), JSON.stringify({ from: spaces.from, spaces: spaces.data.spaces }));
 
 console.log(`web-data: ${faces.size} avatars (${Math.round(bytesWritten / 1024)} kB), ${spaces.data.spaces.length} Spaces`);
