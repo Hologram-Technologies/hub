@@ -38,7 +38,7 @@
   --hh-icon-small: var(--text-sm);
   --hh-ease: 150ms cubic-bezier(.4, 0, .2, 1);
   --hh-leading: 1.5;
-  /* One size for every word on the site that is not a headline: the menu, the sign-in, the hero's line and
+  /* One size for every word on the site that is not a headline: the menu, the hero's line and
      its actions, the controls. The headlines are set in the display steps; everything else is this. */
   --hh-ui: var(--text-base);
   --hh-pad: var(--space-6);
@@ -204,20 +204,15 @@ ul { list-style: none; margin: 0; padding: 0; }
 
 @media (max-width: 720px) {
   .top { gap: var(--space-4); padding: 0 var(--space-4); }
-  /* The header still needs its room for the account control. */
   .brand .mark { height: var(--space-6); }
   .brand .word { height: var(--space-4); }
   .brand { gap: var(--space-2); }
   .top-end { gap: var(--space-2); }
-  /* the same room the other header controls take: the mark alone says it */
-  #sign-in-button .label { display: none; }
-  #sign-in-button { width: var(--hh-control); padding: 0; justify-content: center; border-radius: 50%; }
 }
 
 /* The top-level menu. Sits at the end of the row, immediately before the icons. Each label carries a mark
-   of its own: a grid for the catalogue, a package for the registry, a page for the guide. Three silhouettes
-   that stay apart at 16px. Built by topNav() in build.mjs, and the same markup is put into the Registry
-   page by the same build, so every page of the site carries this row and carries it identically. */
+   of its own: a grid for the catalogue, a chip for the Spaces, a pail for the buckets, a page for the
+   guide. Four silhouettes that stay apart at 16px. */
 .top-nav { display: flex; align-items: center; gap: var(--space-6); font-family: var(--font-mono); font-size: var(--hh-ui); }
 .top-nav a { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--hh-text-dim); transition: color var(--hh-ease); }
 .top-nav a:hover { color: var(--hh-text); }
@@ -239,12 +234,13 @@ ul { list-style: none; margin: 0; padding: 0; }
 .menu-button .i { width: var(--hh-icon-small); height: var(--hh-icon-small); }
 .menu-button .i + .i, .top.menu-open .menu-button .i:first-child { display: none; }
 .top.menu-open .menu-button .i + .i { display: block; }
-/* Folded, under 1100px: at the site's 16px text the five sections, the lockup and the two controls need
-   about 1080px of row, so the fold sits just above that. The group becomes the screen: a panel over the whole viewport, the brand and the close button
+/* Folded, under 1100px: where the row had five sections and two controls it now has four and one, so it
+   needs less than 1080px, but the fold stays here until that is measured rather than guessed.
+   The group becomes the screen: a panel over the whole viewport, the brand and the close button
    still in their corners above it, the sections as a column of display type a thumb cannot miss, and the
-   theme switch and sign-in on a row at the foot. The button opens it; it, Escape, a tap on a section, or
-   the window growing (chrome.js) closes it. The two controls' popovers unfold inside the panel rather than
-   beside their controls: a popover hung off a control at the left edge of a phone has nowhere to go. */
+   theme switch on a row at the foot. The button opens it; it, Escape, a tap on a section, or the window
+   growing (chrome.js) closes it. The control's popover unfolds inside the panel rather than beside the
+   control: a popover hung off a control at the left edge of a phone has nowhere to go. */
 @keyframes sheet-in { from { opacity: 0; transform: translateY(var(--space-3)); } }
 @media (max-width: 1100px) {
   .menu-button { display: grid; }
@@ -266,12 +262,9 @@ ul { list-style: none; margin: 0; padding: 0; }
   .top-nav .i { width: var(--space-6); height: var(--space-6); color: var(--hh-text-dim); stroke-width: 1.5; }
   .top-nav a[aria-current], .top-nav a[aria-current] .i { color: var(--hh-accent-legible); }
   .top-tools { flex-wrap: wrap; justify-content: space-between; gap: var(--space-3); padding-top: var(--space-8); }
-  /* The panel has the room the row did not: the sign-in reads as a word again, at the size of the page's buttons. */
-  .top-menu #sign-in-button .label { display: inline; }
-  .top-menu #sign-in-button { width: auto; height: var(--hh-field); padding: 0 var(--space-5); border-radius: var(--radius-lg); font-size: var(--text-base); }
-  .top-menu .appearance > button, .top-menu .account-mark { width: var(--hh-field); height: var(--hh-field); }
-  /* The two controls' popovers unfold inside the panel, on a full row under the controls. */
-  .top-menu .appearance, .top-menu .account { display: contents; }
+  .top-menu .appearance > button { width: var(--hh-field); height: var(--hh-field); }
+  /* The theme control's popover unfolds inside the panel, on a full row under it. */
+  .top-menu .appearance { display: contents; }
   .top-menu .menu { position: static; order: 3; flex-basis: 100%; width: auto; margin-top: var(--space-2); padding: var(--space-4) 0 0; background: none; border: 0; border-top: 1px solid var(--hh-line); border-radius: 0; box-shadow: none; animation: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
@@ -302,21 +295,6 @@ ul { list-style: none; margin: 0; padding: 0; }
 .menu [role="menuitemradio"][aria-checked="true"] .i { color: var(--hh-text); }
 .menu [role="menuitemradio"][aria-checked="true"] .tick { visibility: visible; }
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 280ms; }
-
-.account { position: relative; display: flex; align-items: center; }
-
-/* The one brand-coloured control on the page: the only thing here asking to be done. */
-.sign-in {
-  display: inline-flex; align-items: center; gap: var(--space-2);
-  height: var(--hh-control); padding: 0 var(--space-4);
-  background: var(--hh-accent); border: 1px solid var(--hh-accent); border-radius: var(--radius-lg);
-  font-family: var(--font-sans); font-size: var(--hh-ui); font-weight: var(--weight-semibold);
-  color: var(--hh-accent-text); white-space: nowrap;
-  transition: opacity var(--hh-ease), transform var(--hh-ease);
-}
-.sign-in:hover { opacity: .88; }
-.sign-in:active { transform: scale(.97); }
-.sign-in .i { width: var(--hh-icon-small); height: var(--hh-icon-small); color: var(--hh-accent-text); stroke-width: 2; }
 
 /* ---- immersive: the wallpaper under everything, glass over it.
    --hh-wallpaper is set on <html> before the first paint (index.html) and
@@ -767,7 +745,7 @@ code { font-family: var(--font-mono); font-size: var(--text-sm); }
 .card.entry .meta { height: auto; }
 .entry-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-2); }
 .entry-actions .endpoint { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.grid.apps { grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); }
+.grid.spaces { grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); }
 :root[data-theme="immersive"] .lead .endpoint, :root[data-theme="immersive"] .lead .pill { background: var(--hh-surface); -webkit-backdrop-filter: var(--hh-glass); backdrop-filter: var(--hh-glass); }
 
 /* ---- model page */

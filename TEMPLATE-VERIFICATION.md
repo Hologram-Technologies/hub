@@ -2483,6 +2483,77 @@ both planted defects are rejected on the smallest and the largest:
 A gate run against one sample size says less than it appears to. These are
 now run against four.
 
+## A header that promised four things the hub could not do
+
+The header read Models, Registry, Apps, Buckets, Docs and a **Sign in**
+button. Measured 2026-11-16 on the live site at
+`hologram-technologies.github.io/hub/`, with Hugging Face's own header read
+the same day for comparison.
+
+### What was found, one line each
+
+- **`api.gethologram.ai` does not resolve.** `nslookup` answers "Non-existent
+  domain"; `curl` exits 6 on every path. `docs/cutover.md` orders the cutover:
+  step 1 is the operator's `A api` record and the Caddy line, step 2 is this
+  repository naming it. Step 2 landed in #11 before step 1 was applied, so
+  every command, link and endpoint this site prints is dead: the home hero's
+  `curl`, the model page's three Get-it commands, the Docs quickstart, the
+  Spaces' Open, Buckets' two buttons and Verify. The Buckets page's own
+  example address answers **"The object could not be fetched."** when clicked.
+  This is the one finding here that this repository cannot fix: it is a DNS
+  record and one Caddy line, both the operator's.
+- **Sign in opened nothing.** `web/hub.mjs:419` was a bare anchor to
+  `https://api.gethologram.ai/`, with no handler and no module behind it. The
+  hub has no accounts at all: `web/index.html` carries no `<prism-frame>`, and
+  `identity/` - the Prism passkey system, rpId `id.uor.foundation` - is wired
+  only to `site/page.template.html`, the proof page under `app/`, not to any
+  hub screen. A button that cannot do its one job is removed, not renamed.
+- **Registry had no Hugging Face counterpart.** Populated and working: 2 149
+  entries - Artifact Hub 913, Docker Hub 699, Microsoft Artifact Registry 536,
+  Hologram 1. But its commands were `docker pull docker.io/...` and its
+  actions left for the upstream registry, so it was a directory of other
+  people's registries rather than anything this hub answers. Removed on the
+  owner's decision, recorded rather than taken here.
+- **Apps was Hugging Face's Spaces under another name.** All twelve entries
+  name a `huggingface.co/spaces/...` source. Opening
+  `gethologram.ai/spaces/kokoro-tts/index.html` directly loads and starts the
+  model on WebGPU, so the feature is real. Renamed to **Spaces**: the screen
+  key, the route and the URL are all `spaces`, matching `/spaces` on
+  Hugging Face.
+- **Buckets is a Hugging Face nav item.** Read 2026-11-16, Hugging Face's
+  header is Models, Datasets, Spaces, **Buckets**, Docs, Enterprise, Pricing,
+  then Log In and Sign Up; its Buckets is `/storage` and its command is
+  `hf buckets create acme-corp/training-data`, which this screen already
+  mirrors. Kept. Its lead said writing "needs an account on
+  api.gethologram.ai"; no such account exists anywhere, so the sentence is
+  gone and the page says only what a reader can do: read an object and check
+  it themselves.
+- **The Docs table claimed a route the hub refuses.** `/api/whoami-v2` was
+  described as "Who the token belongs to". `edge/edge.mjs:597` answers
+  `refuse(10)` - 401, `RepoNotFound` - for it, always. The row now says so.
+
+`API_HOST` stays `api.gethologram.ai`, on the owner's decision, and the
+missing record is what gets fixed. The apex answers all of it today - measured
+2026-11-16, `/api/models?limit=2` 200, `/api/models/openai-community/gpt2`
+200, `/openai-community/gpt2/resolve/main/config.json` 302,
+`/via/huggingface.co/.../config.json` 302, `/api/v1/objects/blake3:5d16...`
+200 with 544 627 bytes, both `/api/v1/objects/` and `/via/` sending
+`Access-Control-Allow-Origin: *` - but it answers only because the apex still
+points at the VPS. The hour its A record moves to Pages, a static host can set
+no `X-Repo-Commit` on a HEAD and no redirect headers, and every `HF_ENDPOINT`
+a reader has copied from a model page stops working. Naming the apex would
+buy working commands now and break them at the cutover, so the name stays and
+step 1 of `docs/cutover.md` - one `A api 217.216.66.62` record and one Caddy
+line, the operator's to apply - is the open item.
+
+Which leaves this recorded rather than claimed: until that record exists, the
+commands and links this site prints do not resolve, Buckets' two actions among
+them. The header below is honest about what the hub *has*; it cannot be
+honest about what the hub can *reach* until the record is added.
+
+The header is now Models, Spaces, Buckets, Docs - Hugging Face's own header
+and its order, minus Datasets, which this hub does not index.
+
 ## The surface Hugging Face publishes, and the map that claims against it
 
 Hugging Face publishes `/.well-known/openapi.json`: read on 2026-11-15, 379
@@ -2540,7 +2611,7 @@ Five, one per rule the map rests on. Each was planted, rejected, and restored.
 On the restored tree `node tests/surface/map.mjs` reports `ok surface map: 379
 operations, 12 declared by the hub, 7 answered from the index`, and
 `docs/hf-surface.md` is sha256
-`4f511d59aa50f59edd1d198a268e29c084463c843ce6b87deac48bc78ed419c8`.
+`5563bb5cac62786889285cf97a3f49d64c5b10e193f3a5eebd5984216cad97d3`.
 
 1. **A refused operation called answered.** `GET /api/trending` given the
    verdict `answered` in `policy.json`. `node tools/hf-surface.mjs` exits 65:
@@ -2548,7 +2619,7 @@ operations, 12 declared by the hub, 7 answered from the index`, and
    not answer it`. The second reader fails four of its checks.
 2. **The generated document edited by hand.** The `refused` count in
    `docs/hf-surface.md` changed from 36 to 3: `docs/hf-surface.md is not what
-   these inputs generate: it is sha256 215fa728..., they generate 4f511d59...`.
+   these inputs generate: it is sha256 1dee134c..., they generate 5563bb5c...`.
 3. **A route declared with nowhere to live.** A `GET /api/datasets` row added
    to `ENDPOINTS` in `site_spec.py`. Exit 65: `site_spec.py answers GET
    /api/datasets and policy.json does not say where it lives in the
@@ -2596,8 +2667,11 @@ surface as "Who the token belongs to", and the hub always refuses it. The
 refusal is the right answer, because the hub has no accounts and every request
 is anonymous, which is what huggingface.co answers an anonymous client. The
 description is what over-claims, and it is on the live documentation screen.
-Not changed here: the words on that screen are generated from the kernel, so
-correcting them is a model change with its own gate run, not a note in a map.
+Not changed here, because the words on that screen are generated from the
+kernel and correcting them is a model change with its own gate run rather
+than a note in a map. It was corrected on main while this branch was open:
+#35 has the screen say the route is always refused, and the map now records
+the finding as closed.
 
 The relay is also the shipped default, `useHuggingFace` being true unless the
 edge is configured otherwise. An edge run with it off refuses all 25
