@@ -20,6 +20,8 @@ rev=$(git -C src rev-parse --short=12 HEAD)
 mkdir -p releases
 rm -rf "releases/$rev.new"
 node src/tools/spaces.mjs "releases/$rev.new"
+# The object store the Buckets page reads (HK-28): every file just published, under the SHA-256 of its bytes.
+node src/tools/objects.mjs "releases/$rev.new"
 echo "$rev" > "releases/$rev.new/REVISION"
 rm -rf "releases/$rev"
 mv "releases/$rev.new" "releases/$rev"

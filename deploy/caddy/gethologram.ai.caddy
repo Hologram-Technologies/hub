@@ -105,3 +105,17 @@
 		rewrite * /spaces-compat/tokens.css
 		reverse_proxy hub-spaces:8080
 	}
+
+	# The object store (HK-28), in the same release as the Spaces: every published Space file under the SHA-256 of its
+	# bytes. The Buckets page fetches /api/v1/objects/<address> and hashes what arrives itself. Only sha256 addresses
+	# name objects this hub holds; any other address falls through and the page says the object could not be fetched.
+	@object {
+		method GET HEAD
+		path_regexp object ^/api/v1/objects/sha256:([0-9a-f]{64})$
+	}
+	handle @object {
+		rewrite * /objects/sha256/{re.object.1}
+		header Access-Control-Allow-Origin "*"
+		header Cache-Control "public, max-age=31536000, immutable"
+		reverse_proxy hub-spaces:8080
+	}

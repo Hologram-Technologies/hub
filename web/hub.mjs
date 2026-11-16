@@ -1670,7 +1670,6 @@ function drawBuckets(main) {
     <div class="doc-grid">
       <article class="panel doc">
         <p class="intro">${esc(s.lead)}</p>
-        <p><a class="button" href="${esc(s.manageHref)}" rel="noopener">${esc(s.manage)}${ICON.external}</a></p>
         <section><h2>${esc(s.checkTitle)}</h2><p>${esc(s.checkLead)}</p>
           <form class="check" id="check"><label class="field search">${ICON.search}<input id="address" spellcheck="false" autocomplete="off" placeholder="${esc(s.placeholder)}" aria-label="${esc(s.placeholder)}" /></label>
             <button type="submit" class="button primary">${esc(s.check)}</button></form>

@@ -25,6 +25,15 @@ run `python app/tools/gen_kernel.py`.
 API_HOST = "gethologram.ai"
 API = f"https://{API_HOST}"
 
+# The object the Buckets page offers to check: a Space's manifest, whose address is that Space's root. It is read
+# from the Spaces catalog this repository carries (spaces/catalog.json), so the example cannot name an object the
+# store does not hold (HK-28): tools/objects.mjs files every published Space file, the manifest among them.
+import json as _json
+from pathlib import Path as _Path
+EXAMPLE_SPACE = "kokoro-tts"
+EXAMPLE_OBJECT = next(s["root"] for s in _json.loads((_Path(__file__).resolve().parents[2] / "spaces" / "catalog.json")
+                                                     .read_text(encoding="utf-8"))["spaces"] if s["id"] == EXAMPLE_SPACE)
+
 # Routes the guest renders, by number. Request `03 nn` asks for route nn.
 ROUTES = ["chrome", "home", "models", "model", "docs", "spaces", "buckets"]
 ROUTE = {name: i for i, name in enumerate(ROUTES)}
@@ -148,14 +157,12 @@ SCREENS = {
     "buckets": {
         "title": "Buckets",
         "lead": "A bucket is a named place for objects, each stored and fetched by its address. Reading any object, and checking it against its address yourself, needs nothing at all.",
-        "manage": "Open buckets on the hub",
-        "manageHref": f"{API}/buckets/",
-        "command": "buckets create <owner>/<name>",
+        "command": f"curl -s {API}/api/v1/objects/{EXAMPLE_OBJECT} | sha256sum",
         "checkTitle": "Check an object",
         "checkLead": "Paste an address. The page fetches the object, hashes it here with the address's own hash, and asks the kernel whether these are the addressed bytes.",
         "placeholder": "blake3:... or sha256:...",
-        "example": "blake3:5d168520ffb44368dc65fd00adc4543e57e7aebfa2d048192d152f46f86e18fc",
-        "exampleLabel": "Try the hub's catalog",
+        "example": EXAMPLE_OBJECT,
+        "exampleLabel": "Try a Space's manifest",
         "check": "Check",
         "verdicts": {
             "20": "These {size} are exactly the addressed object.",

@@ -2988,3 +2988,43 @@ the same assembler, so a release that fails HK-27 is never swapped in. It
 swaps by renaming one symlink. The rename and the cleanup were run three times
 in a scratch directory on the server: the live link always resolves, and the
 previous release is kept for a rollback.
+
+## HK-28: an object store this hub owns
+
+The Buckets page checks an object by fetching `/api/v1/objects/<address>`,
+hashing what arrives and asking the kernel's accept rule. Until now that path
+was hologram-live's `hologram serve`, and the example the page offered was a
+hologram-live catalog object. There is a store here now:
+- `tools/objects.mjs` files every file of a published Spaces release under the
+  SHA-256 of its bytes, as hard links, so it costs no second copy;
+- `deploy/spaces/deploy.sh` builds it after the Spaces;
+- Caddy answers `/api/v1/objects/sha256:<hex>` from it.
+
+The screen changes in the model (`app/tools/site_spec.py`). The example is
+kokoro-tts's manifest, whose address is that Space's root, read from
+`spaces/catalog.json` so it follows a re-seal. The printed command fetches that
+object and pipes it to `sha256sum`. The "Open buckets on the hub" link and the
+`buckets create` command go: they named hologram-live's account storage, which
+this hub does not have.
+
+Registered first and failing:
+
+    panicked at crates/conformance/tests/buckets.rs:6:
+    HK-28 is registered and not built: assert what its scenario states
+
+Planted, one defect at a time, each restored before the next:
+
+| Defect | Rejected with |
+| --- | --- |
+| `tools/objects.mjs` names an object by its path, `update(file)` | `tools/objects.mjs must name each object by the SHA-256 of its bytes` |
+| the example address one hex digit off | `the Buckets command must fetch the example object, sha256:2bb82cc2430…` |
+| the command's address one hex digit off | `the Buckets command must fetch the example object, sha256:2bb82cc2436…` |
+| both changed together to `sha256:ffff…` | `the example sha256:ffff… is not the manifest of any Space the store holds` |
+
+The first attempt at the second defect passed, which exposed a gap. The
+address appears twice on the screen, and the plant had changed the command's
+copy, which nothing checked. The test now requires every SHA-256 address on
+the Buckets screen to be its example, and the command to fetch it.
+
+Restored, `python app/tools/gen_kernel.py` reproduces the model byte for byte
+and `buckets_hk_28` passes.
