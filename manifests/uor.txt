@@ -1,0 +1,18 @@
+# Models whose GGUF files this build gives a canonical UOR address.
+#
+# `tools/uor-index.mjs` streams every GGUF file of each release, mints its
+# κ-label with `uor-addr` through `crates/uor-label`, and publishes the label
+# with the leaf of every tensor inside it. A model named here that the signed
+# index does not hold is a build failure, so this list and the index agree or
+# the build says so.
+#
+# These are the smallest GGUF releases the index holds, which is what fits one
+# job: a label needs the whole file streamed once, and all 145 GGUF releases
+# come to 38.5 TB (measured 2026-11-16). The sweep that addresses the rest is a
+# matrix across runners, the shape .github/workflows/roll-sweep.yml already
+# uses; widening this list is how it grows.
+Cudecnik/Qwen3.8-Flash-Next-refusal-projection
+n4ze3m/tiny-voca
+gradium/phonon-31m-en
+manuelgscom/dale-0.8b-GGUF
+HOLOGRAMTECH/q-bitnet-2b-b3

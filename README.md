@@ -436,6 +436,21 @@ and reports the count in `X-Hub-Tensors`. A file that passes its SHA-256 but
 fails a witnessed tensor means two signed artifacts disagree, and is refused
 rather than served.
 
+Those three are all this repository's own, which is the limit of them: a reader
+who does not trust the hub has to trust Hugging Face instead, since every
+address above is ultimately Hugging Face's. `uor-addr` is the fourth and is
+nobody's. It publishes a canonical form per format and mints a κ-label
+`sha256:<64hex>` from it, under which two files that decode to the same logical
+content -- modulo metadata-key order, tensor order and tensor-data layout --
+address alike, so the same tensors have the same address wherever they come
+from. `crates/uor-label` calls it, `tools/uor-index.mjs` publishes a label and
+every tensor's leaf under `data/uor/`, and a model page offers to check one
+(`HK-23`, `HK-24`). The leaf of a tensor is the SHA-256 of that tensor's own
+data region, so the check is a ranged read of one tensor and the verdict is the
+kernel's: measured 2026-11-16, 10,240 bytes of a 483,520-byte file in a browser,
+206 and cross-origin, matching. GGUF today; `docs/uor-addresses.md` has the
+measurements, the costs and what is not addressed yet.
+
 `app/tools/site_spec.py` is the authoring input for the site; the generator
 writes it into `Site.lex.tex`. `web/` holds the renderer (`hub.mjs`), the stylesheet (`hub.css`), a `sw.js` that retires the worker the proof page left at the root, the
 full brand fonts (SIL OFL, from hologram-brand-kit at

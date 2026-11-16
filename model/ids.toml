@@ -153,3 +153,15 @@ id = "HK-22"
 level = "build"
 suite = "kernel"
 statement = "A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts"
+
+[[id]]
+id = "HK-23"
+level = "build"
+suite = "index"
+statement = "Every row in the UOR address index carries a canonical address and the canonical-form version that minted it, taken here from bytes this build streamed rather than copied from any host, and is filed under the shard key the page resolves a model with"
+
+[[id]]
+id = "HK-24"
+level = "build"
+suite = "index"
+statement = "The page shows a tensor address as checked only when the kernel accepted bytes the page fetched itself, so an address the hub published is never drawn as proof of bytes nobody read"

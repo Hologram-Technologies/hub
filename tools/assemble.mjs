@@ -9,15 +9,27 @@
 // long download and a signature this workflow alone can make, so a model page
 // previewed locally says it is not signed yet.
 import { spawnSync } from "node:child_process";
-import { cp, mkdir, readdir, rm } from "node:fs/promises";
+import { cp, mkdir, readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 const [out = "preview", origin = "https://gethologram.ai"] = process.argv.slice(2);
 const builds = join("app", ".prism", "build");
-let holo;
+// The newest holo, by when it was written. A build directory is named by the
+// digest of its inputs, so proving a changed model leaves the previous build
+// beside the new one; taking whichever name happened to come last would hand
+// the preview a stale kernel and no error, which is the one failure a preview
+// must not have. Measured once the hard way: a page drawn from a holo built
+// before the screen it was meant to show.
+let holo = null;
+let newest = -1;
 try {
   for (const dir of await readdir(builds)) {
-    for (const file of await readdir(join(builds, dir))) if (file.endsWith(".holo")) holo = join(builds, dir, file);
+    for (const file of await readdir(join(builds, dir))) {
+      if (!file.endsWith(".holo")) continue;
+      const path = join(builds, dir, file);
+      const at = (await stat(path)).mtimeMs;
+      if (at > newest) { newest = at; holo = path; }
+    }
   }
 } catch {}
 if (!holo) {

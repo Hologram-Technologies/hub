@@ -28,6 +28,7 @@ use std::fmt::Write as _;
 use std::process::ExitCode;
 
 use sha2::{Digest, Sha256};
+use uor_addr::gguf::GgmlType;
 
 /// GGUF's own header is read for the tensor names, because the canonical form
 /// carries `sha256(name)` rather than the name: a skeleton alone cannot say
@@ -189,11 +190,27 @@ fn skip_value(c: &mut Cursor<'_>, tag: u32) -> Result<(), String> {
     Ok(())
 }
 
-/// Every tensor name the GGUF file itself declares, in the file's own order.
+/// What the GGUF file itself declares about a tensor: where its bytes actually
+/// are, which the canonical skeleton deliberately does not say.
 ///
-/// Only the names are wanted, but reaching them means walking the metadata, so
-/// the walk has the same shape as the skeleton's and fails the same way.
-fn names_of_gguf(raw: &[u8]) -> Result<Vec<String>, String> {
+/// The skeleton's offset is the *recomputed canonical* position in
+/// sorted-tensor order, which is what makes two differently laid-out files
+/// canonicalize alike. It is therefore no use for finding bytes. The file's own
+/// stored offset is, and it lives here.
+struct Declared {
+    name: String,
+    offset: u64,
+    length: u64,
+}
+
+/// Every tensor the GGUF file declares, plus where its data section starts.
+///
+/// Only the names, offsets and lengths are wanted, but reaching them means
+/// walking the metadata, so the walk has the same shape as the skeleton's and
+/// fails the same way. The alignment is read from `general.alignment` when the
+/// file sets it, because the data section starts at the first aligned byte
+/// after the tensor info.
+fn declared_of_gguf(raw: &[u8]) -> Result<(Vec<Declared>, u64), String> {
     let mut c = Cursor::new(raw);
     if c.u32()? != GGUF_MAGIC {
         return Err("not a GGUF file".into());
@@ -202,15 +219,28 @@ fn names_of_gguf(raw: &[u8]) -> Result<Vec<String>, String> {
     let tensor_count = c.u64()?;
     let kv_count = c.u64()?;
 
+    let mut alignment: u64 = 32;
     for i in 0..kv_count {
         let n = c.u64().map_err(|e| format!("kv {i} key length: {e}"))?;
-        c.take(usize::try_from(n).map_err(|_| "key too long")?)
+        let key = c
+            .take(usize::try_from(n).map_err(|_| "key too long")?)
             .map_err(|e| format!("kv {i} key: {e}"))?;
         let tag = c.u32().map_err(|e| format!("kv {i} tag: {e}"))?;
-        skip_value(&mut c, tag).map_err(|e| format!("kv {i} value: {e}"))?;
+        if key == b"general.alignment" {
+            alignment = match tag {
+                4 => u64::from(c.u32().map_err(|e| format!("alignment: {e}"))?),
+                10 => c.u64().map_err(|e| format!("alignment: {e}"))?,
+                _ => return Err(format!("general.alignment has metadata type {tag}")),
+            };
+            if alignment == 0 || !alignment.is_power_of_two() {
+                return Err(format!("general.alignment is {alignment}"));
+            }
+        } else {
+            skip_value(&mut c, tag).map_err(|e| format!("kv {i} value: {e}"))?;
+        }
     }
 
-    let mut names = Vec::with_capacity(usize::try_from(tensor_count).unwrap_or_default());
+    let mut declared = Vec::with_capacity(usize::try_from(tensor_count).unwrap_or_default());
     for i in 0..tensor_count {
         let n = c
             .u64()
@@ -218,14 +248,45 @@ fn names_of_gguf(raw: &[u8]) -> Result<Vec<String>, String> {
         let bytes = c
             .take(usize::try_from(n).map_err(|_| "name too long")?)
             .map_err(|e| format!("tensor {i} name: {e}"))?;
-        names.push(String::from_utf8_lossy(bytes).into_owned());
+        let name = String::from_utf8_lossy(bytes).into_owned();
         let n_dims = c.u32().map_err(|e| format!("tensor {i} rank: {e}"))?;
-        c.take(8 * usize::try_from(n_dims).unwrap_or_default())
-            .map_err(|e| format!("tensor {i} dims: {e}"))?;
-        c.u32().map_err(|e| format!("tensor {i} type: {e}"))?;
-        c.u64().map_err(|e| format!("tensor {i} offset: {e}"))?;
+        let mut elements: u64 = 1;
+        for d in 0..n_dims {
+            let dim = c.u64().map_err(|e| format!("tensor {i} dim {d}: {e}"))?;
+            elements = elements
+                .checked_mul(dim)
+                .ok_or_else(|| format!("tensor {i} has more elements than fit a u64"))?;
+        }
+        let type_id = c.u32().map_err(|e| format!("tensor {i} type: {e}"))?;
+        let offset = c.u64().map_err(|e| format!("tensor {i} offset: {e}"))?;
+        // The byte count is upstream's arithmetic, not this binary's: the
+        // dtype alphabet calls itself the single source of truth for it, and
+        // a quantized type's block structure is exactly the part worth not
+        // re-deriving by hand.
+        let dtype = GgmlType::from_u32(type_id)
+            .ok_or_else(|| format!("tensor {i} has ggml type {type_id}, which uor-addr rejects"))?;
+        let block_elems = u64::try_from(dtype.block_elems()).map_err(|_| "block elements")?;
+        let block_bytes = u64::try_from(dtype.block_bytes()).map_err(|_| "block bytes")?;
+        if block_elems == 0 || !elements.is_multiple_of(block_elems) {
+            return Err(format!(
+                "tensor {i} has {elements} elements, which is not a whole number of {block_elems}-element blocks"
+            ));
+        }
+        let length = elements / block_elems * block_bytes;
+        declared.push(Declared {
+            name,
+            offset,
+            length,
+        });
     }
-    Ok(names)
+
+    let end_of_info = u64::try_from(c.at).map_err(|_| "header too long")?;
+    let data_start = end_of_info
+        .checked_add(alignment - 1)
+        .ok_or("alignment overflow")?
+        / alignment
+        * alignment;
+    Ok((declared, data_start))
 }
 
 /// Lowercase hex, because every address this repository prints is lowercase hex.
@@ -284,44 +345,85 @@ fn run(path: &str) -> Result<String, String> {
     }
 
     let entries = tensors_of_skeleton(&skeleton)?;
-    let names = names_of_gguf(&raw)?;
+    let (declared, data_start) = declared_of_gguf(&raw)?;
 
     // The second check: the skeleton carries `sha256(name)`, so a leaf is tied
-    // to a name only by matching that digest. A digest no name matches, or a
-    // name with no entry, is refused rather than guessed at.
-    let mut by_digest: Vec<(String, [u8; 32])> = names
+    // to a tensor only by matching that digest. A digest no tensor matches, or
+    // a tensor with no entry, is refused rather than guessed at.
+    let mut by_digest: Vec<([u8; 32], &Declared)> = declared
         .iter()
-        .map(|n| {
-            let mut d = [0u8; 32];
-            d.copy_from_slice(&Sha256::digest(n.as_bytes()));
-            (n.clone(), d)
+        .map(|d| {
+            let mut digest = [0u8; 32];
+            digest.copy_from_slice(&Sha256::digest(d.name.as_bytes()));
+            (digest, d)
         })
         .collect();
 
     let mut rows = Vec::with_capacity(entries.len());
     for entry in &entries {
-        let found = by_digest.iter().position(|(_, d)| *d == entry.name_sha256);
+        let found = by_digest.iter().position(|(d, _)| *d == entry.name_sha256);
         let Some(index) = found else {
             return Err(format!(
                 "a tensor-info entry names sha256:{}, which no tensor in the file is called",
                 hex(&entry.name_sha256)
             ));
         };
-        let (name, _) = by_digest.remove(index);
+        let (_, tensor) = by_digest.remove(index);
+        let begin = data_start
+            .checked_add(tensor.offset)
+            .ok_or("tensor offset overflow")?;
+        let end = begin
+            .checked_add(tensor.length)
+            .ok_or("tensor length overflow")?;
+        if end > u64::try_from(raw.len()).map_err(|_| "file too long")? {
+            return Err(format!(
+                "tensor {} runs to {end}, past the {} bytes of the file",
+                tensor.name,
+                raw.len()
+            ));
+        }
         let dims = entry
             .dims
             .iter()
             .map(u64::to_string)
             .collect::<Vec<_>>()
             .join(",");
+        // `begin` and `length` are the file's own, from its stored offset and
+        // upstream's dtype arithmetic. `canonicalOffset` is the skeleton's
+        // recomputed position in sorted-tensor order, which is what makes two
+        // differently laid-out files address alike and is no use for finding
+        // bytes. Both are printed because confusing them would send a reader
+        // to the wrong range.
         rows.push(format!(
-            "{{\"name\":{},\"ggmlType\":{},\"shape\":[{}],\"offset\":{},\"leaf\":\"sha256:{}\"}}",
-            json_string(&name),
+            "{{\"name\":{},\"ggmlType\":{},\"shape\":[{}],\"begin\":{},\"length\":{},\"canonicalOffset\":{},\"leaf\":\"sha256:{}\"}}",
+            json_string(&tensor.name),
             entry.ggml_type,
             dims,
+            begin,
+            tensor.length,
             entry.offset,
             hex(&entry.leaf)
         ));
+
+        // The third check, and the one a reader of the index actually relies
+        // on: the leaf must be the SHA-256 of exactly this byte range. If it
+        // is not, the range published beside it would send a client to bytes
+        // that cannot match, and the whole point of the row is lost.
+        let over_range = Sha256::digest(
+            raw.get(
+                usize::try_from(begin).map_err(|_| "offset too large")?
+                    ..usize::try_from(end).map_err(|_| "offset too large")?,
+            )
+            .ok_or("tensor range outside the file")?,
+        );
+        if over_range.as_slice() != entry.leaf {
+            return Err(format!(
+                "tensor {}: the canonical leaf is sha256:{}, but bytes {begin}..{end} hash to sha256:{}",
+                tensor.name,
+                hex(&entry.leaf),
+                hex(&over_range)
+            ));
+        }
     }
     if !by_digest.is_empty() {
         return Err(format!(
@@ -331,12 +433,13 @@ fn run(path: &str) -> Result<String, String> {
     }
 
     Ok(format!(
-        "{{\"format\":\"hologram.hub.uorlabel/v1\",\"file\":{},\"bytes\":{},\"realization\":\"gguf\",\"canonicalForm\":{},\"label\":{},\"skeletonBytes\":{},\"tensors\":[{}]}}",
+        "{{\"format\":\"hologram.hub.uorlabel/v1\",\"file\":{},\"bytes\":{},\"realization\":\"gguf\",\"canonicalForm\":{},\"label\":{},\"skeletonBytes\":{},\"dataStart\":{},\"tensors\":[{}]}}",
         json_string(path),
         raw.len(),
         uor_addr::gguf::CANONICAL_FORM_VERSION,
         json_string(&label),
         skeleton.len(),
+        data_start,
         rows.join(",")
     ))
 }

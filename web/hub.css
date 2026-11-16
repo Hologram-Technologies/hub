@@ -716,6 +716,11 @@ th + th, td + td { padding-left: var(--space-6); }
 th.size button { flex-direction: row-reverse; }
 td.path { max-width: 24rem; overflow: hidden; text-overflow: ellipsis; }
 td.addr { color: var(--hh-text-dim); }
+/* What the kernel said about one tensor, beside the button that asked it. */
+.checked { font-size: var(--text-sm); color: var(--hh-text-dim); }
+.checked.ok { color: var(--hh-ok); }
+.checked.bad { color: var(--hh-bad); }
+section.uor h3 { margin: var(--space-6) 0 var(--space-2); font-size: var(--text-sm); }
 .note { font-size: var(--text-sm); color: var(--hh-text-dim); max-width: 38rem; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; } }

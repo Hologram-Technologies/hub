@@ -10,6 +10,7 @@ import { verifyBundle } from "./sigstore.mjs";
 import { openBrowse } from "./browse.mjs";
 import { ICON, art } from "./icons.mjs";
 import { swarmKeyOf } from "./swarmkey.mjs";
+import { isUorLabel, uorShardOf } from "./uorkey.mjs";
 
 const root = new URL(".", import.meta.url);
 const html = document.documentElement;
@@ -149,6 +150,78 @@ async function swarmByName(query) {
   const cat = await swarmCatalog();
   const shard = (cat?.name ?? []).find((x) => x.prefix === swarmKeyOf(q));
   return shard ? swarmShard(shard) : [];
+}
+
+// ------------------------------------------------------- canonical addresses
+// The canonical UOR address of a model's files, and the address of every
+// tensor inside them.
+//
+// Every address the hub carried before this came from Hugging Face, which made
+// Hugging Face the only party able to say what a file's bytes should hash to.
+// `uor-addr` publishes a canonical form per format and mints `sha256:<64hex>`
+// from it, under which two files that decode to the same logical content --
+// modulo metadata-key order, tensor order and tensor-data layout -- address
+// alike. A tensor's address is the SHA-256 of that tensor's own data region,
+// which is why the table below can offer to check one: a ranged read of that
+// tensor is enough, and the verdict is the kernel's, not this page's.
+const uorUrl = (path) => new URL(`data/uor/${path}`, root);
+let uorRootRequest;
+const uorShards = new Map();
+
+function uorRoot() {
+  uorRootRequest ??= fetch(uorUrl("root.json")).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  return uorRootRequest;
+}
+
+// One shard, judged against the root by the kernel's accept rule before a row
+// of it is drawn, exactly as a browse shard is.
+function uorShard(manifest, path) {
+  if (!uorShards.has(path)) {
+    uorShards.set(path, (async () => {
+      const named = (manifest.shards ?? []).find((x) => x.path === path);
+      if (!named) return [];
+      const body = new Uint8Array(await (await fetch(uorUrl(path))).arrayBuffer());
+      if (!(await addressed(body, named.sha256))) throw new Error(`the address shard ${path} does not match the root`);
+      return JSON.parse(new TextDecoder().decode(body));
+    })());
+  }
+  return uorShards.get(path);
+}
+
+// The addressed files of one release. One shard is read: the one
+// `web/uorkey.mjs` files this repository's rows under, which is the builder's
+// own rule imported rather than restated, so a row cannot be filed where the
+// page will not look.
+async function uorFiles(repo, revision) {
+  const manifest = await uorRoot();
+  if (!manifest?.shards?.length) return { manifest: null, files: [] };
+  const rows = await uorShard(manifest, await uorShardOf(repo, manifest.shardBits));
+  const files = rows.filter((r) => r.repo.toLowerCase() === repo.toLowerCase()
+    && (!revision || r.revision === revision) && isUorLabel(r.label));
+  return { manifest, files };
+}
+
+// One tensor's bytes, from the place the row says they were addressed at, and
+// the kernel's answer about them. Nothing here compares digests itself: the
+// page hands the expected address and the observed bytes to the same accept
+// rule a download goes through.
+//
+// A host that ignores `Range` answers 200 with the whole file, and a weight
+// file is gigabytes, so anything but 206 is treated as no answer rather than
+// downloaded. That is also why the byte range is published per tensor: without
+// it a reader would have to take the file.
+async function deriveTensor(row, tensor) {
+  try {
+    const response = await fetch(`${row.resolve}${row.path}`, {
+      headers: { Range: `bytes=${tensor.begin}-${tensor.begin + tensor.length - 1}` },
+    });
+    if (response.status !== 206) return { reached: false };
+    const body = new Uint8Array(await response.arrayBuffer());
+    if (body.length !== tensor.length) return { reached: false };
+    return { reached: true, accepted: await addressed(body, tensor.leaf.slice("sha256:".length)) };
+  } catch {
+    return { reached: false };
+  }
 }
 
 async function readIndex() {
@@ -1173,7 +1246,7 @@ async function drawModel(main, id) {
     <div class="detail">
       <aside class="panel facts"><dl>${factRows(s.facts)}</dl></aside>
       <section class="panel body">
-        <div class="ptabs" role="tablist">${s.tabs.map((t, i) => `<button type="button" role="tab" aria-selected="${i === 0}" data-tab="${i}">${esc(t)}</button>`).join("")}<button type="button" role="tab" aria-selected="false" data-tab="2" id="tensors-tab" hidden>${esc(s.trust.tensorsTab)}</button></div>
+        <div class="ptabs" role="tablist">${s.tabs.map((t, i) => `<button type="button" role="tab" aria-selected="${i === 0}" data-tab="${i}">${esc(t)}</button>`).join("")}<button type="button" role="tab" aria-selected="false" data-tab="2" id="tensors-tab" hidden>${esc(s.trust.tensorsTab)}</button>${s.uor ? `<button type="button" role="tab" aria-selected="false" data-tab="3" id="uor-tab" hidden>${esc(s.uor.tab)}</button>` : ""}</div>
         <div id="tab"></div>
       </section>
     </div>`;
@@ -1210,6 +1283,13 @@ async function drawModel(main, id) {
   };
   drawWitnesses(m, s.witnesses);
   const signed = signature(m, s.trust);
+  // The canonical addresses, read while the rest of the page draws. The tab
+  // appears only when this release has one, because an empty tab would say
+  // the hub holds something it does not.
+  const uorSoon = s.uor
+    ? uorFiles(m.id, m.revision).catch(() => ({ manifest: null, files: [], refused: true }))
+    : Promise.resolve({ manifest: null, files: [] });
+  uorSoon.then(({ files }) => { if (files.length) $("#uor-tab").hidden = false; });
   signed.then(({ manifest }) => { if (manifest) $("#tensors-tab").hidden = false; });
   const tensorsTab = async () => {
     const { manifest } = await signed;
@@ -1219,11 +1299,48 @@ async function drawModel(main, id) {
       ${manifest.tensors.map((t) => `<tr><td class="path">${esc(t.name)}</td><td>${esc(t.dtype)}</td><td>${esc(`[${t.shape.join(", ")}]`)}</td><td class="addr">${esc(t.blake3.slice(0, 23))}...</td></tr>`).join("")}
       </tbody></table></div>`;
   };
+  // What this release's bytes are called, and an offer to check one. The
+  // address and the byte range come from the signed shard; the verdict comes
+  // from the kernel after the page has fetched the bytes itself. Until it has,
+  // a row says it is unchecked rather than implying otherwise.
+  let drawn = [];
+  const uorTab = async () => {
+    if (!s.uor) return "";
+    const { manifest, files, refused } = await uorSoon;
+    if (refused) return `<p class="note">${esc(s.uor.shardRefused)}</p>`;
+    if (!files.length) return `<p class="note">${esc(s.uor.none)}</p>`;
+    drawn = files;
+    const addresser = `${manifest.addresser.crate} ${manifest.addresser.version}`;
+    return `<p class="note">${esc(fill(s.uor.note, { n: files.length, addresser, form: manifest.canonicalForm }))}</p>
+      ${files.map((f, fi) => `<section class="uor">
+        <h3>${esc(f.path)}</h3>
+        <dl class="facts"><div><dt>${esc(s.uor.fileLabel)}</dt><dd class="addr">${esc(f.label)}</dd></div></dl>
+        <div class="scroll"><table><thead><tr>${s.uor.columns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>
+        ${f.tensors.map((t, ti) => `<tr><td class="path">${esc(t.name)}</td><td>${esc(`[${t.shape.join(", ")}]`)}</td><td class="size">${esc(bytes(t.length))}</td><td class="addr">${esc(t.leaf.slice(0, 23))}...</td>
+          <td><button type="button" data-file="${fi}" data-tensor="${ti}">${esc(s.uor.derive)}</button> <span class="checked dim">${esc(s.uor.unchecked)}</span></td></tr>`).join("")}
+        </tbody></table></div></section>`).join("")}`;
+  };
   const show = async (i) => {
     $("#tab").innerHTML = i ? `<p class="note">...</p>` : overview;
     if (i === 1) $("#tab").innerHTML = await filesTab();
     if (i === 2) $("#tab").innerHTML = await tensorsTab();
+    if (i === 3) $("#tab").innerHTML = await uorTab();
   };
+  $("#tab").addEventListener("click", async (e) => {
+    const button = e.target.closest("button[data-tensor]");
+    if (!button) return;
+    const row = drawn[+button.dataset.file];
+    const tensor = row?.tensors[+button.dataset.tensor];
+    if (!tensor) return;
+    const verdict = button.nextElementSibling;
+    button.disabled = true;
+    verdict.className = "checked dim";
+    verdict.textContent = fill(s.uor.deriving, { size: bytes(tensor.length) });
+    const seen = await deriveTensor(row, tensor);
+    button.disabled = false;
+    verdict.className = `checked ${!seen.reached ? "dim" : seen.accepted ? "ok" : "bad"}`;
+    verdict.textContent = !seen.reached ? s.uor.unreachable : seen.accepted ? s.uor.accepted : s.uor.refused;
+  });
   main.querySelector(".body .ptabs").addEventListener("click", (e) => {
     const t = e.target.closest("[data-tab]");
     if (!t) return;

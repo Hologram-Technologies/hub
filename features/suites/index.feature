@@ -20,3 +20,17 @@ Feature: index
     When a reader searches for a model the catalog holds
     Then the shard the page reads is the shard web/swarmkey.mjs filed that row under
     And every row in it carries the state listed and names no source but the swarm
+
+  @HK-23 @build
+  Scenario: Every row in the UOR address index carries a canonical address and the canonical-form version that minted it, taken here from bytes this build streamed rather than copied from any host, and is filed under the shard key the page resolves a model with
+    Given a UOR address index built by tools/uor-index.mjs
+    When a reader opens the model one of its rows belongs to
+    Then the shard the page reads is the shard web/uorkey.mjs filed that row under
+    And every row carries a canonical address and the canonical form that minted it, taken from the bytes this build streamed and not from a field of the record
+
+  @HK-24 @build
+  Scenario: The page shows a tensor address as checked only when the kernel accepted bytes the page fetched itself, so an address the hub published is never drawn as proof of bytes nobody read
+    Given a model page drawing a tensor's published address
+    When a reader asks the page to check that address
+    Then the page fetches that tensor's own byte range and asks the kernel's accept rule about the bytes it got
+    And the row says it is unchecked until the kernel has answered
