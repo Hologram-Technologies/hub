@@ -692,7 +692,11 @@ function drawChrome() {
   document.addEventListener("click", (e) => { if (!e.target.closest(".appearance")) closeThemeMenu(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenus(); });
   matchMedia("(min-width: 1101px)").addEventListener("change", (e) => { if (e.matches) closeMenus(); });
-  setTheme(html.dataset.theme, picture());
+  const first = picture();
+  setTheme(html.dataset.theme, first);
+  // The copy that shipped is on screen already; this asks for the one this
+  // display deserves and swaps it in when it has decoded.
+  if (first.image) sharpen(first);
 }
 function closeThemeMenu() {
   const menu = $("#theme-menu");
@@ -709,8 +713,13 @@ function closeMenus() {
 // Unsplash (a photo and its photographer). Either is kept here, so a page turn
 // and the next visit draw the same wall without asking anyone.
 const PICTURE_KEY = "hologram-hub.picture";
-const shipped = (file) => chrome.wallpapers.some(([k]) => k === file);
-const firstPhotos = () => chrome.wallpapers.map(([file, alt]) => ({ file, alt }));
+const shipped = (file) => chrome.wallpapers.some((w) => w.file === file);
+// The panel opens on the pictures this site ships, which are whole photo
+// records now rather than a file and a label: each names its photographer,
+// so the credit line is the same line for a shipped picture as for a
+// searched one, and carries the photo itself, so the wall can be asked for
+// at the width this screen deserves.
+const firstPhotos = () => chrome.wallpapers.map((w) => ({ ...w }));
 function picture() {
   try {
     const kept = JSON.parse(localStorage.getItem(PICTURE_KEY) ?? "null");
@@ -729,12 +738,22 @@ function wallWidth() {
   return SIDES.find((w) => w >= want) ?? SIDES.at(-1);
 }
 const proxied = (photo, size) => `${chrome.photos.proxy}image?${new URLSearchParams({ src: photo.image, ...size })}`;
-const wallOf = (photo) => (photo.file ? new URL(`wallpapers/${photo.file}.jpg`, root).href : proxied(photo, { w: String(wallWidth()), q: "85" }));
+const localWall = (photo) => new URL(`wallpapers/${photo.file}.jpg`, root).href;
+// q=90 rather than 85: the picture is the whole page behind everything, and
+// the proxy is asked for one as wide as this screen can show, so the copy a
+// reader gets is the best Unsplash will render for the display in front of
+// them rather than the one that happened to ship.
+const wallOf = (photo) => (photo.image ? proxied(photo, { w: String(wallWidth()), q: "90" }) : localWall(photo));
 const tileOf = (photo) => (photo.file ? new URL(`wallpapers/${photo.file}-thumb.jpg`, root).href : proxied(photo, { w: "480", h: "300", q: "75" }));
 const same = (a, b) => Boolean(a && b && (a.file ? a.file === b.file : a.id === b.id));
 
+// What the page can paint this instant: the copy that shipped, where there
+// is one, and the panel tile otherwise. `wallOf` is what replaces it once it
+// has decoded, and it is never worse than this.
+const readyWall = (photo) => (photo.file ? localWall(photo) : tileOf(photo));
+
 function setTheme(mode, photo) {
-  const wall = wallOf(photo);
+  const wall = readyWall(photo);
   html.dataset.theme = mode;
   html.classList.toggle("dark", mode !== "light");
   html.style.setProperty("--hh-wallpaper", `url(${JSON.stringify(wall)})`);
@@ -749,8 +768,8 @@ function setTheme(mode, photo) {
     localStorage.setItem(PICTURE_KEY, JSON.stringify({ ...photo, wall }));
   } catch {}
 }
-// A shipped wallpaper names no photographer, so it gets no line; a photo from
-// Unsplash always carries its own, as the licence asks.
+// Every picture here is an Unsplash photo, shipped or searched, so every one
+// carries its photographer, as the licence asks.
 function credit(photo) {
   const p = chrome.photos;
   const line = $("#credit");
@@ -760,9 +779,11 @@ function credit(photo) {
   who.textContent = photo.name;
   who.href = `${p.site}@${photo.user}?${p.utm}`;
 }
+const SHOWN_PHOTOS = 6;
 let shownPhotos = [];
 function photoGrid(photos) {
-  shownPhotos = photos.slice(0, 9);
+  // Six, which is what Foundry's panel shows in the two rows this one has.
+  shownPhotos = photos.slice(0, SHOWN_PHOTOS);
   const now = picture();
   $("#photos").innerHTML = shownPhotos.map((photo) => {
     const alt = photo.alt ?? photo.name ?? "";
@@ -774,16 +795,21 @@ function photoGrid(photos) {
 function choose(photo) {
   // Unsplash asks that a photo count as used once it is set; a shipped
   // wallpaper is this site's own file and tells nobody.
-  if (!photo.file) fetch(`${chrome.photos.proxy}use?id=${encodeURIComponent(photo.id)}`, { method: "POST" }).catch(() => {});
+  if (photo.id) fetch(`${chrome.photos.proxy}use?id=${encodeURIComponent(photo.id)}`, { method: "POST" }).catch(() => {});
   setTheme("immersive", photo);
   // The tile is already here, so the wall changes on the click; the copy this
   // screen deserves takes its place as soon as it has decoded.
-  if (!photo.file) sharpen(photo);
+  if (photo.image) sharpen(photo);
 }
 const decoded = new Map();
+// Ask for the copy this screen deserves and swap it in when it has decoded.
+// Until then, and if it never arrives, what is on screen is `readyWall` -
+// the shipped file for one of ours, which is a whole picture rather than a
+// tile, so a proxy that cannot be reached costs sharpness and nothing else.
 function sharpen(photo) {
   const wall = wallOf(photo);
-  html.style.setProperty("--hh-wallpaper", `url(${JSON.stringify(tileOf(photo))})`);
+  if (wall === readyWall(photo)) return;
+  html.style.setProperty("--hh-wallpaper", `url(${JSON.stringify(readyWall(photo))})`);
   if (!decoded.has(wall)) {
     const image = new Image();
     image.decoding = "async";

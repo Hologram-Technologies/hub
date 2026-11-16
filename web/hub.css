@@ -941,19 +941,23 @@ code { font-family: var(--font-mono); font-size: var(--text-sm); }
    and the photographer's line. The same panel the Prism frame shows, in this
    site's own tokens; the pictures come through the frame's worker, so no page
    here carries a key. */
-.theme-panel { width: min(21rem, calc(100vw - 2 * var(--hh-gutter))); padding: var(--space-4); display: grid; gap: var(--space-3); }
+/* Wide enough for the longest mode name. At 21rem the segmented control cut
+   "Immersive" to "Immer..", which is the one word in the panel a reader has
+   to be able to read: it names what the pictures below are for. */
+.theme-panel { width: min(26rem, calc(100vw - 2 * var(--hh-gutter))); padding: var(--space-4); display: grid; gap: var(--space-3); }
 .panel-head { margin: 0; font-family: var(--font-display); font-size: var(--text-xl); font-weight: var(--weight-medium); letter-spacing: var(--tracking-display); }
-.seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-1); padding: var(--space-1); border: 1px solid var(--hh-line); border-radius: var(--radius-lg); }
-.seg .mode { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-width: 0; height: var(--hh-control); padding: 0 var(--space-2); border: 1px solid transparent; border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--hh-text-dim); transition: color var(--hh-ease), background var(--hh-ease), border-color var(--hh-ease); }
-.seg .mode span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seg { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: var(--space-1); padding: var(--space-1); border: 1px solid var(--hh-line); border-radius: var(--radius-lg); }
+.seg .mode { display: flex; align-items: center; justify-content: center; gap: var(--space-2); height: var(--hh-control); padding: 0 var(--space-3); border: 1px solid transparent; border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--hh-text-dim); transition: color var(--hh-ease), background var(--hh-ease), border-color var(--hh-ease); }
+.seg .mode span { white-space: nowrap; }
 .seg .mode:hover { color: var(--hh-text); }
 .seg .mode[aria-checked="true"] { color: var(--hh-text); background: var(--hh-fill); border-color: var(--hh-line-strong); }
 .photos-part { display: grid; gap: var(--space-3); }
 .find { height: var(--hh-field); }
+/* Six, three to a row. The tiles are the only thing here that may shrink. */
 .photos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
 .photo { aspect-ratio: 1.6; border-radius: var(--radius-md); background-size: cover; background-position: center; outline: 1px solid var(--hh-line-strong); outline-offset: 0; transition: outline-color var(--hh-ease), transform var(--hh-ease); }
 .photo:hover { transform: translateY(-1px); outline-color: var(--hh-line-focus); }
 .photo[aria-selected="true"] { outline: 2px solid var(--hh-text); outline-offset: 2px; }
 .photos .none { grid-column: 1 / -1; font-size: var(--text-sm); color: var(--hh-text-dim); }
-.credit { font-size: var(--text-sm); color: var(--hh-text-dim); }
+.credit { margin: 0; font-size: var(--text-sm); line-height: 1.5; color: var(--hh-text-dim); }
 .credit a { color: var(--hh-text); text-decoration: underline; text-underline-offset: var(--space-1); text-decoration-color: var(--hh-line-focus); }
