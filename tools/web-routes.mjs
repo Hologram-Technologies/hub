@@ -18,7 +18,7 @@ if (!site) {
   process.exit(64);
 }
 const shell = await readFile(join(site, "index.html"), "utf8");
-const routes = ["models", "docs", "registry", "apps", "buckets"];
+const routes = ["models", "docs", "spaces", "buckets"];
 try {
   const { records } = JSON.parse(await readFile(join(site, "data", "index", "root.json"), "utf8"));
   for (const { repo } of records) {

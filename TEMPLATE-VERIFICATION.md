@@ -2482,3 +2482,74 @@ both planted defects are rejected on the smallest and the largest:
 
 A gate run against one sample size says less than it appears to. These are
 now run against four.
+
+## A header that promised four things the hub could not do
+
+The header read Models, Registry, Apps, Buckets, Docs and a **Sign in**
+button. Measured 2026-11-16 on the live site at
+`hologram-technologies.github.io/hub/`, with Hugging Face's own header read
+the same day for comparison.
+
+### What was found, one line each
+
+- **`api.gethologram.ai` does not resolve.** `nslookup` answers "Non-existent
+  domain"; `curl` exits 6 on every path. `docs/cutover.md` orders the cutover:
+  step 1 is the operator's `A api` record and the Caddy line, step 2 is this
+  repository naming it. Step 2 landed in #11 before step 1 was applied, so
+  every command, link and endpoint this site prints is dead: the home hero's
+  `curl`, the model page's three Get-it commands, the Docs quickstart, the
+  Spaces' Open, Buckets' two buttons and Verify. The Buckets page's own
+  example address answers **"The object could not be fetched."** when clicked.
+  This is the one finding here that this repository cannot fix: it is a DNS
+  record and one Caddy line, both the operator's.
+- **Sign in opened nothing.** `web/hub.mjs:419` was a bare anchor to
+  `https://api.gethologram.ai/`, with no handler and no module behind it. The
+  hub has no accounts at all: `web/index.html` carries no `<prism-frame>`, and
+  `identity/` - the Prism passkey system, rpId `id.uor.foundation` - is wired
+  only to `site/page.template.html`, the proof page under `app/`, not to any
+  hub screen. A button that cannot do its one job is removed, not renamed.
+- **Registry had no Hugging Face counterpart.** Populated and working: 2 149
+  entries - Artifact Hub 913, Docker Hub 699, Microsoft Artifact Registry 536,
+  Hologram 1. But its commands were `docker pull docker.io/...` and its
+  actions left for the upstream registry, so it was a directory of other
+  people's registries rather than anything this hub answers. Removed on the
+  owner's decision, recorded rather than taken here.
+- **Apps was Hugging Face's Spaces under another name.** All twelve entries
+  name a `huggingface.co/spaces/...` source. Opening
+  `gethologram.ai/spaces/kokoro-tts/index.html` directly loads and starts the
+  model on WebGPU, so the feature is real. Renamed to **Spaces**: the screen
+  key, the route and the URL are all `spaces`, matching `/spaces` on
+  Hugging Face.
+- **Buckets is a Hugging Face nav item.** Read 2026-11-16, Hugging Face's
+  header is Models, Datasets, Spaces, **Buckets**, Docs, Enterprise, Pricing,
+  then Log In and Sign Up; its Buckets is `/storage` and its command is
+  `hf buckets create acme-corp/training-data`, which this screen already
+  mirrors. Kept. Its lead said writing "needs an account on
+  api.gethologram.ai"; no such account exists anywhere, so the sentence is
+  gone and the page says only what a reader can do: read an object and check
+  it themselves.
+- **The Docs table claimed a route the hub refuses.** `/api/whoami-v2` was
+  described as "Who the token belongs to". `edge/edge.mjs:597` answers
+  `refuse(10)` - 401, `RepoNotFound` - for it, always. The row now says so.
+
+`API_HOST` stays `api.gethologram.ai`, on the owner's decision, and the
+missing record is what gets fixed. The apex answers all of it today - measured
+2026-11-16, `/api/models?limit=2` 200, `/api/models/openai-community/gpt2`
+200, `/openai-community/gpt2/resolve/main/config.json` 302,
+`/via/huggingface.co/.../config.json` 302, `/api/v1/objects/blake3:5d16...`
+200 with 544 627 bytes, both `/api/v1/objects/` and `/via/` sending
+`Access-Control-Allow-Origin: *` - but it answers only because the apex still
+points at the VPS. The hour its A record moves to Pages, a static host can set
+no `X-Repo-Commit` on a HEAD and no redirect headers, and every `HF_ENDPOINT`
+a reader has copied from a model page stops working. Naming the apex would
+buy working commands now and break them at the cutover, so the name stays and
+step 1 of `docs/cutover.md` - one `A api 217.216.66.62` record and one Caddy
+line, the operator's to apply - is the open item.
+
+Which leaves this recorded rather than claimed: until that record exists, the
+commands and links this site prints do not resolve, Buckets' two actions among
+them. The header below is honest about what the hub *has*; it cannot be
+honest about what the hub can *reach* until the record is added.
+
+The header is now Models, Spaces, Buckets, Docs - Hugging Face's own header
+and its order, minus Datasets, which this hub does not index.

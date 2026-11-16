@@ -1,7 +1,7 @@
 // Copies what the hub's pages need and the signed index does not carry: the
-// registry and the apps list, because the live hub does not let another origin
-// read them, and one avatar per owner, because a picture is decoration rather
-// than a fact about the bytes.
+// list of Spaces, because the live hub does not let another origin read it,
+// and one avatar per owner, because a picture is decoration rather than a
+// fact about the bytes.
 //
 // The models the browse page lists are NOT here. They come from the signed
 // index (`tools/index.mjs`, `data/index/`), so the page and the wire read one
@@ -71,19 +71,8 @@ await Promise.all(owners.map(async (owner) => {
 }));
 await writeFile(join(site, "data", "avatars", "index.json"), JSON.stringify(Object.fromEntries([...faces].sort())));
 
-// ---- the registry
-// Only the fields the screen reads. Logos and covers are dropped; they are
-// most of the 3 MB and the screen draws its own marks.
-const KEEP = ["id", "registry", "org", "name", "tag", "kind", "description", "pulls", "stars", "updated", "size", "sizeBucket",
-  "updatedBucket", "license", "digest", "home", "trust", "held", "verified", "official"];
-const registry = await take("/registry/data/images.json");
-const images = registry.data.images.map((row) => Object.fromEntries(KEEP.map((k) => [k, row[k] ?? null])));
-for (const row of images) {
-  if (typeof row.description === "string") row.description = row.description.replace(/<[^>]*>/g, "").trim().slice(0, 160);
-}
-await writeFile(join(site, "data", "registry.json"), JSON.stringify({ from: registry.from, images }));
+// ---- the Spaces
+const spaces = await take("/spaces/spaces.json");
+await writeFile(join(site, "data", "spaces.json"), JSON.stringify({ from: spaces.from, spaces: spaces.data.spaces }));
 
-const apps = await take("/spaces/spaces.json");
-await writeFile(join(site, "data", "apps.json"), JSON.stringify({ from: apps.from, apps: apps.data.spaces }));
-
-console.log(`web-data: ${faces.size} avatars (${Math.round(bytesWritten / 1024)} kB), ${images.length} registry entries, ${apps.data.spaces.length} apps`);
+console.log(`web-data: ${faces.size} avatars (${Math.round(bytesWritten / 1024)} kB), ${spaces.data.spaces.length} Spaces`);

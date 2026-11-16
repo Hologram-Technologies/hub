@@ -13,7 +13,7 @@
       (function () {
         // A route page carries its own <base>; a deep link answered by 404.html
         // works it out from the path, up to the first route the hub owns.
-        var p = location.pathname, m = p.match(/^(.*?\/)(models|docs|registry|apps|buckets)(\/|$)/);
+        var p = location.pathname, m = p.match(/^(.*?\/)(models|docs|spaces|buckets)(\/|$)/);
         if (!document.querySelector("base")) {
           var base = document.createElement("base");
           base.href = m ? m[1] : p.replace(/[^/]*$/, "");
