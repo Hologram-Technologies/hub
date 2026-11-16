@@ -18,6 +18,12 @@ The three honesty levels (R2):
 `cargo xtask audit-limits` fails if any code path returns an error the
 model does not sanction.
 
+## apex
+
+| ID | Level | Statement |
+| --- | --- | --- |
+| `HK-30` | `build` | Every command the model page gives a tool is one whose requests the apex routes to this repository, so the site never offers a command that reaches nothing |
+
 ## buckets
 
 | ID | Level | Statement |

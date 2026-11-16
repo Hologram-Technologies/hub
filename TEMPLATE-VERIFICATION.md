@@ -3063,3 +3063,37 @@ Planted, each restored before the next:
 A run of the builder with a fresh cache (`node tools/index.mjs <dir> 3`, 26
 records) gives gpt2 ModelScope and IPFS, all-MiniLM-L6-v2 ModelScope and IPFS,
 and Qwen3.8-27B ModelScope, all read from the record.
+
+## HK-30: gethologram.ai answers only from this repository
+
+The cutover sends every path of the apex to this repository: the edge, the
+Spaces and their object store, and this repository's site for the rest.
+hologram-live's resolver, sign-in, server, registry and site are stopped. That
+left the site printing three commands that would reach nothing: `oras pull`
+and `ollama run` on every model page, which speak `/v2/`, and `curl
+gethologram.ai` and `curl gethologram.ai/models`, which answered with the agent
+page and section briefs the old site negotiated. A command the site prints is a
+claim about what the apex answers, so the class is registered, not the
+instances.
+
+Failing first, as R3 asks, on the route record as it stood (it still fell back
+to the old site):
+
+    the apex may answer only from this repository's edge, Spaces and site, not hub-site:8080
+
+The record is now the site block exactly as it runs, the two OCI and Ollama
+rows are gone, and the two `curl` commands ask the edge's `/api/models`, which
+answers them (measured against the apex: `?limit=3` and `?search=gpt2` both
+200; `?sort=trending` is a 400, so it is not offered). The record also makes
+Pages' absolute redirects relative, which the routes before it did not:
+`/models/<owner>/<name>` without its slash was sent to
+`hologram-technologies.github.io`, off the apex.
+
+Each planted defect, restored after, is rejected by name:
+
+    Ollama offered again:     ollama run {host}/{repo} needs /v2/, which the apex does not route
+    a bare curl at the apex:  curl gethologram.ai asks the apex for /, which no route sends to a runner of this repository
+    /v2 routed to the edge:   the route record must not route /v2: no runner of this repository answers it
+    old site as a fallback:   the apex may answer only from this repository's edge, Spaces and site, not hub-site:8080
+
+Restored, `cargo test -p repo-conformance --test apex` passes.
