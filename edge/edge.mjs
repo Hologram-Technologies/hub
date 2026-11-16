@@ -576,19 +576,31 @@ async function passthrough(request, url, upstreamPath) {
   const link = r.headers.get("link");
   if (link) headers.link = link.replaceAll(HF, url.origin);
   let body = await r.text();
-  if (r.ok && headers["content-type"].includes("json")) {
+  // A HEAD has no body to rewrite; parsing the empty string would throw and turn a 200 into a 502.
+  if (r.ok && request.method !== "HEAD" && headers["content-type"].includes("json")) {
     body = JSON.stringify(JSON.parse(body), (k, v) => (k === "xetHash" || k === "xetEnabled" ? undefined : v));
   }
   return new Response(request.method === "HEAD" ? null : body, { status: r.status, headers });
 }
 
+// A HEAD answers what its GET would, without the body, on every route.
 export async function handle(request) {
+  const response = await route(request);
+  if (request.method !== "HEAD" || !response.body) return response;
+  return new Response(null, { status: response.status, statusText: response.statusText, headers: response.headers });
+}
+
+async function route(request) {
   const url = new URL(request.url);
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: { ...CORS, "access-control-allow-methods": "GET, HEAD, POST", "access-control-allow-headers": "*" } });
   let path = url.pathname.replace(/^\/+/, "");
   let via = null;
   const pinned = path.match(/^via\/([^/]+)\/(.*)$/);
   if (pinned) { via = pinned[1]; path = pinned[2]; }
+  // Read-only: GET and HEAD, plus the one read Hugging Face sends as a POST (paths-info). Every other method is the
+  // same refusal on every route, rather than whatever the route it lands on happens to do with it.
+  const read = request.method === "GET" || request.method === "HEAD" || (request.method === "POST" && /^api\/models\/.+\/paths-info\//.test(path));
+  if (!read) return refuse(0, request.method);
   try {
     const file = path.match(/^([\w.-]+\/[\w.-]+)\/resolve\/([^/]+)\/(.+)$/);
     if (file && (request.method === "GET" || request.method === "HEAD")) {

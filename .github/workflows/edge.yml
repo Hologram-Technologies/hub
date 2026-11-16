@@ -43,6 +43,9 @@ jobs:
         # the edge that has not met it.
         shell: bash
         run: node tests/edge/older-kernel.mjs https://hologram-technologies.github.io/hub/app/app.holo https://hologram-technologies.github.io/hub/data/index/
+      - name: The edge is read-only on every route, and HEAD answers as GET does
+        shell: bash
+        run: node tests/edge/methods.mjs https://hologram-technologies.github.io/hub/app/app.holo https://hologram-technologies.github.io/hub/data/index/
       - name: The edge answers as huggingface.co does
         shell: bash
         run: |
