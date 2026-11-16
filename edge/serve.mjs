@@ -25,7 +25,10 @@ console.log(`edge: kernel ${ready.fingerprint.slice(0, 16)}, ${ready.examples} e
 
 createServer(async (req, res) => {
   const body = req.method === "POST" ? Readable.toWeb(req) : undefined;
-  const request = new Request(`http://${req.headers.host}${req.url}`, { method: req.method, headers: req.headers, body, duplex: "half" });
+  // Behind a TLS proxy the origin a client used is https; the edge writes it into pagination links, so take it
+  // from X-Forwarded-Proto rather than from the plain socket it was handed.
+  const proto = String(req.headers["x-forwarded-proto"] ?? "").split(",")[0].trim() === "https" ? "https" : "http";
+  const request = new Request(`${proto}://${req.headers.host}${req.url}`, { method: req.method, headers: req.headers, body, duplex: "half" });
   const response = await handle(request);
   res.writeHead(response.status, Object.fromEntries(response.headers));
   if (response.body) Readable.fromWeb(response.body).pipe(res);
