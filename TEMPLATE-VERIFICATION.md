@@ -2496,10 +2496,12 @@ the same day for comparison.
   domain"; `curl` exits 6 on every path. `docs/cutover.md` orders the cutover:
   step 1 is the operator's `A api` record and the Caddy line, step 2 is this
   repository naming it. Step 2 landed in #11 before step 1 was applied, so
-  every command, link and endpoint this site printed was dead: the home hero's
-  `curl`, the model page's three Get-it commands, the Docs quickstart, Apps'
-  Open, Buckets' two buttons and Verify. The Buckets page's own example
-  address answered **"The object could not be fetched."** when clicked.
+  every command, link and endpoint this site prints is dead: the home hero's
+  `curl`, the model page's three Get-it commands, the Docs quickstart, the
+  Spaces' Open, Buckets' two buttons and Verify. The Buckets page's own
+  example address answers **"The object could not be fetched."** when clicked.
+  This is the one finding here that this repository cannot fix: it is a DNS
+  record and one Caddy line, both the operator's.
 - **Sign in opened nothing.** `web/hub.mjs:419` was a bare anchor to
   `https://api.gethologram.ai/`, with no handler and no module behind it. The
   hub has no accounts at all: `web/index.html` carries no `<prism-frame>`, and
@@ -2530,14 +2532,24 @@ the same day for comparison.
   described as "Who the token belongs to". `edge/edge.mjs:597` answers
   `refuse(10)` - 401, `RepoNotFound` - for it, always. The row now says so.
 
-`API_HOST` goes back to the apex, which answers all of it today: measured
+`API_HOST` stays `api.gethologram.ai`, on the owner's decision, and the
+missing record is what gets fixed. The apex answers all of it today - measured
 2026-11-16, `/api/models?limit=2` 200, `/api/models/openai-community/gpt2`
 200, `/openai-community/gpt2/resolve/main/config.json` 302,
 `/via/huggingface.co/.../config.json` 302, `/api/v1/objects/blake3:5d16...`
-200 with 544 627 bytes, and both `/api/v1/objects/` and `/via/` send
-`Access-Control-Allow-Origin: *`, so the Buckets check and Verify work from
-the Pages origin. It becomes `api.gethologram.ai` again at step 2 of
-`docs/cutover.md`, once step 1 is done.
+200 with 544 627 bytes, both `/api/v1/objects/` and `/via/` sending
+`Access-Control-Allow-Origin: *` - but it answers only because the apex still
+points at the VPS. The hour its A record moves to Pages, a static host can set
+no `X-Repo-Commit` on a HEAD and no redirect headers, and every `HF_ENDPOINT`
+a reader has copied from a model page stops working. Naming the apex would
+buy working commands now and break them at the cutover, so the name stays and
+step 1 of `docs/cutover.md` - one `A api 217.216.66.62` record and one Caddy
+line, the operator's to apply - is the open item.
+
+Which leaves this recorded rather than claimed: until that record exists, the
+commands and links this site prints do not resolve, Buckets' two actions among
+them. The header below is honest about what the hub *has*; it cannot be
+honest about what the hub can *reach* until the record is added.
 
 The header is now Models, Spaces, Buckets, Docs - Hugging Face's own header
 and its order, minus Datasets, which this hub does not index.

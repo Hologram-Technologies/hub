@@ -10,19 +10,28 @@ run `python app/tools/gen_kernel.py`.
 # One host appears in this file, and that is the point. API_HOST is the hub
 # that answers a tool - the Hugging Face dialect, the OCI registry, MCP and
 # buckets - which a static host cannot do, since it has to set `X-Repo-Commit`
-# on a HEAD and redirect with headers. This site is served from GitHub Pages
-# and a reader is already there, so no screen prints the Pages address: every
-# command, link and endpoint a tool is given names API_HOST.
+# on a HEAD and redirect with headers. The apex `gethologram.ai` is where this
+# site is served from once the cutover is done, and a reader is already there,
+# so no screen prints it: every command, link and endpoint a tool is given
+# names API_HOST.
 #
-# It names the apex, because the apex is the hub today. It was changed to
-# `api.gethologram.ai` in #11, which is step 2 of `docs/cutover.md`, before
-# step 1 - the operator's `A api` record and the Caddy line - had been
-# applied. Measured 2026-11-16: `api.gethologram.ai` does not resolve, so
-# every command, link and endpoint this site printed was dead, including the
-# Buckets check's own example. The apex answers all of them. It goes back to
-# `api.gethologram.ai` at step 2, once step 1 is done; `docs/cutover.md` has
-# the records and the order.
-API_HOST = "gethologram.ai"
+# There used to be a HOST constant beside this one, and its only reader was
+# the model page's endpoint and Get-it commands - the one place this comment
+# already said must not name it. So the page told every reader to point
+# `HF_ENDPOINT` at the apex, which answers today and stops answering the hour
+# the apex record moves to Pages. A name with one reader that is the wrong
+# reader is worse than no name, so it is gone rather than corrected.
+# `docs/cutover.md` has the records and the order.
+#
+# Measured 2026-11-16: `api.gethologram.ai` does not resolve - nslookup
+# answers "Non-existent domain", curl exits 6 - because step 1 of
+# `docs/cutover.md`, the operator's `A api 217.216.66.62` record and the Caddy
+# line, has not been applied. Until it is, every command, link and endpoint
+# this site prints is dead, the Buckets check's own example included. That is
+# a record to add, not a name to change back: the apex answers today only
+# because it still points at the VPS, and it stops answering a tool the hour
+# it moves to Pages, taking every command a reader has copied with it.
+API_HOST = "api.gethologram.ai"
 API = f"https://{API_HOST}"
 
 # Routes the guest renders, by number. Request `03 nn` asks for route nn.
