@@ -18,6 +18,12 @@ The three honesty levels (R2):
 `cargo xtask audit-limits` fails if any code path returns an error the
 model does not sanction.
 
+## buckets
+
+| ID | Level | Statement |
+| --- | --- | --- |
+| `HK-28` | `build` | The object store holds each object only under the SHA-256 of its bytes, every file a published Space is made of is in it, and the address the Buckets page offers as its example is one the store holds |
+
 ## index
 
 | ID | Level | Statement |

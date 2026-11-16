@@ -165,10 +165,11 @@ Spaces and Buckets are screens of the kernel too. The Spaces live in this
 repository (`spaces/`), each a sealed artifact named by the hash of its
 manifest, imported from hologram-live and checked file by file (HK-27); the
 page shows where the catalog came from, when, and its SHA-256, and
-`deploy/spaces/` serves the apps themselves. Buckets explains account storage, which
-stays on gethologram.ai, and checks any object by its address: the page
+`deploy/spaces/` serves the apps themselves. Buckets checks any object by its address: the page
 fetches it from the hub's object store, hashes it with the address's own hash
-(BLAKE3 or SHA-256) and asks the kernel's accept rule.
+(BLAKE3 or SHA-256) and asks the kernel's accept rule. The store is this
+hub's own (`tools/objects.mjs`, HK-28): every file of the published Spaces,
+each under the SHA-256 of its bytes.
 
 Witnessed models carry a signed manifest. `tools/manifest.mjs` downloads each
 model listed in `manifests/models.txt` from Hugging Face, re-hashes every
