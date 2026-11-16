@@ -17,15 +17,16 @@
 		reverse_proxy hub-edge:8787
 	}
 
-	# Next: /via/<source>/ file requests. Measured 2026-11-16 against hub-resolve, all three sources, a small and a
+	# Live since 2026-11-16: /via/<source>/ file requests and Hugging Face API. Measured the same day against hub-resolve, all three sources, a small and a
 	# large file, an unknown source and a source that lacks the file: the same status, source, redirect host and error
 	# code in all 18 cases; the ETag of a small file is its git blob SHA-1 instead of its SHA-256, as the tree says.
 	# The published source names (huggingface, modelscope) are the old hub's; this repository's are the kernel's
 	# (huggingface.co, modelscope.cn, app/tools/site_spec.py), so they are translated here rather than added to the
 	# proved model. SHA256SUMS stays where it is: the edge's records carry no SHA-256 for a small file, so it cannot
-	# synthesise one.
+	# synthesise one. The API under /via/ answers Hugging Face's rows, with no hologram block; a Hugging Face client
+	# pinned to each source matches huggingface.co (observe.py: ipfs 13/13 pinned, huggingface 14/14, modelscope 13/13 pinned).
 	@via_edge {
-		path_regexp via_edge ^/via/(huggingface|modelscope|ipfs|huggingface\.co|modelscope\.cn)/[^/]+/[^/]+/resolve/
+		path_regexp via_edge ^/via/(huggingface|modelscope|ipfs|huggingface\.co|modelscope\.cn)/([^/]+/[^/]+/resolve/|api/)
 		not path */SHA256SUMS
 	}
 	handle @via_edge {

@@ -40,7 +40,7 @@ then only kept for whoever copied a command in between.
 | Paths | Answered by | Since |
 | --- | --- | --- |
 | `/{repo}/resolve/…`, `/api/models…` | this repository's edge (`edge/`) | 2026-11-16 |
-| `/via/<source>/{repo}/resolve/…` | the edge, once `deploy/caddy/gethologram.ai.caddy`'s second block is applied | next |
+| `/via/<source>/{repo}/resolve/…` and `/via/<source>/api/…` (all but `SHA256SUMS`) | the edge | 2026-11-16 |
 | the site: `/`, `/models`, `/registry`, `/spaces`, `/buckets` | hologram-live; this repository's `web/` next | |
 | `/docs/*`, `/agent.md`, `/llms.txt`, `/openapi.json`, `/.well-known/*` | hologram-live; not yet here | |
 | `/v2/` (OCI, Ollama), `/mcp`, `/api/account/*`, `/api/v1/objects*`, `/healthz`, `/api/hub/health`, `/archive.json`, `/pins.json` | hologram-live and the services it runs | |
@@ -56,7 +56,7 @@ any failure.
 1. Done: the edge answers the Hugging Face dialect. A Hugging Face client
    sees no difference against huggingface.co (`tests/edge/observe.py`, 14 of
    14, measured on the public name).
-2. `/via/<source>/` to the edge.
+2. Done: `/via/<source>/` to the edge, all but `SHA256SUMS`.
 3. The site: Caddy serves this repository's built `web/` at the apex for
    browsers. The docs, the agent page, `llms.txt` and `/openapi.json` move
    here with the checks that keep them honest (`bind`, `conformance` and
