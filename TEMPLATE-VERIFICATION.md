@@ -2709,7 +2709,16 @@ diagnostic is the measurement:
     FAIL http://localhost:8099/ at 1440x900: clipped: Immersive (66 into 45)
     FAIL http://localhost:8099/ at 390x844: clipped: Immersive (66 into 63)
 
-Restored, both pass: `every theme label fits`, at both widths.
+Restored, both pass: `every theme label fits`, at both widths.
+
+Where it runs is narrower than it looks, and saying so is part of the
+record. `tools/smoke.mjs` is invoked only by `pages.yml`, which triggers on
+push to `main`, and its `smoke` job `needs: deploy`. The check therefore does
+not run on a pull request at all, and on `main` it runs after the site is
+published: it turns the run red, it does not hold the page back. That is
+where every other interface check in this repository already sits, so it is
+consistent - but it detects rather than prevents, and the two are not the
+same claim.
 
 The gate itself was wrong twice before it was right, which is the reason to
 plant rather than assume. It first waited for `#theme-button` before opening
