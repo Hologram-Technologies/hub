@@ -12,7 +12,8 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkTensors, checkTensorsOfFile, gitBlobSha1, readSafetensors, sha256, tensorAddresses } from "../../runner/uor.mjs";
+import { createServer } from "node:http";
+import { checkTensors, checkTensorsOfFile, gitBlobSha1, loadManifest, readSafetensors, sha256, tensorAddresses } from "../../runner/uor.mjs";
 
 let checks = 0;
 const ok = (what) => { checks += 1; console.log(`  ok  ${what}`); };
@@ -92,5 +93,46 @@ ok("the same answer comes from the file without holding it");
 // hands back for one.
 assert.equal(gitBlobSha1(Buffer.from("hello\n")), "ce013625030ba8dba906f756967f9e9ca394464a");
 ok("the git blob identity of a small file matches git's own");
+
+// The manifest is read with the predicate type the one pinned policy names.
+// `loadManifest` used to ask for a `witnessPredicateType`, which the policy
+// does not define, so it returned null for every model and the tensor check
+// above was unreachable. A policy with no predicate type still reads nothing;
+// a policy with one gets as far as the signature and refuses a bundle that
+// does not check out. Those two answers are different, which is what makes
+// the name falsifiable: with the wrong name both models are silently skipped.
+{
+  const manifest = { format: "hologram.hub.manifest/v1", repo: "o/m", revision: "a".repeat(40), files: [], tensors: [] };
+  const served = new Map([
+    ["/o/m.json", JSON.stringify(manifest)],
+    ["/witness.sigstore.json", JSON.stringify({ not: "a bundle" })],
+  ]);
+  const asked = [];
+  const server = createServer((request, response) => {
+    asked.push(request.url);
+    const body = served.get(request.url);
+    if (body === undefined) { response.writeHead(404).end(); return; }
+    response.writeHead(200, { "content-type": "application/json" }).end(body);
+  });
+  await new Promise((done) => server.listen(0, "127.0.0.1", done));
+  const base = `http://127.0.0.1:${server.address().port}/`;
+  try {
+    // The pinned policy's own spelling. Every other field is beside the point
+    // here: the bundle is refused whatever they say, and being refused is the
+    // proof that the manifest was read at all.
+    const policy = { predicateType: "https://hologram.foundation/hub/witness/v1", identity: "x", issuer: "y" };
+    await assert.rejects(() => loadManifest(base, "o/m", policy),
+                         /failed its signature check/);
+    assert.deepEqual(asked, ["/o/m.json", "/witness.sigstore.json"]);
+    ok("a manifest is read with the predicate type the pinned policy names");
+
+    asked.length = 0;
+    assert.equal(await loadManifest(base, "o/m", { identity: "x", issuer: "y" }), null);
+    assert.deepEqual(asked, []);
+    ok("a policy that names no predicate type reads nothing");
+  } finally {
+    await new Promise((done) => server.close(done));
+  }
+}
 
 console.log(`tests/runner/uor: ${checks} checks passed`);

@@ -252,3 +252,139 @@ fn index_hk_23() {
         "an incomplete panel must be completed from the full index, which reads the whole catalogue"
     );
 }
+
+/// `HK-24`: Every row in the UOR address index carries a canonical address and the canonical-form version that minted it, taken here from bytes this build streamed rather than copied from any host, and is filed under the shard key the page resolves a model with
+#[test]
+fn index_hk_24() {
+    let builder = without_comments("tools/uor-index.mjs");
+    let page = without_comments("web/hub.mjs");
+    let minter = without_comments("crates/uor-label/src/main.rs");
+
+    // One filing rule, imported by both sides. Two spellings of it would file
+    // a row under a key the page never looks in, and the row would not be
+    // found rather than be found wrong -- which is the failure worth catching.
+    assert!(
+        builder.contains("from \"../web/uorkey.mjs\""),
+        "the index builder must file rows by the shared rule, not its own"
+    );
+    assert!(
+        page.contains("from \"./uorkey.mjs\""),
+        "the page must resolve a model's shard by the shared rule, not its own"
+    );
+    // The rule is a shift of the leading bits of a digest. Either file doing
+    // that arithmetic again has stopped sharing it.
+    for (name, source) in [("the builder", &builder), ("the page", &page)] {
+        assert!(
+            !source.contains(">>> (16 -"),
+            "{name} spells out a shard key rule of its own; there must be only one"
+        );
+    }
+
+    // The model label is upstream's, from upstream's own entry point, on the
+    // axis this family addresses on.
+    assert!(
+        minter.contains("uor_addr::gguf::address_blake3"),
+        "the model label must come from uor-addr's blake3 axis rather than be assembled here"
+    );
+    // A tensor's address is this hub's own, taken over the tensor's raw bytes
+    // by the builder. It is not uor-addr's leaf and must not be read out of
+    // one: the canonical form fixes its leaves to SHA-256 whatever the axis,
+    // so a row that called the leaf its address would name the wrong number.
+    assert!(
+        builder.contains("blake3OfRange"),
+        "the builder must take each tensor's address over the bytes itself"
+    );
+    assert!(
+        builder.contains("tensor.address = await blake3OfRange"),
+        "a tensor's address must be the blake3 the builder computed"
+    );
+    assert!(
+        !builder.contains("address: minted") && !builder.contains("address = minted"),
+        "a tensor's address must not be read out of the minter's leaf"
+    );
+    // A label and the canonical form that minted it travel together: a label
+    // whose form is unknown is ambiguous the moment upstream bumps one.
+    assert!(
+        builder.contains("label: minted.label"),
+        "a row's address must be the one the minter returned"
+    );
+    assert!(
+        builder.contains("canonicalForm: minted.canonicalForm"),
+        "a row must carry the canonical form that minted its address"
+    );
+    // Taken from the bytes, never read out of the record. The record's digests
+    // are Hugging Face's, which is the single dependency this claim exists to
+    // remove.
+    for wrong in ["label: file.", "label: record.", "label: row."] {
+        assert!(
+            !builder.contains(wrong),
+            "a row's address must come from the bytes this build streamed, not from `{wrong}`"
+        );
+    }
+
+    // The range a reader needs to check one tensor, and the minter's own
+    // refusal to publish a range the leaf does not match.
+    assert!(
+        minter.contains("let begin = data_start"),
+        "a tensor's range must be the file's own offset, not the skeleton's recomputed one"
+    );
+    assert!(
+        minter.contains("over_range.as_slice() != entry.leaf"),
+        "the minter must refuse a leaf that is not the digest of the range it publishes"
+    );
+}
+
+/// `HK-25`: The page shows a tensor address as checked only when the kernel accepted bytes the page fetched itself, so an address the hub published is never drawn as proof of bytes nobody read
+#[test]
+fn index_hk_25() {
+    let page = without_comments("web/hub.mjs");
+
+    // One tensor's own range, not the file. A weight file is gigabytes; the
+    // whole point of publishing a range per tensor is that a reader need not
+    // take it.
+    assert!(
+        page.contains("bytes=${tensor.begin}-${tensor.begin + tensor.length - 1}"),
+        "the page must fetch one tensor's byte range"
+    );
+    // A host that ignores `Range` answers 200 with the whole file, so anything
+    // but a partial response is no answer rather than a download.
+    assert!(
+        page.contains("response.status !== 206"),
+        "the page must treat a response that is not partial as no answer"
+    );
+    // The verdict is the kernel's accept rule about the bytes the page got.
+    // `addressed` is that rule; a comparison written here would be the page's
+    // own opinion wearing the kernel's clothes.
+    assert!(
+        page.contains("accepts(blake3(body), uorDigestHex(tensor.address)"),
+        "the verdict must be the kernel's answer about the bytes the page fetched, on the tensor's own axis"
+    );
+    // Both axes are 71 bytes, so a label's axis is read from its prefix and
+    // never from its length. A page that took the length for the axis would
+    // check a blake3 address with sha256 and refuse good bytes.
+    assert!(
+        page.contains("isBlake3Label(tensor.address)"),
+        "the page must decide a tensor's axis from its prefix"
+    );
+    assert!(
+        !page.contains("length === 71") && !page.contains("length == 71"),
+        "the page must not infer an axis from a label's length"
+    );
+    for wrong in [
+        "=== tensor.leaf",
+        "tensor.leaf ===",
+        "!== tensor.leaf",
+        "tensor.leaf !==",
+    ] {
+        assert!(
+            !page.contains(wrong),
+            "the page must not judge an address itself with `{wrong}`"
+        );
+    }
+    // Until the kernel has answered, the row says so rather than looking
+    // checked.
+    assert!(
+        page.contains("s.uor.unchecked"),
+        "a row the kernel has not judged must say it is unchecked"
+    );
+}

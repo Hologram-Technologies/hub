@@ -235,20 +235,25 @@ mod tests {
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&root);
-        let real = repo_model::repo_root();
         for dir in ["model", "features/suites", "crates/conformance/tests"] {
             std::fs::create_dir_all(root.join(dir)).unwrap();
         }
-        for file in ["authorities.toml", "ledger.toml"] {
-            std::fs::copy(real.join("model").join(file), root.join("model").join(file)).unwrap();
+        // Empty registers, as a freshly instantiated repository has. This
+        // repository's own rows are not the scratch repository's, and that
+        // holds for all three: copying the real `authorities.toml` worked
+        // only while it was empty, and broke as soon as a row of it named one
+        // of this repository's IDs, which the scratch register does not have.
+        for (file, key) in [
+            ("ids.toml", "id"),
+            ("authorities.toml", "authority"),
+            ("ledger.toml", "claim"),
+        ] {
+            std::fs::write(
+                root.join("model").join(file),
+                format!("spec = \"template/1\"\n\n{key} = []\n"),
+            )
+            .unwrap();
         }
-        // An empty register, as a freshly instantiated repository has; this
-        // repository's own rows are not the scratch repository's.
-        std::fs::write(
-            root.join("model/ids.toml"),
-            "spec = \"template/1\"\n\nid = []\n",
-        )
-        .unwrap();
         root
     }
 

@@ -285,6 +285,17 @@ link. `HK-04` keeps the swarm off the edge, and `HK-19` keeps it off any file
 whose bytes could not be checked afterwards. Both are proved for every input,
 so neither is enforced by the runner's own code.
 
+There is no fifth slot, and `docs/hippius-source-study.md` is why the most
+recent candidate did not become one. Hippius mirrors 62 Hugging Face
+repositories and publishes a per-file SHA-256 that agrees exactly with this
+hub's own record — measured 2026-11-16, the first third-party host to manage
+that here. It is still not a source: every blob answers `401` without a token
+fetched from a second path, the blob response carries no
+`access-control-allow-origin` however the preflight answers, and a large file
+is hundreds of chunks behind a pointer with no URL of its own. A redirect
+cannot carry a token exchange, so the same sentence that keeps the swarm off
+the edge keeps Hippius off it.
+
 `runner/swarm.mjs` is a leeching BitTorrent client with no dependencies: an
 HTTP tracker announce, the peer wire protocol over TCP, and a piece handed on
 only when its SHA-1 equals the hash the torrent's infohash committed to.
@@ -424,6 +435,26 @@ runner checks them with `runner/uor.mjs` when a signed manifest names the file,
 and reports the count in `X-Hub-Tensors`. A file that passes its SHA-256 but
 fails a witnessed tensor means two signed artifacts disagree, and is refused
 rather than served.
+
+Those three are all this repository's own, which is the limit of them: a reader
+who does not trust the hub has to trust Hugging Face instead, since every
+address above is ultimately Hugging Face's. `uor-addr` is the fourth and is
+nobody's. It publishes a canonical form per format and mints a κ-label
+`sha256:<64hex>` from it, under which two files that decode to the same logical
+content -- modulo metadata-key order, tensor order and tensor-data layout --
+address alike, so the same tensors have the same address wherever they come
+from. `crates/uor-label` calls it, `tools/uor-index.mjs` publishes a label and
+every tensor's leaf under `data/uor/`, and a model page offers to check one
+(`HK-24`, `HK-25`). A tensor is addressed on the BLAKE3 axis over its own raw
+bytes -- the same number `runner/uor.mjs` emits above, so one tensor has one
+identity here, in hologram's substrate and in the Q engine. `uor-addr`'s
+canonical-form leaf is SHA-256 by that form's definition, whatever axis the
+label is on, and is published beside the address as what the label binds. Both
+labels are 71 bytes, so the axis is read from the prefix and never the length.
+Either way the check is a ranged read of one tensor and the verdict is the
+kernel's: measured 2026-11-16, 10,240 bytes of a 483,520-byte file in a browser,
+206 and cross-origin, matching. GGUF today; `docs/uor-addresses.md` has the
+measurements, the costs and what is not addressed yet.
 
 `app/tools/site_spec.py` is the authoring input for the site; the generator
 writes it into `Site.lex.tex`. `web/` holds the renderer (`hub.mjs`), the stylesheet (`hub.css`), a `sw.js` that retires the worker the proof page left at the root, the

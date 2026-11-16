@@ -124,8 +124,16 @@ export async function checkTensorsOfFile(manifest, path, filePath, { chunk = 4 <
 // witnessed it. The signature is checked against the same pinned Sigstore
 // roots the browse page uses, so a manifest served by any host is believed
 // only if this repository's workflow signed those exact bytes.
+//
+// The policy's `predicateType` is the witness type: that is the one the
+// kernel pins (`app/tools/site_spec.py`, screen 3) and the one the page reads
+// through `web/sigstore.mjs`. The index is the exception and names its own
+// `indexPredicateType`, which is why `edge/edge.mjs` overrides the field and
+// this does not. Asking here for a `witnessPredicateType` instead left every
+// manifest unread and the tensor check below unreachable, so the name is
+// taken from the one policy rather than spelled a second way.
 export async function loadManifest(base, repo, policy, { timeoutMs = 20000 } = {}) {
-  if (!base || !policy?.witnessPredicateType) return null;
+  if (!base || !policy?.predicateType) return null;
   let bytes;
   try {
     const response = await fetch(new URL(`${repo}.json`, base), { signal: AbortSignal.timeout(timeoutMs) });
@@ -136,9 +144,7 @@ export async function loadManifest(base, repo, policy, { timeoutMs = 20000 } = {
   }
   const bundleResponse = await fetch(new URL("witness.sigstore.json", base), { signal: AbortSignal.timeout(timeoutMs) });
   if (!bundleResponse.ok) return null;
-  const facts = await verifyBundle(await bundleResponse.json(), bytes, {
-    ...policy, predicateType: policy.witnessPredicateType,
-  }).catch(() => null);
+  const facts = await verifyBundle(await bundleResponse.json(), bytes, policy).catch(() => null);
   const failed = facts
     ? ["chain", "time", "log", "signature", "identity", "subject", "predicate"].filter((k) => !facts[k])
     : ["bundle"];

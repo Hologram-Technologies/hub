@@ -221,6 +221,40 @@ jobs:
           predicate: '{"tool":"tools/index.mjs","releases":"https://huggingface.co","holders":"https://gethologram.ai/data/files"}'
           show-summary: false
 
+      # ---- the canonical UOR addresses of the models this build streamed
+      # An address is not a fact about this hub: `uor-addr` publishes a
+      # canonical form per format and mints the label from the bytes, so
+      # anyone holding them computes the same one. The cost is that a label
+      # needs the whole file streamed once, which is why this is cached by
+      # revision and why `manifests/uor.txt` is a list a reviewer can read
+      # rather than the whole index.
+      - name: Keep the minted addresses between runs
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/uor
+          key: uor-${{ hashFiles('manifests/uor.txt', 'tools/uor-index.mjs', 'crates/uor-label/src/main.rs', 'Cargo.lock') }}-${{ github.run_id }}
+          restore-keys: uor-${{ hashFiles('manifests/uor.txt', 'tools/uor-index.mjs', 'crates/uor-label/src/main.rs', 'Cargo.lock') }}-
+      - name: Mint the canonical addresses
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release --locked -p uor-label
+          node tools/uor-index.mjs "$RUNNER_TEMP/index" "$RUNNER_TEMP/uor"
+      - name: Every address shard is the bytes its root names
+        shell: bash
+        run: node tests/uor/index.mjs "$RUNNER_TEMP/uor"
+      - name: Sign the address root as this repository's workflow
+        id: uorsig
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/uor/root.json
+          predicate-type: https://hologram.foundation/hub/uor/v1
+          # The addresser is named because the label depends on it: a canonical
+          # form is only canonical while the code and the form version are
+          # fixed, and both are published in the root beside every label.
+          predicate: '{"tool":"tools/uor-index.mjs","addresser":"uor-addr 0.2.0","canonicalForm":2,"bytes":"https://huggingface.co"}'
+          show-summary: false
+
       # ---- the roll: every model Hugging Face has ever listed
       # The index addresses a few hundred models and costs two calls each. The
       # roll names every one of them and costs about one call per thousand, so
@@ -324,6 +358,7 @@ jobs:
           # The index goes in before the two page tools run: both read the
           # models from it, so the pages and the browse list name one set.
           cp -r "$RUNNER_TEMP/index" "$RUNNER_TEMP/pages/data/index"
+          cp -r "$RUNNER_TEMP/uor" "$RUNNER_TEMP/pages/data/uor"
           # The roll, when there is one. It is the largest thing the site
           # carries by a wide margin, so the deploy says how large.
           if [ -f "$RUNNER_TEMP/roll/root.json" ]; then

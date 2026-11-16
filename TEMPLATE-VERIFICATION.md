@@ -10,14 +10,14 @@ This repository's `just vv` instantiates the universal verification policy in
 | `just model` | R1, R4, R5 and the bootstrap trust root, in one `xtask validate` | `CM-01` |
 | `just template-check` | immutable SDK selection and template drift, checked by the SDK | --- |
 | `just lint` | Clippy at `-D warnings`, every target, every optional feature | --- |
-| `just test` | the workspace suite, including the R3 meta-gate | `CM-02`, `CM-03` |
+| `just test` | the workspace suite, including the R3 meta-gate | `CM-02`, `CM-03`, and the index suite: `HK-18`, `HK-20`, `HK-21`, `HK-23`, `HK-24`, `HK-25` |
 | `just deny` | R6 over the dependency graph | --- |
-| `just app` | the Prism application: LexLean format and lock, then `prismpm verify`, which builds the holo and checks it | `HK-01` to `HK-14` |
+| `just app` | the Prism application: LexLean format and lock, then `prismpm verify`, which builds the holo and checks it | the kernel suite: `HK-01` to `HK-17`, `HK-19`, `HK-22` |
 
 Each check runs once per `just vv`. `just bdd` runs only the meta-gate while a
 scenario is being written; `just test` already includes it.
 
-The register holds fourteen claims, `HK-01` to `HK-14`, so the meta-gate
+The register holds twenty-five claims, `HK-01` to `HK-25`, so the meta-gate
 checks real rows, real scenarios and real tests. It becomes an error as soon as an ID, scenario,
 or test is added without the other two.
 
@@ -30,6 +30,10 @@ or test is added without the other two.
 | honesty meta-gate | an ID with no test | rejected |
 | `kernel_hk_01` to `kernel_hk_10` | `breaksPrivacy` drops its `delivers` disjunct; `dispatch` delivers on a digest mismatch; `soundHolds` declares an extra axiom; `Proofs/Sound.lex.tex` is removed from the entrypoints; one acceptance vector's response is edited; `breaksNav` drops its screen check; `breaksDialect` moves its threshold to 500; `dispatch` stops serving screens from `Site`; `breaksVerdict` tests a verdict code that never occurs; `dispatch` reads the verdict's first result from the wrong byte; `breaksTrust` stops testing a witness shown as a publisher; `dispatch` shifts the trust facts by one byte | all twelve rejected |
 | `prismpm verify` | an acceptance vector set without the exact guest-allocation boundary | rejected (PP2009) |
+| `index_hk_24` | a row's address read out of the record's own `sha256` instead of minted from the bytes; `canonicalForm` dropped from a row; the shard key spelled a second time in the builder rather than imported; the minter's check that a leaf is the digest of the range it publishes disabled; the model label taken on the sha256 axis instead of blake3; a tensor's address copied from uor-addr's leaf instead of taken over the bytes | all six rejected |
+| `index_hk_25` | the page judging an address by comparing the digest itself instead of asking the kernel; the page fetching the whole file rather than the tensor's byte range; the page taking a label's axis from its length, which is 71 for both | all three rejected |
+| `tests/runner/uor` | `loadManifest` asking for a `witnessPredicateType`, which the one pinned policy does not define | rejected |
+| `tests/uor/index` | one byte changed in an address shard; and a row moved to a shard the page will not look in, with both shard digests refreshed so the first check passes | both rejected |
 | `audit-bootstrap` | a floating/copied action, mutable SDK tag, changed universal file, narrowed boundary, shallow/credential-retaining checkout, copied project renderer, omitted standards lock, acceptance bypass, deploy-job signing privilege, incomplete release lifecycle, or a bootstrap that drops a native architecture from main or tags, cancels or replaces a main run, or skips runs by path, condition or matrix exclusion | all rejected |
 | `audit-bootstrap` (`proof_reuse_is_confined`) | proof reuse widened to `push` or to any event, a recipe that stops proving, a cache key without the `Justfile` or without `app/**`, the event line removed from the gate, a second use of the event in the recipe, and the `merge_group` trigger dropped | all rejected |
 

@@ -1,0 +1,32 @@
+[package]
+name = "uor-label"
+description = "Mints the canonical UOR address of a model file and lists the per-tensor leaf each one binds."
+# Build-time and CI infrastructure, like `repo-model` and `repo-conformance`:
+# the index builder runs it to mint labels, and nothing a consumer of this
+# repository builds reaches it. The addresses it prints are shipped; the binary
+# is not.
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# The canonical form and the κ-label are this crate's, not ours. `uor-addr`
+# publishes a canonical form per format and mints `sha256:<64hex>` from it; this
+# binary calls that entry point and reads the skeleton it canonicalizes. Pinned
+# to an exact released version because an address that moves is not an address:
+# `CANONICAL_FORM_VERSION` is reported beside every label so a reader can tell
+# which form produced it.
+uor-addr = "=0.2.0"
+# For the two checks this binary makes against the skeleton it is given: that
+# hashing the skeleton reproduces the label `uor-addr` returned, and that each
+# tensor-info entry names the tensor the file calls it. Neither is a second
+# source for the address; both are ways of refusing a skeleton we misread.
+sha2 = "=0.10.9"

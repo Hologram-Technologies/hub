@@ -425,6 +425,37 @@ SCREENS = {
             "tensorColumns": ["Tensor", "Type", "Shape", "Address"],
             "witnessed": "re-hashed by the witness",
         },
+        # The canonical UOR address. `uor-addr` publishes a canonical form per
+        # format and mints a kappa-label from it, under which two files that
+        # decode to the same logical content -- modulo metadata-key order,
+        # tensor order and tensor-data layout -- address alike, so the same
+        # tensors have the same address wherever they come from.
+        #
+        # Two numbers travel per tensor, because they answer different
+        # questions. The address is BLAKE3 over the tensor's own raw bytes:
+        # the identity hologram's substrate and the Q engine use, and the one
+        # runner/uor.mjs already emits. uor-addr's canonical-form leaf is
+        # SHA-256 by the form's own definition -- the axis is applied to the
+        # finished skeleton, so address_blake3 still folds SHA-256 leaves --
+        # and it is published beside the address as what the model label
+        # binds. Both are over one tensor's byte range, which is why a reader
+        # can check one from a ranged read and needs neither the file nor this
+        # hub's word for it. The verdict below is the kernel's accept rule;
+        # the page only says what the kernel answered.
+        "uor": {
+            "tab": "Canonical",
+            "note": "{n} files carry a canonical UOR address, minted by {addresser} under canonical form {form}. A tensor's address is the BLAKE3 of its own bytes, so a reader can check one without the file.",
+            "fileLabel": "Address",
+            "columns": ["Tensor", "Shape", "Bytes", "Address", ""],
+            "derive": "Check",
+            "deriving": "Reading {size}",
+            "accepted": "these bytes have that address",
+            "refused": "these bytes have a different address",
+            "unreachable": "the source did not answer",
+            "unchecked": "not checked here",
+            "none": "This model has no canonical UOR address yet.",
+            "shardRefused": "The address shard is not the bytes the signed root names, so nothing from it is shown.",
+        },
         # Two witnesses may name an address for the same file. The kernel's
         # concur rule decides whether it may be used; these are the words the
         # page says about what it found.
