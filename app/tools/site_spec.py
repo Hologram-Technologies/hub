@@ -90,8 +90,17 @@ ENDPOINTS = [
     ("POST", "/api/models/{repo}/paths-info/{revision}", "Information for named paths"),
     ("GET", "/api/models/{repo}/refs", "Branches and tags"),
     ("GET", "/api/models/{repo}/commits/{revision}", "The commits the index knows; partial, because it holds the release"),
-    ("GET", "/api/models-tags-by-type", "Every tag the listed models carry, by kind"),
-    ("GET", "/api/quicksearch", "Models whose name matches, for a search box"),
+    # `/api/models-tags-by-type` and `/api/quicksearch` were listed here until
+    # 2026-11-16 and are not, because the host this page tells a tool to point
+    # at does not answer them. Measured against API_HOST that day: both 404 in
+    # every form, with and without Hugging Face's own parameters, and neither
+    # appears among the 51 paths of its `/openapi.json`.
+    #
+    # `edge/edge.mjs` does answer them, which is what made the rows look true:
+    # the edge runner is this repository's own implementation, and the hub the
+    # apex serves is another. This table says what a tool gets when it is
+    # pointed at API_HOST, so a route only the edge answers does not belong in
+    # it - the same rule that took the Sign in button off the header.
     # The hub has no accounts, so this is a refusal and nothing else:
     # `edge/edge.mjs` answers 10 for it, which the Answers table below reads
     # as 401 RepoNotFound. The row says what a tool receives, not what the
@@ -174,6 +183,11 @@ SCREENS = {
         # copy that paints first, and the page asks the proxy for one as wide as
         # the screen can actually show, so a 4K display is not given a 1080p
         # picture because that was what shipped.
+        # The picture a visitor who has chosen none sees. Named rather than
+        # taken from the head of the list below, so the order the panel draws
+        # them in - Foundry's own - and the one the site opens on are two
+        # decisions rather than one accident of position.
+        "wallpaper": "Q1p7bh3SHj8",
         "wallpapers": [
             {"file": 'E0AHdsENmDg', "id": 'E0AHdsENmDg', "alt": 'The Milky Way in blue and violet',
              "name": 'Jeremy Thomas', "user": 'jeremythomasphoto', "color": '#0c2659',
@@ -313,7 +327,8 @@ SCREENS = {
                         ["ipfs", "IPFS"], ["pirateface", "Pirate Face"]],
         "searchParam": "search",
         "pageParam": "p",
-        "tabs": [["main", "Main", "sliders"], ["libraries", "Libraries", "box"], ["languages", "Languages", "globe"],
+        "tabs": [["main", "Main", "sliders"], ["sources", "Sources", "nodes"], ["tasks", "Tasks", "grid"],
+                 ["libraries", "Libraries", "box"], ["languages", "Languages", "globe"],
                  ["licenses", "Licenses", "scale"], ["other", "Other", "cpu"]],
         # key (the catalog field), URL name, label, the tabs it appears on,
         # icon, kind: "fixed" keeps the order given below, "search" adds a
@@ -322,14 +337,13 @@ SCREENS = {
         # appears on, icon, kind. The first eight parameters are Hugging
         # Face's; the four after them name facets Hugging Face does not have,
         # so they cannot collide with a link copied from it.
-        "facets": [["task", "pipeline_tag", "Tasks", ["main"], "grid", ""],
+        "facets": [["sources", "hub_source", "Sources", ["main", "sources"], "nodes", "plain"],
+                   ["task", "pipeline_tag", "Tasks", ["main", "tasks"], "grid", ""],
                    ["params", "num_parameters", "Parameters", ["main"], "tag", "range"],
                    ["library", "library", "Libraries", ["main", "libraries"], "box", "search"],
                    ["languages", "language", "Languages", ["languages"], "globe", "search"],
                    ["license", "license", "Licenses", ["licenses"], "scale", "search"],
                    ["author", "author", "Owner", ["other"], "user", "search"],
-                   ["status", "hub_status", "Status", ["main"], "seal", "fixed"],
-                   ["sources", "hub_source", "Source", ["main"], "nodes", ""],
                    ["format", "hub_format", "Formats", ["libraries"], "file", ""],
                    ["family", "hub_family", "Model family", ["other"], "layers", "search"],
                    ["arch", "hub_arch", "Architecture", ["other"], "cpu", "search"],
@@ -361,7 +375,7 @@ SCREENS = {
         "searching": "Looking through the catalogue…",
         "clear": "Clear filters",
         "reset": "Reset",
-        "more": "+{n} more",
+        "more": "+ {n}",
         "less": "Show less",
         "show": "Show {n} models",
         "held": "Identical bytes on {sources}",

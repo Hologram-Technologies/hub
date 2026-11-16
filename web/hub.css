@@ -33,6 +33,8 @@
   --hh-control: var(--space-8);
   --hh-field: var(--space-10);
   --hh-tag: var(--space-6);
+  /* A facet chip. 28px, measured on huggingface.co/models 2026-11-16. */
+  --hh-chip: 28px;
   --hh-avatar: var(--space-12);
   --hh-icon: var(--space-4);
   --hh-icon-small: var(--text-sm);
@@ -569,10 +571,10 @@ kbd {
 .lead ~ .browse { margin-top: 0; }
 
 .filters { padding: var(--space-4) var(--space-4) var(--space-12); position: sticky; top: calc(var(--space-16) + var(--space-12)); max-height: calc(100vh - var(--space-16) - var(--space-16)); overflow: auto; scrollbar-width: thin; scrollbar-color: var(--hh-fill) transparent; }
-.tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-1) 0; padding-bottom: var(--space-4); border-bottom: 1px solid var(--hh-line); }
+.tabs { display: flex; flex-wrap: wrap; gap: var(--space-1); padding-bottom: var(--space-4); border-bottom: 1px solid var(--hh-line); }
 .tab {
   display: flex; align-items: center; justify-content: center; gap: var(--space-1);
-  height: var(--hh-control); padding: 0; min-width: 0;
+  height: var(--hh-chip); padding: 0 var(--space-2);
   border: 1px solid transparent; border-radius: var(--radius-md);
   font-size: var(--text-sm); color: var(--hh-text-dim);
   transition: color var(--hh-ease), background var(--hh-ease), border-color var(--hh-ease);
@@ -583,27 +585,28 @@ kbd {
 .sections { display: grid; gap: var(--space-6); padding-top: var(--space-4); }
 .facet { display: grid; gap: var(--space-3); }
 .facet header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
-.facet h2 { font-size: var(--text-sm); color: var(--hh-text-dim); }
+.facet h2 { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--hh-text-dim); }
 .facet-tools { display: flex; gap: var(--space-2); }
 .facet-tools .field { flex: 1; }
 .chips { display: flex; flex-wrap: wrap; gap: var(--space-2); overflow: hidden; transition: max-height 200ms cubic-bezier(.4, 0, .2, 1); }
-.chips.clamped { max-height: calc(var(--hh-control) * 3 + var(--space-2) * 2); }
+.chips.clamped { max-height: calc(var(--hh-chip) * 4 + var(--space-2) * 3); }
 .chip {
   display: inline-flex; align-items: center; gap: var(--space-2); max-width: 100%;
-  height: var(--hh-control); padding: 0 var(--space-1) 0 var(--space-3);
+  height: var(--hh-chip); padding: 0 var(--space-2);
   border: 1px solid var(--hh-line-strong); border-radius: var(--radius-md);
   font-size: var(--text-sm); color: var(--hh-text);
   transition: border-color var(--hh-ease), background var(--hh-ease), color var(--hh-ease);
 }
 .chip .i { color: var(--hh-text-dim); }
 .chip .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chip.plain { padding-right: var(--space-3); border-color: transparent; }
 .chip:hover { border-color: var(--hh-line-focus); }
 .chip[aria-pressed="true"] { background: var(--hh-text); color: var(--background); border-color: var(--hh-text); }
 .chip[aria-pressed="true"] .i { color: var(--background); }
-.chip .n { display: inline-flex; align-items: center; height: var(--hh-tag); padding: 0 var(--space-2); border-radius: var(--hh-tag); background: var(--hh-fill); color: var(--hh-text); font-family: var(--font-mono); }
-.chip[aria-pressed="true"] .n { background: color-mix(in srgb, var(--background) 14%, transparent); color: var(--background); }
-.more { width: 100%; }
+.more {
+  height: var(--hh-chip); padding: 0 var(--space-2); border-radius: var(--radius-md);
+  font-size: var(--text-sm); color: var(--hh-text-dim);
+}
+.more:hover { color: var(--hh-text); }
 .none { font-size: var(--text-sm); color: var(--hh-text-dim); }
 
 /* ---- results */

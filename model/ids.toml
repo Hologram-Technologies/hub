@@ -171,3 +171,9 @@ id = "HK-25"
 level = "build"
 suite = "index"
 statement = "The page shows a tensor address as checked only when the kernel accepted bytes the page fetched itself, so an address the hub published is never drawn as proof of bytes nobody read"
+
+[[id]]
+id = "HK-26"
+level = "build"
+suite = "index"
+statement = "A filter the panel offers is one whatever is driving the list can act on, so a control is never drawn that cannot narrow anything"

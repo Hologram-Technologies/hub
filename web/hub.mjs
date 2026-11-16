@@ -726,7 +726,10 @@ function picture() {
     if (kept?.file && shipped(kept.file)) return kept;
     if (kept?.id && kept?.image) return kept;
   } catch {}
-  return firstPhotos()[0];
+  // Nothing chosen: the picture the screen names, and the first of the list
+  // only if an older holo has no word for it.
+  const all = firstPhotos();
+  return all.find((w) => w.file === chrome.wallpaper) ?? all[0];
 }
 // Unsplash reaches this page through the Prism frame's worker, which holds the
 // one key every Prism app shares: the search, a tile for the panel, and a copy
@@ -895,8 +898,13 @@ async function stars(s) {
 // ---------------------------------------------------------------- catalog
 const facetDefs = () => screens.models.facets.map(([key, param, label, tabs, icon, kind]) => ({ key, param, label, tabs, icon, kind }));
 const chipFacets = () => facetDefs().filter((f) => f.kind !== "range");
-const fixedValues = (f) => (f.key === "status" ? screens.models.statuses.map(([, l]) => l)
-  : f.key === "recency" ? screens.models.recency.map(([l]) => l) : null);
+// The facets only this hub can answer. It knows where a model's bytes can be
+// fetched from; the roll, which is Hugging Face's listing, does not. Read in
+// two places that have to agree - what the panel offers, and what moves the
+// page onto the records that can answer - so it is named once.
+const HUB_FACETS = ["sources"];
+const fixedValues = (f) => (f.key === "recency" ? screens.models.recency.map(([l]) => l)
+  : f.key === "sources" ? screens.models.sourceNames.map(([kind]) => kind) : null);
 const stops = () => screens.models.stops;
 const fullRange = () => [0, stops().length - 1];
 const valuesOf = (m, key) => { const v = m[key]; return Array.isArray(v) ? v : v == null || v === "" ? [] : [String(v)]; };
@@ -1034,7 +1042,12 @@ async function drawModels(main) {
   // are the index's: they come from a model's tags and its files, and the roll
   // carries neither, so they are left out rather than drawn empty.
   const ROLL_SORT = { trending: "trending", downloads: "downloads", likes: "likes", created: "createdAt", modified: "lastModified" };
-  const ROLL_FACET = { task: "task", library: "library", license: "license", languages: "language" };
+  // The roll indexes parameters and recency as well, in the same postings the
+  // other four come from. They were absent from the panel for want of this
+  // line, which is why the parameter slider disappeared the moment the roll
+  // started driving and the page was left with two sections where Hugging
+  // Face shows six.
+  const ROLL_FACET = { task: "task", library: "library", license: "license", languages: "language", params: "parameters" };
   const codesOf = (key, labels) => {
     const dict = source?.dictionaries[ROLL_FACET[key]] ?? [];
     return (labels ?? []).map((l) => dict.indexOf(l)).filter((i) => i >= 0);
@@ -1061,14 +1074,24 @@ async function drawModels(main) {
       cards.innerHTML = `<p class="note">${esc(s.searching)}</p>`;
     }
     let shown, total, pages, pre = null;
-    // A source filter can only be answered by the addressed index, so asking
-    // for one asks that index rather than the roll.
-    const bySource = (st.f.sources?.length ?? 0) > 0;
-    if (source && !bySource) {
+    // Only the addressed index can answer where bytes are held or whether
+    // this hub has checked them, so asking either question asks that index
+    // rather than the roll. A chip that cannot be acted on is not offered.
+    const byHub = HUB_FACETS.some((k) => (st.f[k]?.length ?? 0) > 0);
+    if (source && !byHub) {
       const filters = {};
       for (const [key, facet] of Object.entries(ROLL_FACET)) {
         const codes = codesOf(key, st.f[key]);
         if (codes.length) filters[facet] = codes;
+      }
+      // Parameters is a range rather than chosen values, and the roll holds it
+      // as the bucket of the largest stop a count reaches - the same stops this
+      // screen draws - so the range is the union of the buckets between the two
+      // handles. Untouched, it filters nothing, which is what keeps the models
+      // whose count nobody published in the list until somebody asks by size.
+      const [lo, hi] = st.range;
+      if (lo !== 0 || hi !== s.stops.length - 1) {
+        filters.parameters = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
       }
       const sort = ROLL_SORT[st.sort] ?? "downloads";
       const got = await source.page({ sort, filters, page: st.page, q: st.q });
@@ -1209,7 +1232,14 @@ function filtersHtml(list, st, order, pre) {
   // When the caller brought counts, those are the facets there are: the rest
   // are the addressed index's and the roll cannot answer them, so they are not
   // offered rather than offered empty.
-  const can = (f) => (pre ? Object.hasOwn(pre, f.key) : true);
+  // Sources is drawn whatever is driving. Its values are a fixed, short list
+  // rather than something counted out of the rows, and choosing one is what
+  // moves the page off the roll and onto the records that name a source
+  // (`bySource` below), so offering it is the thing that makes that reachable.
+  // It carries no counts, which is why it can be offered honestly: the roll
+  // cannot say how many of three million are on IPFS, and this does not claim
+  // to. Every other facet still has to be answerable by whatever is driving.
+  const can = (f) => HUB_FACETS.includes(f.key) || (pre ? Object.hasOwn(pre, f.key) : true);
   const sections = facetDefs().filter((f) => f.tabs.includes(st.tab) && can(f))
     .map((f) => (f.kind === "range" ? rangeFacet(st) : chipFacet(f, list, st, order, pre))).join("");
   return `<div class="tabs" role="tablist">${tabs}</div><div class="sections">${sections}</div>`;
@@ -1228,18 +1258,18 @@ function chipFacet(f, list, st, order, pre) {
     }
   }
   const active = st.f[f.key] ?? [];
-  const rows = [...counts].filter(([v, n]) => n > 0 || active.includes(v));
+  const whole = fixed && f.kind === "plain";
+  const rows = [...counts].filter(([v, n]) => whole || n > 0 || active.includes(v));
   if (fixed) rows.sort((a, b) => fixed.indexOf(a[0]) - fixed.indexOf(b[0]));
   else if (order[f.key] === "az") rows.sort((a, b) => a[0].localeCompare(b[0]));
   else rows.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  const plain = f.kind === "plain";
-  const chips = rows.map(([v, n]) => `<button type="button" class="chip${plain ? " plain" : ""}" data-facet="${esc(f.key)}" data-value="${esc(v)}" aria-pressed="${active.includes(v)}">${ICON[f.icon] ?? ""}<span class="label">${esc(said(f.key, v))}</span>${plain ? "" : `<span class="n">${count(n)}</span>`}</button>`).join("");
+  const chips = rows.map(([v]) => `<button type="button" class="chip" data-facet="${esc(f.key)}" data-value="${esc(v)}" aria-pressed="${active.includes(v)}">${ICON[f.icon] ?? ""}<span class="label">${esc(said(f.key, v))}</span></button>`).join("");
   const placeholder = fill(s.filterBy, { label: f.label.toLowerCase() });
   const az = order[f.key] === "az";
   const tools = f.kind === "search" ? `<div class="facet-tools"><label class="field compact">${ICON.search}<input type="search" placeholder="${esc(placeholder)}" data-facet-search="${esc(f.key)}" autocomplete="off" aria-label="${esc(placeholder)}" /></label><button type="button" class="control square" data-order="${esc(f.key)}" aria-label="${esc(az ? s.sortCount : s.sortAz)}" title="${esc(az ? s.sortCount : s.sortAz)}">${az ? ICON.sortCount : ICON.sortAz}</button></div>` : "";
   return `<section class="facet" data-key="${esc(f.key)}">
     <header><h2>${esc(f.label)}</h2><button type="button" class="control reset" data-reset="${esc(f.key)}"${active.length ? "" : " disabled"}>${ICON.reset}${esc(s.reset)}</button></header>
-    ${tools}<div class="chips clamped">${chips || `<p class="none">${esc(s.none)}</p>`}</div><button type="button" class="control more" hidden></button></section>`;
+    ${tools}<div class="chips clamped">${chips || `<p class="none">${esc(s.none)}</p>`}<button type="button" class="control more" hidden></button></div></section>`;
 }
 // Parameter count as one bar with two handles, the way a reader expects to say
 // "between these two sizes". The stops are the screen's, evenly spaced on the
@@ -1259,15 +1289,35 @@ function rangeFacet(st) {
       ${slider("to", to, fill(s.parameterRange, { low: s.stops[from][1], high: s.stops[to][1] }))}
     </div></section>`;
 }
-// Three rows of chips, then "+N more": the hidden count is what lies past the third row.
+// Three rows of chips, then "+ N" for whatever did not fit. The count is one
+// more chip at the end of the last visible row, the way Hugging Face's panel
+// draws it, rather than a bar underneath that costs a whole row to say one
+// number.
+//
+// Which means it has to be put where it will be seen. The chips are clamped by
+// height, and a button sitting after three thousand of them is three thousand
+// chips below the fold, so it is moved to just before the first chip that does
+// not fit - and then placed again, because taking a seat in that row can push
+// one more chip out of it.
 function clampChips() {
   const more = screens.models.more;
   for (const chips of $$(".filters .chips.clamped")) {
-    const button = chips.nextElementSibling;
-    const limit = chips.clientHeight;
-    const hidden = $$(".chip", chips).filter((c) => c.offsetTop - chips.offsetTop >= limit).length;
-    button.hidden = !hidden;
-    button.dataset.more = fill(more, { n: hidden });
+    const button = chips.querySelector(".more");
+    if (!button) continue;
+    button.hidden = true;
+    const past = () => $$(".chip", chips).filter((c) => c.offsetTop - chips.offsetTop >= chips.clientHeight);
+    if (!past().length) continue;
+    button.hidden = false;
+    const place = () => {
+      const first = past()[0];
+      if (first) chips.insertBefore(button, first);
+      else chips.append(button);
+    };
+    place();
+    place();
+    const n = past().filter((c) => c !== button).length;
+    if (!n) { button.hidden = true; continue; }
+    button.dataset.more = fill(more, { n });
     button.textContent = button.dataset.more;
   }
 }

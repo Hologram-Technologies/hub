@@ -388,3 +388,48 @@ fn index_hk_25() {
         "a row the kernel has not judged must say it is unchecked"
     );
 }
+
+/// `HK-26`: A filter the panel offers is one whatever is driving the list can act on, so a control is never drawn that cannot narrow anything
+#[test]
+fn index_hk_26() {
+    let page = without_comments("web/hub.mjs");
+
+    // Three controls were drawn over the roll that nothing acted on: the
+    // parameter slider, Status, and Sources. Each looked like a filter, moved
+    // when clicked, and changed nothing, because the roll cannot answer them
+    // and no branch did anything else about it. That is the defect this
+    // guards: a facet is offered only if the thing driving the list can act
+    // on it.
+    assert!(
+        page.contains("const HUB_FACETS = "),
+        "the facets only this hub can answer must be named in one place"
+    );
+    // One list, read by the deciding and by the moving. Two lists is how a
+    // facet comes to be offered on a page that will not act on it.
+    assert!(
+        page.contains("HUB_FACETS.includes(f.key) || (pre ? Object.hasOwn(pre, f.key) : true)"),
+        "a facet is offered only when the roll counts it or this hub can answer it"
+    );
+    assert!(
+        page.contains("HUB_FACETS.some((k) => (st.f[k]?.length ?? 0) > 0)"),
+        "choosing one of this hub's own facets must move the page to the records that answer it"
+    );
+
+    // The parameter range is a filter over the roll, not a drawing of one.
+    // The roll files each row in the bucket of the largest stop its count
+    // reaches, so a range is the union of the buckets between the handles.
+    assert!(
+        page.contains("filters.parameters = Array.from("),
+        "the parameter range must be applied to the roll, not merely drawn over it"
+    );
+    assert!(
+        page.contains("params: \"parameters\""),
+        "the roll's parameter postings must be mapped into the counts the panel is built from"
+    );
+
+    let spec = without_comments("app/tools/site_spec.py");
+    assert!(
+        spec.contains("\"sources\", \"hub_source\""),
+        "Sources must be a facet the screen declares"
+    );
+}
