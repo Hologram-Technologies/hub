@@ -23,6 +23,8 @@ model does not sanction.
 | ID | Level | Statement |
 | --- | --- | --- |
 | `HK-30` | `build` | Every command the model page gives a tool is one whose requests the apex routes to this repository, so the site never offers a command that reaches nothing |
+| `HK-33` | `build` | A tool that asks the apex for its bare name, curl gethologram.ai over http or https, gets a plain-text guide published as a static file and written from the home screen's model, every curl in it reaches a route the apex answers, and the home page prints that command |
+| `HK-34` | `build` | The landing hero fits every screen from 320 pixels wide: no part of it is wider than the window, so nothing is cut off and the page never scrolls sideways |
 
 ## buckets
 

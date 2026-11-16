@@ -270,8 +270,40 @@ SCREENS = {
         "tail": "models, skills and artifacts.",
         "cta": "Browse {count} models",
         "ctaRoute": ROUTE["models"],
-        # What a tool gets at the apex is the Hugging Face API; the agent page that answered a bare `curl` is retired.
-        "command": f"curl {API}/api/models?limit=3",
+        # The shortest command that works: a tool asking the apex for its bare name gets `guide` as plain text
+        # (HK-33). It reads the same in every shell, where an unquoted `?` is a glob to zsh, and it fits a phone.
+        "command": f"curl {API_HOST}",
+        # What `curl gethologram.ai` prints. The generator writes it to web/agent.txt and Pages serves it as a
+        # static file, so answering a tool costs no server. Every curl here reaches a route the apex answers,
+        # and no line is wider than 100 columns, so it reads whole in a terminal.
+        "guide": [
+            "gethologram.ai",
+            "",
+            "A drop-in Hugging Face Hub. No account, no key, every read anonymous.",
+            "Every file is named by the hash of its bytes, so check the bytes, not us.",
+            "",
+            "Point any Hugging Face tool here:",
+            "",
+            f"  export HF_ENDPOINT={API}",
+            "  hf download openai-community/gpt2",
+            "",
+            "Or ask directly:",
+            "",
+            f"  curl '{API}/api/models?search=qwen&limit=3'",
+            f"  curl {API}/api/models/openai-community/gpt2/tree/main",
+            f"  curl -LO {API}/openai-community/gpt2/resolve/main/config.json",
+            "",
+            "Check what arrived against the hash the tree names:",
+            "",
+            "  sha256sum <file>                       large files, against lfs.oid",
+            "  git hash-object --no-filters <file>    small files, against oid",
+            "",
+            "The same file from one named source, to compare two hosts:",
+            "",
+            f"  curl -L {API}/via/modelscope/openai-community/gpt2/resolve/main/config.json",
+            "",
+            f"Browse: {API}",
+        ],
         "families": [
             ["Llama", "meta-llama"], ["Qwen", "Qwen"], ["DeepSeek", "deepseek-ai"],
             ["Mistral AI", "mistralai"], ["Gemma", "google"], ["Phi", "microsoft"],

@@ -84,6 +84,21 @@ gethologram.ai, hub.uor.foundation {
 	}
 	redir @hfpage /models/{re.hfpage.1}/{re.hfpage.2}/ 302
 
+	# A tool asking for the apex's bare name, `curl gethologram.ai`, gets the plain-text guide (HK-33): a static file
+	# Pages publishes, written from the home screen's model, so answering it costs no server. A browser gets the site.
+	# The answer depends on the client, so a cache must key on it.
+	@tool {
+		path /
+		header_regexp tool User-Agent ^(curl|Wget|HTTPie|xh)/
+	}
+	header / Vary User-Agent
+	handle @tool {
+		rewrite * /hub/agent.txt
+		reverse_proxy https://hologram-technologies.github.io {
+			header_up Host hologram-technologies.github.io
+		}
+	}
+
 	# Everything else is this repository's site, as Pages publishes it. Pages answers a directory without its slash
 	# with an absolute redirect to its own host; that Location is made relative so a reader stays on the apex.
 	handle {
@@ -92,5 +107,25 @@ gethologram.ai, hub.uor.foundation {
 			header_up Host hologram-technologies.github.io
 			header_down Location ^https://hologram-technologies\.github\.io/hub/ /
 		}
+	}
+}
+
+# Plain http. A tool's bare request gets the same guide, since curl does not follow a redirect unless told to and an
+# empty 308 is all it would print; everything else moves to https, as Caddy's automatic redirect did before this block
+# replaced it.
+http://gethologram.ai, http://hub.uor.foundation {
+	@tool {
+		path /
+		header_regexp tool User-Agent ^(curl|Wget|HTTPie|xh)/
+	}
+	header / Vary User-Agent
+	handle @tool {
+		rewrite * /hub/agent.txt
+		reverse_proxy https://hologram-technologies.github.io {
+			header_up Host hologram-technologies.github.io
+		}
+	}
+	handle {
+		redir https://{host}{uri} 308
 	}
 }

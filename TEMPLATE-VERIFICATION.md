@@ -3097,3 +3097,52 @@ Each planted defect, restored after, is rejected by name:
     old site as a fallback:   the apex may answer only from this repository's edge, Spaces and site, not hub-site:8080
 
 Restored, `cargo test -p repo-conformance --test apex` passes.
+
+## HK-33: `curl gethologram.ai` answers again
+
+The cutover retired the agent page that answered a bare `curl gethologram.ai`,
+so the home page printed `curl https://gethologram.ai/api/models?limit=3`
+instead: 46 characters, wider than a phone, and broken unquoted in zsh, where
+`?` is a glob. Measured 2026-11-16, plain `curl gethologram.ai` printed nothing
+(an empty 308) and over https it printed the site's HTML.
+
+The answer is now a static file. `site_spec.py` holds the guide in the home
+screen's model; `gen_kernel.py` writes it to `web/agent.txt`, which Pages
+publishes with the site. The route record sends a request for `/` whose
+User-Agent starts `curl/`, `Wget/`, `HTTPie/` or `xh/` to that file, in the
+https block and in a new http block that otherwise redirects to https as
+Caddy's automatic redirect did. No server composes the answer. Checked in
+`caddy:2-alpine` with the record as written: curl and Wget at `/`, over http
+and https, reach Pages' `/hub/agent.txt`; a browser at `/` gets the site; plain
+http elsewhere answers 308 to https; every response at `/` carries
+`Vary: User-Agent`.
+
+Each planted defect, restored after, is rejected by name:
+
+    a stale guide file:          web/agent.txt must be the model's guide exactly; run python app/tools/gen_kernel.py
+    the http block removed:      the http block must send a tool's bare request to the guide
+    https route to another file: the https block must send a tool's bare request to the guide (HK-30 fails too)
+
+Restored, `cargo test -p repo-conformance --test apex` passes.
+
+## HK-34: the landing hero fits a phone
+
+On a 375-pixel phone the hero ran 486 pixels wide and the headline was cut off
+on the right. Cause: `.land` and `.land-copy` are grids with no columns, so
+the one implicit column was as wide as the longest line, and the command does
+not wrap. Both now lay out in `minmax(0, 1fr)`, and every child of the hero is
+at most that column wide, so a long command ends in an ellipsis (the copy
+button still copies it whole).
+
+The rule is checked twice. `apex_hk_34` reads the stylesheet, and rejects the
+planted defect of the column rule removed:
+
+    the landing and its copy must lay out in one column the window bounds
+
+`tools/smoke.mjs`, run on the published site after each deploy, measures every
+box in the hero and the page against the window at 320, 360, 375, 390, 412,
+768, 1440 and 1920 pixels wide. The same measurement against the live apex,
+2026-11-16, in Chromium, WebKit and Firefox: with the stylesheet as deployed it
+fails 15 of 24 (every width up to 412 in each engine, for example
+`land-copy 16..502` at 320); with this stylesheet routed in it passes 24 of 24,
+with the old long command and with `curl gethologram.ai`.

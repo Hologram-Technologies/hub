@@ -772,7 +772,11 @@ def main():
         f.write(gen_site.site_module(HEAD))
     with open(os.path.join(SRC, "Kernel.lex.tex"), "w", newline="\n") as f:
         f.write(kernel_module())
-    stale = os.path.join(SRC, "KernelProofs.lex.tex")
+    # What the apex answers a bare `curl gethologram.ai` with (HK-33), written from the same model as the home
+    # screen so the page and the file cannot say different things.
+    with open(os.path.join(HERE, "..", "..", "web", "agent.txt"), "w", newline="\n") as f:
+        f.write("\n".join(site_spec.SCREENS["home"]["guide"]) + "\n")
+    stale =os.path.join(SRC, "KernelProofs.lex.tex")
     if os.path.exists(stale):
         os.remove(stale)
     os.makedirs(os.path.join(SRC, "Proofs"), exist_ok=True)
