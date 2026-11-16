@@ -2,3 +2,16 @@
 openai-community/gpt2
 sentence-transformers/all-MiniLM-L6-v2
 BAAI/bge-small-en-v1.5
+
+# The three ONNX models the Q engine loads, so that it can pull them from this
+# hub rather than from huggingface.co. What a manifest gives for these is
+# narrower than for the models above, and the difference is not a defect: the
+# witness reads tensors from safetensors headers, and these repositories carry
+# none - 10, 12 and 12 .onnx files against 0 safetensors. Every file over 10 MB
+# therefore keeps the SHA-256 Hugging Face published for it, marked
+# witnessed: false, and no tensor in them has an address this repository
+# checked. An ONNX layout reader is what would change that, and it is not
+# built.
+onnx-community/Qwen2.5-1.5B-Instruct
+onnx-community/Qwen3-0.6B-ONNX
+onnx-community/Llama-3.2-1B-Instruct-ONNX
