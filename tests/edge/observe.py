@@ -50,6 +50,18 @@ def error_of(call):
         return type(e).__name__
 
 
+def answer_of(call):
+    # The status and error code a refusal arrived with. huggingface_hub names a
+    # 401 with no X-Error-Code RepositoryNotFoundError only for an https://
+    # endpoint (REPO_API_REGEX in utils/_http.py), so against a local edge the
+    # class says how it was reached, not what it was told; the answer does not.
+    try:
+        call()
+        return "no error"
+    except errors.HfHubHTTPError as e:
+        return [e.response.status_code, e.response.headers.get("x-error-code")]
+
+
 seen = {}
 seen["small file"] = sha(hf.hf_hub_download(REPO, "config.json"))
 meta = hf.get_hf_file_metadata(hf.hf_hub_url(REPO, "model.safetensors"))
@@ -78,4 +90,31 @@ if os.environ.get("OFFLINE") != "1":
     seen["gated repository"] = error_of(lambda: hf.hf_hub_download("meta-llama/Llama-3.1-8B", "config.json"))
 else:
     seen["offline"] = True
+
+# Datasets and Spaces, read the way `datasets` and `gradio_client` read them
+# (HK-31), and the refusals a client with no token gets (HK-32). Skipped when
+# the edge answers from its index alone, or every file is pinned to a second
+# source: the index and the second sources hold models.
+DATASET = "stanfordnlp/imdb"
+SPACE = "gradio/hello_world"
+if os.environ.get("OFFLINE") != "1" and os.environ.get("PINNED") != "1":
+    seen["dataset sha"] = hf.dataset_info(DATASET, revision="main").sha
+    seen["dataset files"] = sorted(hf.list_repo_files(DATASET, repo_type="dataset"))
+    seen["dataset readme"] = sha(hf.hf_hub_download(DATASET, "README.md", repo_type="dataset"))
+    seen["dataset parquet file"] = sha(hf.hf_hub_download(
+        DATASET, "plain_text/test-00000-of-00001.parquet", repo_type="dataset"))
+    seen["dataset tree"] = sorted(e.path for e in hf.list_repo_tree(DATASET, "plain_text", repo_type="dataset"))
+    seen["dataset paths info"] = sorted(e.path for e in hf.get_paths_info(DATASET, ["README.md"], repo_type="dataset"))
+    seen["dataset refs"] = sorted(b.name for b in hf.list_repo_refs(DATASET, repo_type="dataset").branches)
+    seen["dataset search"] = sorted(d.id for d in hf.list_datasets(author="stanfordnlp", search="imdb", limit=5))
+    seen["missing dataset"] = answer_of(lambda: hf.dataset_info("nobody-xyz-123/no-such-dataset"))
+    seen["missing dataset file"] = error_of(lambda: hf.hf_hub_download(DATASET, "nope.txt", repo_type="dataset"))
+    seen["space sha"] = hf.space_info(SPACE).sha
+    seen["space files"] = sorted(hf.list_repo_files(SPACE, repo_type="space"))
+    seen["space app"] = sha(hf.hf_hub_download(SPACE, "app.py", repo_type="space"))
+    seen["space search"] = sorted(s.id for s in hf.list_spaces(author="gradio", search="hello_world", limit=5))
+    seen["model by its old name"] = [hf.model_info("gpt2").id, sha(hf.hf_hub_download("gpt2", "config.json"))]
+    seen["dataset by its old name"] = sha(hf.hf_hub_download("imdb", "README.md", repo_type="dataset"))
+    seen["whoami"] = error_of(lambda: hf.whoami())
+    seen["anonymous write"] = error_of(lambda: hf.create_repo("nobody-xyz-123/should-not-exist"))
 json.dump(seen, sys.stdout, indent=1, sort_keys=True)

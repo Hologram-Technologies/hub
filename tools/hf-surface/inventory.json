@@ -1,0 +1,2287 @@
+{
+  "source": {
+    "url": "https://huggingface.co/.well-known/openapi.json",
+    "fetched": "2026-11-15",
+    "bytes": 1227789,
+    "sha256": "4a3d843b82dbfb03cbe2744108edcf144851d03cff7cc6fa274c78ee3af749f9",
+    "version": "0.0.1",
+    "paths": 310
+  },
+  "surface": "d3acb92cb9ba07c23e09fe8b950013c8f7b1b0d4af5e7536b12dc8d129ac57f4",
+  "operations": [
+    {
+      "method": "GET",
+      "path": "/api/agent-harnesses",
+      "tag": "agents",
+      "summary": "Get agent harnesses"
+    },
+    {
+      "method": "GET",
+      "path": "/api/avatars/{namespace}",
+      "tag": "users",
+      "summary": "Get avatar"
+    },
+    {
+      "method": "GET",
+      "path": "/api/blog/zh",
+      "tag": "blogs",
+      "summary": "List blogs"
+    },
+    {
+      "method": "POST",
+      "path": "/api/blog/{namespace}/{slug}/comment",
+      "tag": "discussions",
+      "summary": "Create comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/blog/{namespace}/{slug}/comment/{commentId}/edit",
+      "tag": "discussions",
+      "summary": "Update a comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/blog/{namespace}/{slug}/comment/{commentId}/hide",
+      "tag": "discussions",
+      "summary": "Hide comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/blog/{namespace}/{slug}/comment/{commentId}/reaction",
+      "tag": "discussions",
+      "summary": "React to comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/blog/{namespace}/{slug}/comment/{commentId}/reply",
+      "tag": "discussions",
+      "summary": "Create comment"
+    },
+    {
+      "method": "GET",
+      "path": "/api/blog/{namespace}/{slug}/resource-group",
+      "tag": "blogs",
+      "summary": "Blog resource group"
+    },
+    {
+      "method": "POST",
+      "path": "/api/blog/{namespace}/{slug}/resource-group",
+      "tag": "blogs",
+      "summary": "Blog resource group"
+    },
+    {
+      "method": "POST",
+      "path": "/api/blog/{slug}/comment",
+      "tag": "discussions",
+      "summary": "Create comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/blog/{slug}/comment/{commentId}/edit",
+      "tag": "discussions",
+      "summary": "Update a comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/blog/{slug}/comment/{commentId}/hide",
+      "tag": "discussions",
+      "summary": "Hide comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/blog/{slug}/comment/{commentId}/reaction",
+      "tag": "discussions",
+      "summary": "React to comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/blog/{slug}/comment/{commentId}/reply",
+      "tag": "discussions",
+      "summary": "Create comment"
+    },
+    {
+      "method": "GET",
+      "path": "/api/buckets/{namespace}",
+      "tag": "buckets",
+      "summary": "List namespace buckets"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/buckets/{namespace}/{repo}",
+      "tag": "buckets",
+      "summary": "Delete bucket"
+    },
+    {
+      "method": "GET",
+      "path": "/api/buckets/{namespace}/{repo}",
+      "tag": "buckets",
+      "summary": "Get bucket details"
+    },
+    {
+      "method": "POST",
+      "path": "/api/buckets/{namespace}/{repo}",
+      "tag": "buckets",
+      "summary": "Create bucket"
+    },
+    {
+      "method": "POST",
+      "path": "/api/buckets/{namespace}/{repo}/batch",
+      "tag": "buckets",
+      "summary": "Batch file operations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/buckets/{namespace}/{repo}/events",
+      "tag": "buckets",
+      "summary": "Follow changes"
+    },
+    {
+      "method": "POST",
+      "path": "/api/buckets/{namespace}/{repo}/lfs-files/duplicate",
+      "tag": "buckets",
+      "summary": "Duplicate xet files"
+    },
+    {
+      "method": "POST",
+      "path": "/api/buckets/{namespace}/{repo}/paths-info",
+      "tag": "buckets",
+      "summary": "List paths info"
+    },
+    {
+      "method": "GET",
+      "path": "/api/buckets/{namespace}/{repo}/resource-group",
+      "tag": "buckets",
+      "summary": "Get resource group"
+    },
+    {
+      "method": "POST",
+      "path": "/api/buckets/{namespace}/{repo}/resource-group",
+      "tag": "buckets",
+      "summary": "Add resource group"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/buckets/{namespace}/{repo}/settings",
+      "tag": "buckets",
+      "summary": "Update bucket settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/buckets/{namespace}/{repo}/tree/{path}",
+      "tag": "buckets",
+      "summary": "List files"
+    },
+    {
+      "method": "GET",
+      "path": "/api/buckets/{namespace}/{repo}/xet-read-token",
+      "tag": "buckets",
+      "summary": "Xet read token"
+    },
+    {
+      "method": "GET",
+      "path": "/api/buckets/{namespace}/{repo}/xet-write-token",
+      "tag": "buckets",
+      "summary": "Xet write token"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections",
+      "tag": "collections",
+      "summary": "Get collections"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections",
+      "tag": "collections",
+      "summary": "Create a collection"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/collections/{namespace}/{slug}",
+      "tag": "collections",
+      "summary": "Delete a collection"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/{namespace}/{slug}",
+      "tag": "collections",
+      "summary": "Get a collection"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/collections/{namespace}/{slug}",
+      "tag": "collections",
+      "summary": "Update a collection"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/collections/{namespace}/{slug}-{id}",
+      "tag": "collections",
+      "summary": "Delete a collection"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/{namespace}/{slug}-{id}",
+      "tag": "collections",
+      "summary": "Get a collection"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/collections/{namespace}/{slug}-{id}",
+      "tag": "collections",
+      "summary": "Update a collection"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{namespace}/{slug}-{id}/items",
+      "tag": "collections",
+      "summary": "Add item"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{namespace}/{slug}-{id}/items/batch",
+      "tag": "collections",
+      "summary": "Batch update items"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/collections/{namespace}/{slug}-{id}/items/{itemId}",
+      "tag": "collections",
+      "summary": "Delete item"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/collections/{namespace}/{slug}-{id}/items/{itemId}",
+      "tag": "collections",
+      "summary": "Update item"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/{namespace}/{slug}-{id}/resource-group",
+      "tag": "collections",
+      "summary": "Collection resource group"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{namespace}/{slug}-{id}/resource-group",
+      "tag": "collections",
+      "summary": "Collection resource group"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{namespace}/{slug}/items",
+      "tag": "collections",
+      "summary": "Add item"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{namespace}/{slug}/items/batch",
+      "tag": "collections",
+      "summary": "Batch update items"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/collections/{namespace}/{slug}/items/{slug}",
+      "tag": "collections",
+      "summary": "Delete item"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/collections/{namespace}/{slug}/items/{slug}",
+      "tag": "collections",
+      "summary": "Update item"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/{namespace}/{slug}/resource-group",
+      "tag": "collections",
+      "summary": "Collection resource group"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{namespace}/{slug}/resource-group",
+      "tag": "collections",
+      "summary": "Collection resource group"
+    },
+    {
+      "method": "GET",
+      "path": "/api/containers/{namespace}",
+      "tag": "containers",
+      "summary": "List namespace buckets"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/containers/{namespace}/{repo}",
+      "tag": "containers",
+      "summary": "Delete bucket"
+    },
+    {
+      "method": "GET",
+      "path": "/api/containers/{namespace}/{repo}",
+      "tag": "containers",
+      "summary": "Get bucket details"
+    },
+    {
+      "method": "POST",
+      "path": "/api/containers/{namespace}/{repo}",
+      "tag": "containers",
+      "summary": "Create bucket"
+    },
+    {
+      "method": "POST",
+      "path": "/api/containers/{namespace}/{repo}/batch",
+      "tag": "containers",
+      "summary": "Batch file operations"
+    },
+    {
+      "method": "POST",
+      "path": "/api/containers/{namespace}/{repo}/paths-info",
+      "tag": "containers",
+      "summary": "List paths info"
+    },
+    {
+      "method": "GET",
+      "path": "/api/containers/{namespace}/{repo}/resource-group",
+      "tag": "containers",
+      "summary": "Get resource group"
+    },
+    {
+      "method": "POST",
+      "path": "/api/containers/{namespace}/{repo}/resource-group",
+      "tag": "containers",
+      "summary": "Add resource group"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/containers/{namespace}/{repo}/settings",
+      "tag": "containers",
+      "summary": "Update bucket settings"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/containers/{namespace}/{repo}/tags/{tag}",
+      "tag": "containers",
+      "summary": "Delete tag"
+    },
+    {
+      "method": "GET",
+      "path": "/api/containers/{namespace}/{repo}/tree/{path}",
+      "tag": "containers",
+      "summary": "List files"
+    },
+    {
+      "method": "GET",
+      "path": "/api/containers/{namespace}/{repo}/xet-read-token",
+      "tag": "containers",
+      "summary": "Xet read token"
+    },
+    {
+      "method": "GET",
+      "path": "/api/containers/{namespace}/{repo}/xet-write-token",
+      "tag": "containers",
+      "summary": "Xet write token"
+    },
+    {
+      "method": "POST",
+      "path": "/api/credentials/revoke",
+      "tag": "tokens",
+      "summary": "Revoke leaked tokens"
+    },
+    {
+      "method": "GET",
+      "path": "/api/daily_papers",
+      "tag": "papers",
+      "summary": "Get Daily Papers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets-tags-by-type",
+      "tag": "datasets",
+      "summary": "Get dataset tags"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/datasets/{namespace}/{repo}/branch/{rev}",
+      "tag": "datasets",
+      "summary": "Delete a branch"
+    },
+    {
+      "method": "POST",
+      "path": "/api/datasets/{namespace}/{repo}/branch/{rev}",
+      "tag": "datasets",
+      "summary": "Create branch"
+    },
+    {
+      "method": "POST",
+      "path": "/api/datasets/{namespace}/{repo}/commit/{rev}",
+      "tag": "datasets",
+      "summary": "Commit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets/{namespace}/{repo}/commits/{rev}",
+      "tag": "datasets",
+      "summary": "List commits"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets/{namespace}/{repo}/compare/{compare}",
+      "tag": "datasets",
+      "summary": "Get compare rev"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets/{namespace}/{repo}/jwt",
+      "tag": "datasets",
+      "summary": "Generate JWT"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets/{namespace}/{repo}/leaderboard",
+      "tag": "datasets",
+      "summary": "Get dataset leaderboard"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets/{namespace}/{repo}/lfs-files",
+      "tag": "datasets",
+      "summary": "List Large files"
+    },
+    {
+      "method": "POST",
+      "path": "/api/datasets/{namespace}/{repo}/lfs-files/batch",
+      "tag": "datasets",
+      "summary": "Delete Large files"
+    },
+    {
+      "method": "POST",
+      "path": "/api/datasets/{namespace}/{repo}/lfs-files/duplicate",
+      "tag": "datasets",
+      "summary": "Duplicate xet files"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/datasets/{namespace}/{repo}/lfs-files/{sha}",
+      "tag": "datasets",
+      "summary": "Delete Large file"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets/{namespace}/{repo}/likers",
+      "tag": "datasets",
+      "summary": "List likers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets/{namespace}/{repo}/notebook/{rev}/{path}",
+      "tag": "datasets",
+      "summary": "Get notebook URL"
+    },
+    {
+      "method": "POST",
+      "path": "/api/datasets/{namespace}/{repo}/paths-info/{rev}",
+      "tag": "datasets",
+      "summary": "List paths info"
+    },
+    {
+      "method": "POST",
+      "path": "/api/datasets/{namespace}/{repo}/preupload/{rev}",
+      "tag": "datasets",
+      "summary": "Check upload method"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets/{namespace}/{repo}/refs",
+      "tag": "datasets",
+      "summary": "List references"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets/{namespace}/{repo}/resource-group",
+      "tag": "datasets",
+      "summary": "Get resource group"
+    },
+    {
+      "method": "POST",
+      "path": "/api/datasets/{namespace}/{repo}/resource-group",
+      "tag": "datasets",
+      "summary": "Add resource group"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets/{namespace}/{repo}/scan",
+      "tag": "datasets",
+      "summary": "Get security status"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/datasets/{namespace}/{repo}/settings",
+      "tag": "datasets",
+      "summary": "Update repo settings"
+    },
+    {
+      "method": "POST",
+      "path": "/api/datasets/{namespace}/{repo}/super-squash/{rev}",
+      "tag": "datasets",
+      "summary": "Squash ref"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/datasets/{namespace}/{repo}/tag/{rev}",
+      "tag": "datasets",
+      "summary": "Delete a tag"
+    },
+    {
+      "method": "POST",
+      "path": "/api/datasets/{namespace}/{repo}/tag/{rev}",
+      "tag": "datasets",
+      "summary": "Create tag"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets/{namespace}/{repo}/tree/{rev}/{path}",
+      "tag": "datasets",
+      "summary": "List folder content"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets/{namespace}/{repo}/treesize/{rev}/{path}",
+      "tag": "datasets",
+      "summary": "Get folder size"
+    },
+    {
+      "method": "POST",
+      "path": "/api/datasets/{namespace}/{repo}/user-access-request/batch",
+      "tag": "datasets",
+      "summary": "Batch access requests"
+    },
+    {
+      "method": "POST",
+      "path": "/api/datasets/{namespace}/{repo}/user-access-request/cancel",
+      "tag": "datasets",
+      "summary": "Cancel access request"
+    },
+    {
+      "method": "POST",
+      "path": "/api/datasets/{namespace}/{repo}/user-access-request/grant",
+      "tag": "datasets",
+      "summary": "Grant access"
+    },
+    {
+      "method": "POST",
+      "path": "/api/datasets/{namespace}/{repo}/user-access-request/handle",
+      "tag": "datasets",
+      "summary": "Handle access request"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets/{namespace}/{repo}/user-access-request/{status}",
+      "tag": "datasets",
+      "summary": "List access requests"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets/{namespace}/{repo}/xet-read-token/{rev}",
+      "tag": "datasets",
+      "summary": "Xet read token"
+    },
+    {
+      "method": "GET",
+      "path": "/api/datasets/{namespace}/{repo}/xet-write-token/{rev}",
+      "tag": "datasets",
+      "summary": "Xet write token"
+    },
+    {
+      "method": "GET",
+      "path": "/api/docs",
+      "tag": "docs",
+      "summary": "List docs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/docs/search",
+      "tag": "docs",
+      "summary": "Search docs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/docs/search/full-text",
+      "tag": "docs",
+      "summary": "Full-text search docs"
+    },
+    {
+      "method": "POST",
+      "path": "/api/inference-endpoints/{namespace}/auth-check/{perms}",
+      "tag": "inference-endpoints",
+      "summary": "Check access"
+    },
+    {
+      "method": "POST",
+      "path": "/api/inference-endpoints/{namespace}/{endpoint}/auth-check/{perms}",
+      "tag": "inference-endpoints",
+      "summary": "Check access"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/hardware",
+      "tag": "jobs",
+      "summary": "Get job hardware"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/{namespace}",
+      "tag": "jobs",
+      "summary": "List jobs"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/{namespace}",
+      "tag": "jobs",
+      "summary": "Start a job"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/{namespace}/auth-check/{perms}",
+      "tag": "jobs",
+      "summary": "Check access"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/{namespace}/count",
+      "tag": "jobs",
+      "summary": "Count jobs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/{namespace}/{jobId}",
+      "tag": "jobs",
+      "summary": "Get a job"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/{namespace}/{jobId}/auth-check/{perms}",
+      "tag": "jobs",
+      "summary": "Check access"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/{namespace}/{jobId}/cancel",
+      "tag": "jobs",
+      "summary": "Cancel a job"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/{namespace}/{jobId}/duplicate",
+      "tag": "jobs",
+      "summary": "Duplicate a job"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/{namespace}/{jobId}/events",
+      "tag": "jobs",
+      "summary": "Stream job events"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/jobs/{namespace}/{jobId}/expose",
+      "tag": "jobs",
+      "summary": "Job exposed ports"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/jobs/{namespace}/{jobId}/labels",
+      "tag": "jobs",
+      "summary": "Update job labels"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/{namespace}/{jobId}/logs",
+      "tag": "jobs",
+      "summary": "Stream job logs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/{namespace}/{jobId}/metrics",
+      "tag": "jobs",
+      "summary": "Stream job metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kernels",
+      "tag": "kernels",
+      "summary": "List kernels"
+    },
+    {
+      "method": "POST",
+      "path": "/api/kernels/access-request/approve",
+      "tag": "kernels",
+      "summary": "Approve kernel access"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kernels/{namespace}/{repo}",
+      "tag": "kernels",
+      "summary": "Get kernel"
+    },
+    {
+      "method": "POST",
+      "path": "/api/kernels/{namespace}/{repo}/lfs-files/duplicate",
+      "tag": "kernels",
+      "summary": "Duplicate xet files"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kernels/{namespace}/{repo}/likers",
+      "tag": "kernels",
+      "summary": "List likers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kernels/{namespace}/{repo}/revision/{rev}",
+      "tag": "kernels",
+      "summary": "Get kernel"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kernels/{namespace}/{repo}/scan",
+      "tag": "kernels",
+      "summary": "Get security status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models-tags-by-type",
+      "tag": "models",
+      "summary": "Get model tags"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/models/{namespace}/{repo}/branch/{rev}",
+      "tag": "models",
+      "summary": "Delete a branch"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{namespace}/{repo}/branch/{rev}",
+      "tag": "models",
+      "summary": "Create branch"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{namespace}/{repo}/commit/{rev}",
+      "tag": "models",
+      "summary": "Commit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{namespace}/{repo}/commits/{rev}",
+      "tag": "models",
+      "summary": "List commits"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{namespace}/{repo}/compare/{compare}",
+      "tag": "models",
+      "summary": "Get compare rev"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{namespace}/{repo}/jwt",
+      "tag": "models",
+      "summary": "Generate JWT"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{namespace}/{repo}/lfs-files",
+      "tag": "models",
+      "summary": "List Large files"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{namespace}/{repo}/lfs-files/batch",
+      "tag": "models",
+      "summary": "Delete Large files"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{namespace}/{repo}/lfs-files/duplicate",
+      "tag": "models",
+      "summary": "Duplicate xet files"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/models/{namespace}/{repo}/lfs-files/{sha}",
+      "tag": "models",
+      "summary": "Delete Large file"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{namespace}/{repo}/likers",
+      "tag": "models",
+      "summary": "List likers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{namespace}/{repo}/notebook/{rev}/{path}",
+      "tag": "models",
+      "summary": "Get notebook URL"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{namespace}/{repo}/paths-info/{rev}",
+      "tag": "models",
+      "summary": "List paths info"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{namespace}/{repo}/preupload/{rev}",
+      "tag": "models",
+      "summary": "Check upload method"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{namespace}/{repo}/refs",
+      "tag": "models",
+      "summary": "List references"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{namespace}/{repo}/resource-group",
+      "tag": "models",
+      "summary": "Get resource group"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{namespace}/{repo}/resource-group",
+      "tag": "models",
+      "summary": "Add resource group"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{namespace}/{repo}/safetensors-metadata/{path}",
+      "tag": "models",
+      "summary": "Get safetensors metadata"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{namespace}/{repo}/scan",
+      "tag": "models",
+      "summary": "Get security status"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/models/{namespace}/{repo}/settings",
+      "tag": "models",
+      "summary": "Update repo settings"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{namespace}/{repo}/super-squash/{rev}",
+      "tag": "models",
+      "summary": "Squash ref"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/models/{namespace}/{repo}/tag/{rev}",
+      "tag": "models",
+      "summary": "Delete a tag"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{namespace}/{repo}/tag/{rev}",
+      "tag": "models",
+      "summary": "Create tag"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{namespace}/{repo}/tree/{rev}/{path}",
+      "tag": "models",
+      "summary": "List folder content"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{namespace}/{repo}/treesize/{rev}/{path}",
+      "tag": "models",
+      "summary": "Get folder size"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{namespace}/{repo}/user-access-request/batch",
+      "tag": "models",
+      "summary": "Batch access requests"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{namespace}/{repo}/user-access-request/cancel",
+      "tag": "models",
+      "summary": "Cancel access request"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{namespace}/{repo}/user-access-request/grant",
+      "tag": "models",
+      "summary": "Grant access"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{namespace}/{repo}/user-access-request/handle",
+      "tag": "models",
+      "summary": "Handle access request"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{namespace}/{repo}/user-access-request/{status}",
+      "tag": "models",
+      "summary": "List access requests"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{namespace}/{repo}/xet-read-token/{rev}",
+      "tag": "models",
+      "summary": "Xet read token"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{namespace}/{repo}/xet-write-token/{rev}",
+      "tag": "models",
+      "summary": "Xet write token"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/notifications",
+      "tag": "notifications",
+      "summary": "Delete notifications"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications",
+      "tag": "notifications",
+      "summary": "List notifications"
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/mark-as-read",
+      "tag": "notifications",
+      "summary": "Change read status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/audit-log/export",
+      "tag": "orgs",
+      "summary": "Export audit log"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/avatar",
+      "tag": "orgs",
+      "summary": "Get avatar"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/billing/usage-by-inference-session",
+      "tag": "orgs",
+      "summary": "Session inference usage"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/billing/usage-by-resource-group",
+      "tag": "orgs",
+      "summary": "Resource group usage"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/billing/usage-v2",
+      "tag": "orgs",
+      "summary": "Get org usage"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/billing/usage/inference",
+      "tag": "orgs",
+      "summary": "Inference usage"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/billing/usage/live",
+      "tag": "orgs",
+      "summary": "Stream usage"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/members",
+      "tag": "orgs",
+      "summary": "Get organization members"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/organizations/{name}/members/{username}/account-type",
+      "tag": "orgs",
+      "summary": "Change account type"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/organizations/{name}/members/{username}/role",
+      "tag": "orgs",
+      "summary": "Change member role"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/resource-groups",
+      "tag": "resource-groups",
+      "summary": "Get resource groups"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{name}/resource-groups",
+      "tag": "resource-groups",
+      "summary": "Create resource group"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/resource-groups/settings",
+      "tag": "resource-groups",
+      "summary": "Get resource group settings"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{name}/resource-groups/settings",
+      "tag": "resource-groups",
+      "summary": "Update resource group settings"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/organizations/{name}/resource-groups/{resourceGroupId}",
+      "tag": "resource-groups",
+      "summary": "Delete resource group"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/resource-groups/{resourceGroupId}",
+      "tag": "resource-groups",
+      "summary": "Get resource group"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/organizations/{name}/resource-groups/{resourceGroupId}",
+      "tag": "resource-groups",
+      "summary": "Update resource group"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/organizations/{name}/resource-groups/{resourceGroupId}/invitation/{id}",
+      "tag": "resource-groups",
+      "summary": "Revoke invitation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{name}/resource-groups/{resourceGroupId}/invitation/{id}/resend",
+      "tag": "resource-groups",
+      "summary": "Resend invitation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/resource-groups/{resourceGroupId}/invitations",
+      "tag": "resource-groups",
+      "summary": "List pending invitations"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{name}/resource-groups/{resourceGroupId}/invite",
+      "tag": "resource-groups",
+      "summary": "Invite external user"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{name}/resource-groups/{resourceGroupId}/settings",
+      "tag": "resource-groups",
+      "summary": "Configure auto-join"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{name}/resource-groups/{resourceGroupId}/users",
+      "tag": "resource-groups",
+      "summary": "Add users"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/organizations/{name}/resource-groups/{resourceGroupId}/users/{username}",
+      "tag": "resource-groups",
+      "summary": "Remove user"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/organizations/{name}/resource-groups/{resourceGroupId}/users/{username}",
+      "tag": "resource-groups",
+      "summary": "Change user role"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/scim-provisioning/v2/Groups",
+      "tag": "scim",
+      "summary": "List SCIM groups"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{name}/scim-provisioning/v2/Groups",
+      "tag": "scim",
+      "summary": "Create SCIM group"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/organizations/{name}/scim-provisioning/v2/Groups/{groupId}",
+      "tag": "scim",
+      "summary": "Delete SCIM group"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/scim-provisioning/v2/Groups/{groupId}",
+      "tag": "scim",
+      "summary": "Get SCIM group"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/organizations/{name}/scim-provisioning/v2/Groups/{groupId}",
+      "tag": "scim",
+      "summary": "Update SCIM group"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/organizations/{name}/scim-provisioning/v2/Groups/{groupId}",
+      "tag": "scim",
+      "summary": "Update SCIM group"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/scim-provisioning/v2/Users",
+      "tag": "scim",
+      "summary": "List SCIM-managed users"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{name}/scim-provisioning/v2/Users",
+      "tag": "scim",
+      "summary": "Create SCIM invitation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/organizations/{name}/scim-provisioning/v2/Users/{userId}",
+      "tag": "scim",
+      "summary": "Delete SCIM user"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/scim-provisioning/v2/Users/{userId}",
+      "tag": "scim",
+      "summary": "SCIM provisioning user"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/organizations/{name}/scim-provisioning/v2/Users/{userId}",
+      "tag": "scim",
+      "summary": "Update SCIM user"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/organizations/{name}/scim-provisioning/v2/Users/{userId}",
+      "tag": "scim",
+      "summary": "Update SCIM user"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/scim/v2/Groups",
+      "tag": "scim",
+      "summary": "List SCIM groups"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{name}/scim/v2/Groups",
+      "tag": "scim",
+      "summary": "Create SCIM group"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/organizations/{name}/scim/v2/Groups/{groupId}",
+      "tag": "scim",
+      "summary": "Delete SCIM group"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/scim/v2/Groups/{groupId}",
+      "tag": "scim",
+      "summary": "Get SCIM group"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/organizations/{name}/scim/v2/Groups/{groupId}",
+      "tag": "scim",
+      "summary": "Update SCIM group"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/organizations/{name}/scim/v2/Groups/{groupId}",
+      "tag": "scim",
+      "summary": "Update SCIM group"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/scim/v2/ResourceTypes",
+      "tag": "scim",
+      "summary": "SCIM resource types"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/scim/v2/Schemas",
+      "tag": "scim",
+      "summary": "Get SCIM Schemas"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/scim/v2/Schemas/{schemaId}",
+      "tag": "scim",
+      "summary": "Get SCIM schema"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/scim/v2/ServiceProviderConfig",
+      "tag": "scim",
+      "summary": "Get SCIM Configuration"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/scim/v2/Users",
+      "tag": "scim",
+      "summary": "List SCIM users"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{name}/scim/v2/Users",
+      "tag": "scim",
+      "summary": "Create SCIM user"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/organizations/{name}/scim/v2/Users/{userId}",
+      "tag": "scim",
+      "summary": "Delete SCIM user"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/scim/v2/Users/{userId}",
+      "tag": "scim",
+      "summary": "Get SCIM user"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/organizations/{name}/scim/v2/Users/{userId}",
+      "tag": "scim",
+      "summary": "Update SCIM user"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/organizations/{name}/scim/v2/Users/{userId}",
+      "tag": "scim",
+      "summary": "Update SCIM user"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/service-accounts",
+      "tag": "service-accounts",
+      "summary": "List service accounts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{name}/service-accounts",
+      "tag": "service-accounts",
+      "summary": "Create service account"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/organizations/{name}/service-accounts/{serviceAccountId}",
+      "tag": "service-accounts",
+      "summary": "Delete service account"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/service-accounts/{serviceAccountId}",
+      "tag": "service-accounts",
+      "summary": "Get service account"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{name}/service-accounts/{serviceAccountId}/tokens",
+      "tag": "service-accounts",
+      "summary": "Create service-account token"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/organizations/{name}/service-accounts/{serviceAccountId}/tokens/{tokenId}",
+      "tag": "service-accounts",
+      "summary": "Delete service-account token"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/organizations/{name}/service-accounts/{serviceAccountId}/tokens/{tokenId}",
+      "tag": "service-accounts",
+      "summary": "Update service-account token"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{name}/service-accounts/{serviceAccountId}/tokens/{tokenId}/rotate",
+      "tag": "service-accounts",
+      "summary": "Rotate service-account token"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/settings/network-security",
+      "tag": "orgs",
+      "summary": "Network security settings"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/organizations/{name}/settings/network-security",
+      "tag": "orgs",
+      "summary": "Update network security"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/settings/repositories",
+      "tag": "orgs",
+      "summary": "List organization repositories"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/organizations/{name}/settings/sso/credentials",
+      "tag": "orgs",
+      "summary": "Rotate SSO credentials"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/settings/tokens",
+      "tag": "orgs",
+      "summary": "Member access tokens"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{name}/settings/tokens/{tokenId}/revoke",
+      "tag": "orgs",
+      "summary": "Revoke member token"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{name}/socials",
+      "tag": "orgs",
+      "summary": "Get social handles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/papers",
+      "tag": "papers",
+      "summary": "List papers"
+    },
+    {
+      "method": "POST",
+      "path": "/api/papers/index",
+      "tag": "papers",
+      "summary": "Index a paper"
+    },
+    {
+      "method": "GET",
+      "path": "/api/papers/search",
+      "tag": "papers",
+      "summary": "Search papers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/papers/{paperId}",
+      "tag": "papers",
+      "summary": "Get a paper"
+    },
+    {
+      "method": "POST",
+      "path": "/api/papers/{paperId}/comment",
+      "tag": "discussions",
+      "summary": "Create comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/papers/{paperId}/comment/{commentId}/edit",
+      "tag": "discussions",
+      "summary": "Update a comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/papers/{paperId}/comment/{commentId}/hide",
+      "tag": "discussions",
+      "summary": "Hide comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/papers/{paperId}/comment/{commentId}/reaction",
+      "tag": "discussions",
+      "summary": "React to comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/papers/{paperId}/comment/{commentId}/reply",
+      "tag": "discussions",
+      "summary": "Create comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/papers/{paperId}/links",
+      "tag": "papers",
+      "summary": "Update paper links"
+    },
+    {
+      "method": "POST",
+      "path": "/api/papers/{paperId}/media",
+      "tag": "papers",
+      "summary": "Update paper media"
+    },
+    {
+      "method": "GET",
+      "path": "/api/partners/{provider}/models",
+      "tag": "inference-providers",
+      "summary": "List provider mappings"
+    },
+    {
+      "method": "POST",
+      "path": "/api/partners/{provider}/models",
+      "tag": "inference-providers",
+      "summary": "Create provider mapping"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/partners/{provider}/models/{mappingId}/status",
+      "tag": "inference-providers",
+      "summary": "Update mapping status"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/posts/{username}/{postSlug}",
+      "tag": "discussions",
+      "summary": "Delete a discussion"
+    },
+    {
+      "method": "POST",
+      "path": "/api/posts/{username}/{postSlug}/comment",
+      "tag": "discussions",
+      "summary": "Create comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/posts/{username}/{postSlug}/comment/{commentId}/edit",
+      "tag": "discussions",
+      "summary": "Update a comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/posts/{username}/{postSlug}/comment/{commentId}/hide",
+      "tag": "discussions",
+      "summary": "Hide comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/posts/{username}/{postSlug}/comment/{commentId}/reaction",
+      "tag": "discussions",
+      "summary": "React to comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/posts/{username}/{postSlug}/comment/{commentId}/reply",
+      "tag": "discussions",
+      "summary": "Create comment"
+    },
+    {
+      "method": "GET",
+      "path": "/api/quicksearch",
+      "tag": "repo-search",
+      "summary": "Quick search"
+    },
+    {
+      "method": "POST",
+      "path": "/api/quicksearch",
+      "tag": "repo-search",
+      "summary": "Quick search"
+    },
+    {
+      "method": "GET",
+      "path": "/api/registry/token",
+      "tag": "containers",
+      "summary": "Registry token"
+    },
+    {
+      "method": "POST",
+      "path": "/api/repos/create",
+      "tag": "repos",
+      "summary": "Create repository"
+    },
+    {
+      "method": "POST",
+      "path": "/api/repos/move",
+      "tag": "repos",
+      "summary": "Move repo"
+    },
+    {
+      "method": "GET",
+      "path": "/api/resolve-cache/datasets/{namespace}/{repo}/{rev}/{path}",
+      "tag": "datasets",
+      "summary": "Resolve a file"
+    },
+    {
+      "method": "GET",
+      "path": "/api/resolve-cache/models/{namespace}/{repo}/{rev}/{path}",
+      "tag": "models",
+      "summary": "Resolve a file"
+    },
+    {
+      "method": "GET",
+      "path": "/api/resolve-cache/spaces/{namespace}/{repo}/{rev}/{path}",
+      "tag": "spaces",
+      "summary": "Resolve a file"
+    },
+    {
+      "method": "GET",
+      "path": "/api/scheduled-jobs/{namespace}",
+      "tag": "jobs",
+      "summary": "List scheduled jobs"
+    },
+    {
+      "method": "POST",
+      "path": "/api/scheduled-jobs/{namespace}",
+      "tag": "jobs",
+      "summary": "Create scheduled job"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/scheduled-jobs/{namespace}/{jobId}",
+      "tag": "jobs",
+      "summary": "Delete scheduled job"
+    },
+    {
+      "method": "GET",
+      "path": "/api/scheduled-jobs/{namespace}/{jobId}",
+      "tag": "jobs",
+      "summary": "Get scheduled job"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/scheduled-jobs/{namespace}/{jobId}/labels",
+      "tag": "jobs",
+      "summary": "Scheduled job labels"
+    },
+    {
+      "method": "POST",
+      "path": "/api/scheduled-jobs/{namespace}/{jobId}/resume",
+      "tag": "jobs",
+      "summary": "Resume scheduled job"
+    },
+    {
+      "method": "POST",
+      "path": "/api/scheduled-jobs/{namespace}/{jobId}/run",
+      "tag": "jobs",
+      "summary": "Run job"
+    },
+    {
+      "method": "POST",
+      "path": "/api/scheduled-jobs/{namespace}/{jobId}/schedule",
+      "tag": "jobs",
+      "summary": "Update job schedule"
+    },
+    {
+      "method": "POST",
+      "path": "/api/scheduled-jobs/{namespace}/{jobId}/suspend",
+      "tag": "jobs",
+      "summary": "Suspend scheduled job"
+    },
+    {
+      "method": "GET",
+      "path": "/api/search/full-text",
+      "tag": "repo-search",
+      "summary": "Full-text search"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/billing/usage-by-inference-session",
+      "tag": "users",
+      "summary": "Session inference usage"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/billing/usage-v2",
+      "tag": "users",
+      "summary": "Get user usage"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/billing/usage/jobs",
+      "tag": "users",
+      "summary": "Get jobs usage"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/billing/usage/live",
+      "tag": "users",
+      "summary": "Stream usage"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/inference-providers",
+      "tag": "inference-providers",
+      "summary": "Reorder inference providers"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/inference-providers/api-key",
+      "tag": "inference-providers",
+      "summary": "Set provider key"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/inference-providers/default-billing-entity",
+      "tag": "inference-providers",
+      "summary": "Default billing entity"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/inference-providers/usage-limits",
+      "tag": "inference-providers",
+      "summary": "Set spending limit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/mcp",
+      "tag": "users",
+      "summary": "Get MCP tools"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/metrics/live",
+      "tag": "users",
+      "summary": "Stream metrics"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/notifications",
+      "tag": "notifications",
+      "summary": "Update notification settings"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/papers/claim",
+      "tag": "papers",
+      "summary": "Claim paper authorship"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/repositories",
+      "tag": "users",
+      "summary": "List user repositories"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/watch",
+      "tag": "notifications",
+      "summary": "Update watch settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/webhooks",
+      "tag": "webhooks",
+      "summary": "List webhooks"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/webhooks",
+      "tag": "webhooks",
+      "summary": "Create webhook"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/settings/webhooks/{webhookId}",
+      "tag": "webhooks",
+      "summary": "Delete webhook"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/webhooks/{webhookId}",
+      "tag": "webhooks",
+      "summary": "Get webhook"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/webhooks/{webhookId}",
+      "tag": "webhooks",
+      "summary": "Update webhook"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/webhooks/{webhookId}/replay/{logId}",
+      "tag": "webhooks",
+      "summary": "Replay webhook log"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/webhooks/{webhookId}/{action}",
+      "tag": "webhooks",
+      "summary": "Enable/disable webhook"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/featured",
+      "tag": "spaces",
+      "summary": "Featured spaces"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/hardware",
+      "tag": "spaces",
+      "summary": "List space hardware"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/semantic-search",
+      "tag": "spaces",
+      "summary": "Semantic search"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/templates",
+      "tag": "spaces",
+      "summary": "List Space templates"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/zero-gpu/quota",
+      "tag": "spaces",
+      "summary": "Get ZeroGPU quota"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/spaces/{namespace}/{repo}/branch/{rev}",
+      "tag": "spaces",
+      "summary": "Delete a branch"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/{namespace}/{repo}/branch/{rev}",
+      "tag": "spaces",
+      "summary": "Create branch"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/{namespace}/{repo}/commit/{rev}",
+      "tag": "spaces",
+      "summary": "Commit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/commits/{rev}",
+      "tag": "spaces",
+      "summary": "List commits"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/compare/{compare}",
+      "tag": "spaces",
+      "summary": "Get compare rev"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/{namespace}/{repo}/custom-domain",
+      "tag": "spaces",
+      "summary": "Set custom domain"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/{namespace}/{repo}/dev-mode",
+      "tag": "spaces",
+      "summary": "Toggle dev mode"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/events",
+      "tag": "spaces",
+      "summary": "Stream events"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/{namespace}/{repo}/hardware",
+      "tag": "spaces",
+      "summary": "Update hardware flavor"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/jwt",
+      "tag": "spaces",
+      "summary": "Generate JWT"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/lfs-files",
+      "tag": "spaces",
+      "summary": "List Large files"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/{namespace}/{repo}/lfs-files/batch",
+      "tag": "spaces",
+      "summary": "Delete Large files"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/{namespace}/{repo}/lfs-files/duplicate",
+      "tag": "spaces",
+      "summary": "Duplicate xet files"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/spaces/{namespace}/{repo}/lfs-files/{sha}",
+      "tag": "spaces",
+      "summary": "Delete Large file"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/likers",
+      "tag": "spaces",
+      "summary": "List likers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/logs/{logType}",
+      "tag": "spaces",
+      "summary": "Stream logs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/metrics",
+      "tag": "spaces",
+      "summary": "Stream metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/notebook/{rev}/{path}",
+      "tag": "spaces",
+      "summary": "Get notebook URL"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/{namespace}/{repo}/paths-info/{rev}",
+      "tag": "spaces",
+      "summary": "List paths info"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/{namespace}/{repo}/preupload/{rev}",
+      "tag": "spaces",
+      "summary": "Check upload method"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/refs",
+      "tag": "spaces",
+      "summary": "List references"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/resource-group",
+      "tag": "spaces",
+      "summary": "Get resource group"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/{namespace}/{repo}/resource-group",
+      "tag": "spaces",
+      "summary": "Add resource group"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/scan",
+      "tag": "spaces",
+      "summary": "Get security status"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/spaces/{namespace}/{repo}/secrets",
+      "tag": "spaces",
+      "summary": "Delete secret"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/secrets",
+      "tag": "spaces",
+      "summary": "List secrets"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/{namespace}/{repo}/secrets",
+      "tag": "spaces",
+      "summary": "Upsert secret"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/spaces/{namespace}/{repo}/settings",
+      "tag": "spaces",
+      "summary": "Update repo settings"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/{namespace}/{repo}/sleeptime",
+      "tag": "spaces",
+      "summary": "Set sleep time"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/{namespace}/{repo}/super-squash/{rev}",
+      "tag": "spaces",
+      "summary": "Squash ref"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/spaces/{namespace}/{repo}/tag/{rev}",
+      "tag": "spaces",
+      "summary": "Delete a tag"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/{namespace}/{repo}/tag/{rev}",
+      "tag": "spaces",
+      "summary": "Create tag"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/tree/{rev}/{path}",
+      "tag": "spaces",
+      "summary": "List folder content"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/treesize/{rev}/{path}",
+      "tag": "spaces",
+      "summary": "Get folder size"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/spaces/{namespace}/{repo}/variables",
+      "tag": "spaces",
+      "summary": "Delete variable"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/variables",
+      "tag": "spaces",
+      "summary": "List variables"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/{namespace}/{repo}/variables",
+      "tag": "spaces",
+      "summary": "Upsert variable"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/spaces/{namespace}/{repo}/volumes",
+      "tag": "spaces",
+      "summary": "Delete Space volumes"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/spaces/{namespace}/{repo}/volumes",
+      "tag": "spaces",
+      "summary": "Set Space volumes"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/xet-read-token/{rev}",
+      "tag": "spaces",
+      "summary": "Xet read token"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{namespace}/{repo}/xet-write-token/{rev}",
+      "tag": "spaces",
+      "summary": "Xet write token"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trending",
+      "tag": "models",
+      "summary": "Get trending"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/{username}/avatar",
+      "tag": "users",
+      "summary": "Retrieve user avatar"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/{username}/billing/usage/live",
+      "tag": "users",
+      "summary": "Stream usage"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/{username}/followers",
+      "tag": "users",
+      "summary": "List user followers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/{username}/following",
+      "tag": "users",
+      "summary": "List followed users"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/{username}/following/orgs",
+      "tag": "users",
+      "summary": "List followed organizations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/{username}/likes",
+      "tag": "users",
+      "summary": "List user likes"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/{username}/overview",
+      "tag": "users",
+      "summary": "User overview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/{username}/socials",
+      "tag": "users",
+      "summary": "Get social handles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/whoami-v2",
+      "tag": "auth",
+      "summary": "Get user info"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{repoType}/{namespace}/{repo}/discussions",
+      "tag": "discussions",
+      "summary": "List discussions"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{repoType}/{namespace}/{repo}/discussions",
+      "tag": "discussions",
+      "summary": "Create discussion"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{repoType}/{namespace}/{repo}/discussions/{num}",
+      "tag": "discussions",
+      "summary": "Delete a discussion"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{repoType}/{namespace}/{repo}/discussions/{num}",
+      "tag": "discussions",
+      "summary": "Get discussion details"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{repoType}/{namespace}/{repo}/discussions/{num}/comment",
+      "tag": "discussions",
+      "summary": "Create comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{repoType}/{namespace}/{repo}/discussions/{num}/comment/{commentId}/edit",
+      "tag": "discussions",
+      "summary": "Update a comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{repoType}/{namespace}/{repo}/discussions/{num}/comment/{commentId}/hide",
+      "tag": "discussions",
+      "summary": "Hide comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{repoType}/{namespace}/{repo}/discussions/{num}/comment/{commentId}/reaction",
+      "tag": "discussions",
+      "summary": "React to comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{repoType}/{namespace}/{repo}/discussions/{num}/ignore",
+      "tag": "discussions",
+      "summary": "Toggle ignore discussion"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{repoType}/{namespace}/{repo}/discussions/{num}/merge",
+      "tag": "discussions",
+      "summary": "Merge pull request"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{repoType}/{namespace}/{repo}/discussions/{num}/pin",
+      "tag": "discussions",
+      "summary": "Pin a discussion"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{repoType}/{namespace}/{repo}/discussions/{num}/ref",
+      "tag": "discussions",
+      "summary": "Delete PR ref"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{repoType}/{namespace}/{repo}/discussions/{num}/status",
+      "tag": "discussions",
+      "summary": "Change status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{repoType}/{namespace}/{repo}/discussions/{num}/storage",
+      "tag": "discussions",
+      "summary": "PR storage estimate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{repoType}/{namespace}/{repo}/discussions/{num}/title",
+      "tag": "discussions",
+      "summary": "Change title"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{repoType}/{namespace}/{repo}/duplicate",
+      "tag": "repos",
+      "summary": "Duplicate a repository"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{repoType}/{namespace}/{repo}/duplicate/status",
+      "tag": "repos",
+      "summary": "Duplication status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{repoType}/{namespace}/{repo}/settings/trusted-publishers",
+      "tag": "repos",
+      "summary": "Repo trusted publishers"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{repoType}/{namespace}/{repo}/settings/trusted-publishers",
+      "tag": "repos",
+      "summary": "Repo trusted publisher"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{repoType}/{namespace}/{repo}/settings/trusted-publishers/{publisherId}",
+      "tag": "repos",
+      "summary": "Repo trusted publisher"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{repoType}/{namespace}/{repo}/sql-console/embed",
+      "tag": "sql-console",
+      "summary": "Create embed"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{repoType}/{namespace}/{repo}/sql-console/embed/{id}",
+      "tag": "sql-console",
+      "summary": "Delete embed"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/{repoType}/{namespace}/{repo}/sql-console/embed/{id}",
+      "tag": "sql-console",
+      "summary": "Update embed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{repoType}/{namespace}/{repo}/sql-console/embed/{id}/hide",
+      "tag": "sql-console",
+      "summary": "Hide embed"
+    },
+    {
+      "method": "GET",
+      "path": "/buckets/{namespace}/{repo}/resolve/{path}",
+      "tag": "buckets",
+      "summary": "Get file metadata"
+    },
+    {
+      "method": "GET",
+      "path": "/containers/{namespace}/{repo}/resolve/{path}",
+      "tag": "containers",
+      "summary": "Get file metadata"
+    },
+    {
+      "method": "POST",
+      "path": "/datasets/{namespace}/{repo}/ask-access",
+      "tag": "datasets",
+      "summary": "Request access"
+    },
+    {
+      "method": "GET",
+      "path": "/datasets/{namespace}/{repo}/resolve/{rev}/{path}",
+      "tag": "datasets",
+      "summary": "Resolve a file"
+    },
+    {
+      "method": "GET",
+      "path": "/datasets/{namespace}/{repo}/user-access-report",
+      "tag": "datasets",
+      "summary": "Export access report"
+    },
+    {
+      "method": "POST",
+      "path": "/oauth/device",
+      "tag": "oauth",
+      "summary": "Initiate device authorization"
+    },
+    {
+      "method": "POST",
+      "path": "/oauth/register",
+      "tag": "oauth",
+      "summary": "Register OAuth app"
+    },
+    {
+      "method": "GET",
+      "path": "/oauth/userinfo",
+      "tag": "oauth",
+      "summary": "Get user info"
+    },
+    {
+      "method": "POST",
+      "path": "/oauth/userinfo",
+      "tag": "oauth",
+      "summary": "Get user info"
+    },
+    {
+      "method": "GET",
+      "path": "/spaces/{namespace}/{repo}/resolve/{rev}/{path}",
+      "tag": "spaces",
+      "summary": "Resolve a file"
+    },
+    {
+      "method": "POST",
+      "path": "/{namespace}/{repo}/ask-access",
+      "tag": "models",
+      "summary": "Request access"
+    },
+    {
+      "method": "GET",
+      "path": "/{namespace}/{repo}/resolve/{rev}/{path}",
+      "tag": "models",
+      "summary": "Resolve a file"
+    },
+    {
+      "method": "GET",
+      "path": "/{namespace}/{repo}/user-access-report",
+      "tag": "models",
+      "summary": "Export access report"
+    }
+  ]
+}

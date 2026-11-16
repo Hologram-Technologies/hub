@@ -82,7 +82,7 @@ Feature: kernel
     And no input meets breaksLinks
 
   @HK-12 @build
-  Scenario: A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code
+  Scenario: A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code, except the refusal of a client with no token, which carries exactly the headers Hugging Face sends it
     Given the kernel model in app/src/Kernel.lex.tex
     When the Lean kernel checks dialectHolds in app/src/Proofs/Dialect.lex.tex during prismpm verify
     And the Lean kernel checks errorsHold in app/src/Proofs/Errors.lex.tex during prismpm verify

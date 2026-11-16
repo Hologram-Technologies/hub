@@ -5,8 +5,8 @@ name: edge
 # huggingface.co, against the edge, and against the edge with every file
 # pinned to IPFS (the only way to test the edge's own headers: a client follows
 # a redirect to Hugging Face and then reads Hugging Face's), and fails on any
-# difference. The edge runs the kernel holo this repository's Pages site
-# publishes.
+# difference. The edge runs the kernel this revision builds, for models,
+# datasets and Spaces alike.
 
 on:
   push:
@@ -21,7 +21,7 @@ jobs:
   conformance:
     name: a Hugging Face client sees no difference
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - name: Check out the exact event revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -43,14 +43,52 @@ jobs:
         # the edge that has not met it.
         shell: bash
         run: node tests/edge/older-kernel.mjs https://hologram-technologies.github.io/hub/app/app.holo https://hologram-technologies.github.io/hub/data/index/
+      - name: Build this revision's kernel through the locked SDK
+        # The surface the edge routes by, and how each request is answered, are
+        # the kernel's (HK-31, HK-32), so the edge is tested against the kernel
+        # this revision builds rather than the one Pages last published.
+        shell: bash
+        run: |
+          set -euo pipefail
+          image=$(sed -n 's/.*"sdk_image":"\([^"]*\)".*/\1/p' prismpm.lock)
+          if [[ ! $image =~ ^[a-z0-9.-]+(:[0-9]{1,5})?/[a-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]]; then
+            printf '%s\n' 'prismpm.lock does not select an immutable SDK image' >&2
+            exit 64
+          fi
+          docker_config=$(mktemp -d)
+          trap 'rm -rf "$docker_config"' EXIT
+          printf '{}\n' >"$docker_config/config.json"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --group-add "$(stat -c '%g' /var/run/docker.sock)" \
+            --tmpfs /tmp:rw,exec,nosuid,size=2g \
+            --volume "$PWD:$PWD" \
+            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume "$docker_config:/tmp/prismpm-home/.docker:ro" \
+            --workdir "$PWD" \
+            --env DOCKER_CONFIG=/tmp/prismpm-home/.docker \
+            --env BUILDX_CONFIG=/tmp/prismpm-buildx \
+            --env HOME=/tmp/prismpm-home \
+            --env PRISMPM_EPHEMERAL_HOME=1 \
+            "$image" just app
+          shopt -s nullglob
+          holos=(app/.prism/build/*/*.holo)
+          if [[ ${#holos[@]} -ne 1 ]]; then
+            printf 'expected one holo, found %d\n' "${#holos[@]}" >&2
+            exit 64
+          fi
+          mkdir -p "$RUNNER_TEMP/kernel"
+          cp "${holos[0]}" "$RUNNER_TEMP/kernel/app.holo"
+          (cd "$RUNNER_TEMP/kernel" && python3 -m http.server 8790 --bind 127.0.0.1 > /dev/null 2>&1 &)
+          for i in $(seq 1 30); do curl -sf -o /dev/null http://127.0.0.1:8790/app.holo && break; sleep 1; done
       - name: The edge is read-only on every route, and HEAD answers as GET does
         shell: bash
-        run: node tests/edge/methods.mjs https://hologram-technologies.github.io/hub/app/app.holo https://hologram-technologies.github.io/hub/data/index/
+        run: node tests/edge/methods.mjs http://127.0.0.1:8790/app.holo https://hologram-technologies.github.io/hub/data/index/
       - name: The edge answers as huggingface.co does
         shell: bash
         run: |
           set -euo pipefail
-          node edge/serve.mjs 8787 > "$RUNNER_TEMP/edge.log" 2>&1 &
+          HOLO_URL=http://127.0.0.1:8790/app.holo node edge/serve.mjs 8787 > "$RUNNER_TEMP/edge.log" 2>&1 &
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:8787/health > /dev/null && break; sleep 1; done
           cat "$RUNNER_TEMP/edge.log"
           py="$RUNNER_TEMP/hf/bin/python"

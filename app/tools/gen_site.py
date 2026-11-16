@@ -105,11 +105,17 @@ def site_module(head):
     k.append(defn("facetParam", "facet : Nat", "Nat", chain(
         [("(facet =? %d)" % i, str(names.index(name))) for i, name in enumerate(facets)],
         "(paramCount)")))
-    statuses = sorted(S.DIALECT.items())
-    k.append(defn("hfStatus", "answer : Nat", "Nat", chain(
-        [("(answer =? %d)" % a, str(st)) for a, (st, _, _) in statuses], str(S.BAD_REQUEST[0]))))
-    k.append(defn("hfCode", "answer : Nat", "Nat", chain(
-        [("(answer =? %d)" % a, str(code)) for a, (_, code, _) in statuses], str(S.BAD_REQUEST[1]))))
+    # One branch per value, not per answer: Lean's arithmetic splits each
+    # branch of both chains, and a branch per answer passed what it splits
+    # once the anonymous refusal (18) was added (measured: omega gave up on
+    # Errors at 13 answers).
+    def grouped(index):
+        values = {}
+        for a, row in sorted(S.DIALECT.items()):
+            values.setdefault(row[index], []).append(a)
+        return [(nest("||", ["(answer =? %d)" % a for a in answers]), str(v)) for v, answers in sorted(values.items())]
+    k.append(defn("hfStatus", "answer : Nat", "Nat", chain(grouped(0), str(S.BAD_REQUEST[0]))))
+    k.append(defn("hfCode", "answer : Nat", "Nat", chain(grouped(1), str(S.BAD_REQUEST[1]))))
     for r in S.ROUTES:
         k.append(defn("screen%s" % r.capitalize(), "", "Bytes", balanced(pieces(screen_json(r)))))
     k.append(defn("screen", "route : Nat", "Bytes", chain(
@@ -151,10 +157,12 @@ SITE_INVARIANTS = [
      "((((Site::hfStatus answer) <? 400) && (not %s)) || (%s && (not ((Site::hfStatus answer) <? 400))))"
      % (delivering("answer"), delivering("answer")),
      [q("hfStatus")]),
-    # Every refusal reaches the tool as a 4xx or 5xx status with a named error code.
+    # Every refusal reaches the tool as a 4xx or 5xx status with a named error
+    # code, but the anonymous one: huggingface.co sends a client with no token
+    # no X-Error-Code, and a drop-in sends what it sends (HK-32).
     ("Errors", "breaksErrors", "errorsHold", "answer : Nat", "answer",
-     "((not %s) && ((((Site::hfStatus answer) <? 400) || (599 <? (Site::hfStatus answer))) || ((Site::hfCode answer) =? 0)))"
-     % delivering("answer"),
+     "((not %s) && ((((Site::hfStatus answer) <? 400) || (599 <? (Site::hfStatus answer))) || (((Site::hfCode answer) =? 0) && (not (answer =? %d)))))"
+     % (delivering("answer"), S.ANONYMOUS),
      [q("hfStatus"), q("hfCode")]),
 ]
 
@@ -163,7 +171,7 @@ SITE_CLAIMS = [
      ["Query"]),
     ("HK-11", "Every header item and every link that stays in the hub opens a screen the kernel renders",
      ["Nav", "Links"]),
-    ("HK-12", "A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code",
+    ("HK-12", "A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code, except the refusal of a client with no token, which carries exactly the headers Hugging Face sends it",
      ["Dialect", "Errors"]),
 ]
 

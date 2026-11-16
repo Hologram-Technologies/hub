@@ -9,7 +9,7 @@ definition{
   name: breaksErrors,
   parameters: [answer : Nat],
   result: Bool,
-  body: ((not (((answer =? 1) || (answer =? 2)) || (answer =? 20))) && ((((Site::hfStatus answer) <? 400) || (599 <? (Site::hfStatus answer))) || ((Site::hfCode answer) =? 0)))
+  body: ((not (((answer =? 1) || (answer =? 2)) || (answer =? 20))) && ((((Site::hfStatus answer) <? 400) || (599 <? (Site::hfStatus answer))) || (((Site::hfCode answer) =? 0) && (not (answer =? 18)))))
 }
 
 theorem{

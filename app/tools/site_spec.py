@@ -87,36 +87,116 @@ DIALECT = {
     16: (404, 7, "That source does not hold this file"),
     17: (503, 8, "No source can serve this file now"),
     21: (502, 9, "The source sent bytes that do not match the address"),
+    18: (401, 0, "Invalid username or password."),
 }
 BAD_REQUEST = (400, 10, "The request is not one the hub understands")
+# What huggingface.co answers a client with no token for a write, an owner-only
+# read or a path it does not have: 401, a Bearer challenge, and this message.
+# Hugging Face sends no X-Error-Code with it, so neither does the hub: the
+# refusal is typed in the kernel (answer 18) and identical on the wire (HK-12).
+ANONYMOUS = 18
 
-# The read surface of the Hugging Face Hub API a drop-in hub answers.
-ENDPOINTS = [
-    ("HEAD, GET", "/{repo}/resolve/{revision}/{path}", "Resolve one file: a redirect, or the bytes, with X-Repo-Commit, X-Linked-Etag and X-Linked-Size"),
-    ("GET", "/api/models", "Search and list models; the next page is in the Link header"),
-    ("GET", "/api/models/{repo}", "Model information: sha, siblings, tags, card data"),
-    ("GET", "/api/models/{repo}/revision/{revision}", "Model information at a revision"),
-    ("GET", "/api/models/{repo}/tree/{revision}/{path}", "Files and folders, with sizes and LFS addresses"),
-    ("POST", "/api/models/{repo}/paths-info/{revision}", "Information for named paths"),
-    ("GET", "/api/models/{repo}/refs", "Branches and tags"),
-    ("GET", "/api/models/{repo}/commits/{revision}", "The commits the index knows; partial, because it holds the release"),
-    # `/api/models-tags-by-type` and `/api/quicksearch` were listed here until
-    # 2026-11-16 and are not, because the host this page tells a tool to point
-    # at does not answer them. Measured against API_HOST that day: both 404 in
-    # every form, with and without Hugging Face's own parameters, and neither
-    # appears among the 51 paths of its `/openapi.json`.
-    #
-    # `edge/edge.mjs` does answer them, which is what made the rows look true:
-    # the edge runner is this repository's own implementation, and the hub the
-    # apex serves is another. This table says what a tool gets when it is
-    # pointed at API_HOST, so a route only the edge answers does not belong in
-    # it - the same rule that took the Sign in button off the header.
-    # The hub has no accounts, so this is a refusal and nothing else:
-    # `edge/edge.mjs` answers 10 for it, which the Answers table below reads
-    # as 401 RepoNotFound. The row says what a tool receives, not what the
-    # route is called on a hub that does have accounts.
-    ("GET", "/api/whoami-v2", "Always refused: the hub has no accounts, so no token belongs to anyone"),
+# The surface a drop-in hub answers, in Hugging Face's own spelling: its paths,
+# its parameter names, its repository types. Every read operation Hugging Face
+# answers a client with no token, for models, datasets and Spaces, is a row
+# here (HK-31), checked against Hugging Face's own published surface pinned in
+# `tools/hf-surface/inventory.json`; a few rows are reads every client makes
+# that Hugging Face leaves out of that file (`in_spec` False). The row's index
+# is the operation the kernel's route decision (request `08`) is asked about,
+# so the order is part of the model: append, never reorder.
+#
+# The kinds are Hugging Face's repository types. A path names one with
+# `{type}` (`models`, `datasets`, `spaces`) and a file route with `{prefix}`
+# (nothing, `datasets/`, `spaces/`), as huggingface.co does.
+KINDS = ["models", "datasets", "spaces"]
+KIND_PREFIX = {"models": "", "datasets": "datasets/", "spaces": "spaces/"}
+# How the hub answers an operation:
+#   resolve   the kernel's file decision: a redirect to a source it chose
+#   index     from the hub's signed index when it holds the repository, from
+#             Hugging Face's own answer otherwise
+#   relay     Hugging Face's own answer, returned unchanged
+#   owner     refused as Hugging Face refuses a client with no token, because
+#             Hugging Face answers it only to the repository's owner
+# A request no row names is refused the same way as `owner` (HK-32).
+DISPOSITIONS = ["", "resolve", "index", "relay", "owner"]
+ALL = tuple(KINDS)
+MDS = {"models": "index", "datasets": "relay", "spaces": "relay"}
+SURFACE = [
+    # (methods, path, kinds, disposition or {kind: disposition}, in_spec, what it returns)
+    (("HEAD", "GET"), "/{prefix}{namespace}/{repo}/resolve/{rev}/{path}", ALL, "resolve", True,
+     "One file: a redirect to a source, with X-Repo-Commit, X-Linked-Etag and X-Linked-Size"),
+    (("GET",), "/api/resolve-cache/{type}/{namespace}/{repo}/{rev}/{path}", ALL, "resolve", True,
+     "One file at a commit, as the resolve route answers it"),
+    (("GET",), "/api/{type}", ALL, MDS, False, "Search and list; the next page is in the Link header"),
+    (("GET",), "/api/{type}/{namespace}/{repo}", ALL, MDS, False, "Repository information: sha, siblings, tags, card data"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/revision/{rev}", ALL, MDS, False, "Repository information at a revision"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/tree/{rev}/{path}", ALL, MDS, True, "Files and folders, with sizes and LFS addresses"),
+    (("POST",), "/api/{type}/{namespace}/{repo}/paths-info/{rev}", ALL, MDS, True, "Information for named paths"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/refs", ALL, MDS, True, "Branches, tags, conversions and pull requests"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/commits/{rev}", ALL, MDS, True, "Commits; from the index, partial, because it holds the release"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/compare/{compare}", ALL, "relay", True, "The difference between two revisions"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/treesize/{rev}/{path}", ALL, "relay", True, "The size of a folder"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/likers", ALL, "relay", True, "Who liked the repository"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/scan", ALL, "relay", True, "The security scan"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/notebook/{rev}/{path}", ALL, "relay", True, "A notebook's URL"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/xet-read-token/{rev}", ALL, "relay", True, "A Xet read token"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/jwt", ALL, "relay", True, "A token for the repository's viewer"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/lfs-files", ALL, "owner", True, "Large files; owner only"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/resource-group", ALL, "owner", True, "Resource group; owner only"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/user-access-request/{status}", ALL, "owner", True, "Access requests; owner only"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/xet-write-token/{rev}", ALL, "owner", True, "A Xet write token; owner only"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/duplicate/status", ALL, "owner", True, "Duplication status; owner only"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/settings/trusted-publishers", ALL, "owner", True, "Trusted publishers; owner only"),
+    (("GET",), "/{prefix}{namespace}/{repo}/user-access-report", ("models", "datasets"), "owner", True, "Access report; owner only"),
+    (("GET",), "/api/models/{namespace}/{repo}/safetensors-metadata/{path}", ("models",), "relay", True, "Safetensors header of one file"),
+    (("GET",), "/api/datasets/{namespace}/{repo}/leaderboard", ("datasets",), "relay", True, "The dataset's leaderboard"),
+    (("GET",), "/api/datasets/{namespace}/{repo}/parquet/{path}", ("datasets",), "relay", False, "Parquet conversion files"),
+    (("GET",), "/api/datasets/{namespace}/{repo}/croissant", ("datasets",), "relay", False, "Croissant metadata"),
+    (("GET",), "/api/spaces/{namespace}/{repo}/runtime", ("spaces",), "relay", False, "The Space's runtime: stage and hardware"),
+    (("GET",), "/api/spaces/{namespace}/{repo}/events", ("spaces",), "relay", True, "Events, as a stream"),
+    (("GET",), "/api/spaces/{namespace}/{repo}/metrics", ("spaces",), "relay", True, "Metrics, as a stream"),
+    (("GET",), "/api/spaces/{namespace}/{repo}/logs/{logType}", ("spaces",), "owner", True, "Logs; owner only"),
+    (("GET",), "/api/spaces/{namespace}/{repo}/secrets", ("spaces",), "owner", True, "Secrets; owner only"),
+    (("GET",), "/api/spaces/{namespace}/{repo}/variables", ("spaces",), "owner", True, "Variables; owner only"),
+    (("GET",), "/api/models-tags-by-type", (), "index", True, "Model tags by type"),
+    (("GET",), "/api/datasets-tags-by-type", (), "relay", True, "Dataset tags by type"),
+    (("GET",), "/api/quicksearch", (), "index", True, "Quick search across repositories"),
+    (("GET",), "/api/search/full-text", (), "relay", True, "Full-text search"),
+    (("GET",), "/api/trending", (), "relay", True, "Trending repositories"),
+    (("GET",), "/api/spaces/featured", (), "relay", True, "Featured Spaces"),
+    (("GET",), "/api/spaces/hardware", (), "relay", True, "Space hardware"),
+    (("GET",), "/api/spaces/semantic-search", (), "relay", True, "Semantic search over Spaces"),
+    (("GET",), "/api/spaces/templates", (), "relay", True, "Space templates"),
+    (("GET",), "/api/spaces/zero-gpu/quota", (), "owner", True, "ZeroGPU quota; owner only"),
+    # The hub has no accounts, so whoami is the anonymous refusal, which is
+    # exactly what huggingface.co answers a client with no token.
+    (("GET",), "/api/whoami-v2", (), "owner", True, "Who the token belongs to; with no accounts, always refused"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/discussions", ALL, "relay", True, "Discussions and pull requests"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/discussions/{num}", ALL, "relay", True, "One discussion"),
+    (("GET",), "/api/{type}/{namespace}/{repo}/discussions/{num}/storage", ALL, "relay", True, "A pull request's storage estimate"),
+    # A repository named without its namespace, as `gpt2` or `imdb` still are in
+    # code written before Hugging Face moved them. Hugging Face resolves the
+    # file directly and answers the API with a redirect to the full name; the
+    # hub resolves the full name first and then decides as for any file.
+    (("HEAD", "GET"), "/{prefix}{name}/resolve/{rev}/{path}", ALL, "resolve", False,
+     "One file of a repository named without its namespace"),
+    (("GET",), "/api/{type}/{name}", ALL, "relay", False, "Information, by a name without its namespace: a redirect to the full name"),
+    (("GET",), "/api/{type}/{name}/revision/{rev}", ALL, "relay", False, "The same, at a revision"),
+    (("GET",), "/api/{type}/{name}/tree/{rev}/{path}", ALL, "relay", False, "The same, for the file tree"),
+    (("GET",), "/api/{type}/{name}/refs", ALL, "relay", False, "The same, for branches and tags"),
 ]
+# Request `08 method kind operation`: the method's number here, the kind's
+# number (0 for a row that names no repository type), the row's index.
+METHODS = ["", "GET", "HEAD", "POST"]
+
+
+def disposition(row, kind):
+    d = row[3]
+    return d if isinstance(d, str) else d[kind]
+
+
+# The routes table the docs screen draws: one line per row.
+ENDPOINTS = [(", ".join(m), path, ", ".join(kinds) or "any", what) for m, path, kinds, _, _, what in SURFACE]
 
 # The query a client may put to /api/models, and what the hub does with it.
 # The names and the accepted values are Hugging Face's; anything else is a
@@ -197,23 +277,40 @@ SCREENS = {
         # decisions rather than one accident of position.
         "wallpaper": "Q1p7bh3SHj8",
         "wallpapers": [
-            {"file": 'E0AHdsENmDg', "id": 'E0AHdsENmDg', "alt": 'The Milky Way in blue and violet',
-             "name": 'Jeremy Thomas', "user": 'jeremythomasphoto', "color": '#0c2659',
-             "image": 'https://images.unsplash.com/photo-1464802686167-b939a6910659?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHwyfHxtaWxreSUyMHdheXxlbnwxfDB8fHwxNzk0ODI5MTYxfDA&ixlib=rb-4.1.0'},
-            {"file": 'qtRF_RxCAo0', "id": 'qtRF_RxCAo0', "alt": 'A nebula in blue, gold and rust',
-             "name": 'Aldebaran S', "user": 'aldebarans', "color": '#262626',
-             "image": 'https://images.unsplash.com/photo-1610296669228-602fa827fc1f?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHwyfHxuZWJ1bGF8ZW58MXwwfHx8MTc5NDgyOTE2Mnww&ixlib=rb-4.1.0'},
-            {"file": 'RF4p4rTM-2s', "id": 'RF4p4rTM-2s', "alt": 'The Andromeda galaxy among stars',
-             "name": 'Bryan Goff', "user": 'bryangoffphoto', "color": '#262626',
-             "image": 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw1fHxtaWxreSUyMHdheXxlbnwxfDB8fHwxNzk0ODI5MTYxfDA&ixlib=rb-4.1.0'},
-            {"file": 'Q1p7bh3SHj8', "id": 'Q1p7bh3SHj8', "alt": 'City lights across Earth at night, from orbit',
-             "name": 'NASA', "user": 'nasa', "color": '#0c2626',
-             "image": 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw0fHxzcGFjZXxlbnwxfDB8fHwxNzk0ODI5MTI5fDA&ixlib=rb-4.1.0'},
-            {"file": 't7EL2iG3jMc', "id": 't7EL2iG3jMc', "alt": "Earth's blue horizon against space",
-             "name": 'ActionVance', "user": 'actionvance', "color": '#59598c',
-             "image": 'https://images.unsplash.com/photo-1534996858221-380b92700493?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw5fHxzcGFjZXxlbnwxfDB8fHwxNzk0ODI5MTI5fDA&ixlib=rb-4.1.0'},
-            {"file": '9wH624ALFQA', "id": '9wH624ALFQA', "alt": 'The Milky Way rising over mountains',
-             "name": 'Dns Dgn', "user": 'dnsdgn', "color": '#0c2640',
+            {"file": 'E0AHdsENmDg', "id": 'E0AHdsENmDg', "alt": 'The Milky Way in blue and violet',
+
+             "name": 'Jeremy Thomas', "user": 'jeremythomasphoto', "color": '#0c2659',
+
+             "image": 'https://images.unsplash.com/photo-1464802686167-b939a6910659?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHwyfHxtaWxreSUyMHdheXxlbnwxfDB8fHwxNzk0ODI5MTYxfDA&ixlib=rb-4.1.0'},
+
+            {"file": 'qtRF_RxCAo0', "id": 'qtRF_RxCAo0', "alt": 'A nebula in blue, gold and rust',
+
+             "name": 'Aldebaran S', "user": 'aldebarans', "color": '#262626',
+
+             "image": 'https://images.unsplash.com/photo-1610296669228-602fa827fc1f?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHwyfHxuZWJ1bGF8ZW58MXwwfHx8MTc5NDgyOTE2Mnww&ixlib=rb-4.1.0'},
+
+            {"file": 'RF4p4rTM-2s', "id": 'RF4p4rTM-2s', "alt": 'The Andromeda galaxy among stars',
+
+             "name": 'Bryan Goff', "user": 'bryangoffphoto', "color": '#262626',
+
+             "image": 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw1fHxtaWxreSUyMHdheXxlbnwxfDB8fHwxNzk0ODI5MTYxfDA&ixlib=rb-4.1.0'},
+
+            {"file": 'Q1p7bh3SHj8', "id": 'Q1p7bh3SHj8', "alt": 'City lights across Earth at night, from orbit',
+
+             "name": 'NASA', "user": 'nasa', "color": '#0c2626',
+
+             "image": 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw0fHxzcGFjZXxlbnwxfDB8fHwxNzk0ODI5MTI5fDA&ixlib=rb-4.1.0'},
+
+            {"file": 't7EL2iG3jMc', "id": 't7EL2iG3jMc', "alt": "Earth's blue horizon against space",
+
+             "name": 'ActionVance', "user": 'actionvance', "color": '#59598c',
+
+             "image": 'https://images.unsplash.com/photo-1534996858221-380b92700493?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw5fHxzcGFjZXxlbnwxfDB8fHwxNzk0ODI5MTI5fDA&ixlib=rb-4.1.0'},
+
+            {"file": '9wH624ALFQA', "id": '9wH624ALFQA', "alt": 'The Milky Way rising over mountains',
+
+             "name": 'Dns Dgn', "user": 'dnsdgn', "color": '#0c2640',
+
              "image": 'https://images.unsplash.com/photo-1515705576963-95cad62945b6?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHwxfHxtaWxreSUyMHdheXxlbnwxfDB8fHwxNzk0ODI5MTYxfDA&ixlib=rb-4.1.0'},
         ],
         "photos": {
@@ -542,6 +639,10 @@ SCREENS = {
         "command": f"export HF_ENDPOINT={API}",
         "endpointsTitle": "Routes",
         "endpoints": [list(e) for e in ENDPOINTS],
+        # What the edge routes by: each row's methods, path and kinds, in the
+        # order the kernel numbers them. The kernel decides the answer.
+        "surface": [[list(m), path, list(kinds)] for m, path, kinds, _, _, _ in SURFACE],
+        "kinds": [[k, KIND_PREFIX[k]] for k in KINDS],
         "answersTitle": "Answers",
         "answers": [[code, status, ERROR_CODES[err] or "none", msg] for code, (status, err, msg) in sorted(DIALECT.items())]
                    + [["any other", BAD_REQUEST[0], ERROR_CODES[BAD_REQUEST[1]], BAD_REQUEST[2]]],
@@ -576,7 +677,7 @@ SCREENS = {
         "listSorts": LIST_SORTS,
         "listLimit": 1000,
         "columnsQuery": ["Parameter", "What it does"],
-        "columnsRoutes": ["Method", "Path", "What it returns"],
+        "columnsRoutes": ["Method", "Path", "Repository types", "What it returns"],
         "columnsAnswers": ["Kernel answer", "HTTP status", "X-Error-Code", "Meaning"],
         "sections": [
             {"id": "quickstart", "title": "Quickstart",

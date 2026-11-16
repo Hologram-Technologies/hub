@@ -60,7 +60,7 @@ model does not sanction.
 | `HK-09` | `build` | A commit prefix resolves only when it is 7 to 40 characters long and matches the release's commit |
 | `HK-10` | `build` | Received bytes are delivered exactly when their digest and size equal the expected digest and size |
 | `HK-11` | `build` | Every header item and every link that stays in the hub opens a screen the kernel renders |
-| `HK-12` | `build` | A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code |
+| `HK-12` | `build` | A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code, except the refusal of a client with no token, which carries exactly the headers Hugging Face sends it |
 | `HK-13` | `build` | The page says Verified only when at least one source delivered and none sent other bytes, and any source that sent other bytes makes the verdict a mismatch |
 | `HK-14` | `build` | A model page says Witnessed or Published only when every signature check passed, says Published only for a publisher's signature from the namespace owner, and never shows a witness's signature as a publisher's |
 | `HK-15` | `build` | An answer is built from the index only when the record holds every field that answer names; where one is missing the source dialect is asked, and where it cannot be asked the answer says it is partial |
@@ -74,6 +74,13 @@ model does not sanction.
 | ID | Level | Statement |
 | --- | --- | --- |
 | `HK-27` | `build` | Every Space the site publishes is the sealed artifact its catalog names: each file hashes to its lock entry, the manifest hashes to the root, and the runtime comes from locked packages whose bytes match the lock too |
+
+## surface
+
+| ID | Level | Statement |
+| --- | --- | --- |
+| `HK-31` | `build` | Every read operation Hugging Face answers a client with no token, for models, datasets and Spaces, is one the hub answers at Hugging Face's own path and in its terms, and none of them is refused |
+| `HK-32` | `build` | Every request the hub does not answer as a read is refused as Hugging Face refuses a client with no token: 401 with a Bearer challenge |
 
 ## Cited authorities
 

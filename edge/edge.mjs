@@ -1,6 +1,8 @@
 // The hub's edge runner: a stateless HTTP handler that answers the Hugging Face
-// Hub's read surface, so `HF_ENDPOINT=<this origin>` works for every Hugging
-// Face tool. It decides nothing itself. For a file it gathers facts (the
+// Hub's read surface for models, datasets and Spaces, so `HF_ENDPOINT=<this
+// origin>` works for every Hugging Face tool. Which request is which operation
+// comes from the surface table the kernel serves (screen 4), and how each one
+// is answered is the kernel's route decision (request `08`, HK-31, HK-32). It decides nothing itself. For a file it gathers facts (the
 // release, the file, which sources hold it, which are healthy) and asks the
 // proved kernel; it turns the kernel's plan into HTTP with the kernel's own
 // dialect table. It never carries model bytes: it redirects, and only to
@@ -34,6 +36,11 @@ let index = null;
 let browse = [];
 let listQuery = { sorts: [], limit: 1000 };
 let useHuggingFace = true;
+// The surface table, compiled: one matcher per (row, repository type), and the
+// refusal the kernel names for anything it does not answer.
+let matchers = [];
+const ANONYMOUS = 18;
+const METHOD_NO = { GET: 1, HEAD: 2, POST: 3 };
 // The Sigstore policy screen 3 pins, kept so a runner beside this one checks a
 // witnessed manifest against the same roots.
 let trust = null;
@@ -60,6 +67,7 @@ export async function start({ holo, index: indexUrl, huggingFace = true, drain =
   // holo older than itself: a kernel with no record block answers operation 6
   // as invalid, and the edge then answers from the index as it did before.
   listQuery = { sorts: docs.listSorts ?? [], limit: docs.listLimit ?? 1000 };
+  matchers = compileSurface(docs.surface ?? [], docs.kinds ?? []);
   const record = docs.record ?? { fields: [], partialHeader: "X-Hub-Partial" };
   recordFields = record.fields.map(([id]) => id);
   partialHeader = record.partialHeader;
@@ -76,6 +84,47 @@ export async function start({ holo, index: indexUrl, huggingFace = true, drain =
     }
   }
   return { examples: run.total, fingerprint: kernel.identities.archiveFingerprint, index: state };
+}
+
+// Each row's path, in Hugging Face's spelling, as a pattern for each repository
+// type it takes. A row that names no type is tried first, so `/api/spaces/featured`
+// is never read as a Space called `featured`; then Spaces and datasets before
+// models, because `/datasets/x/resolve/...` would otherwise read as a model
+// whose namespace is `datasets`, and huggingface.co reads it as a dataset.
+function compileSurface(surface, kinds) {
+  const prefix = new Map(kinds);
+  const out = [];
+  surface.forEach(([methods, path, rowKinds], op) => {
+    for (const kind of rowKinds.length ? rowKinds : [null]) {
+      const text = path.replace("{type}", kind ?? "").replace("{prefix}", kind ? prefix.get(kind) : "");
+      const names = [];
+      let source = "";
+      for (const part of text.split(/(\/\{path\}$|\{namespace\}\/\{repo\}|\{\w+\})/)) {
+        // A trailing {path} may be absent, as in `tree/main`.
+        if (part === "/{path}") { names.push("path"); source += "(?:/(.*))?"; }
+        else if (part === "{namespace}/{repo}") { names.push("repo"); source += "([\\w.-]+/[\\w.-]+)"; }
+        // A repository named without its namespace, as `gpt2` still is.
+        else if (part === "{name}") { names.push("repo"); source += "([\\w.-]+)"; }
+        else if (/^\{\w+\}$/.test(part)) { names.push(part.slice(1, -1)); source += "([^/]+)"; }
+        else source += part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      }
+      out.push({ op, kind, kindNo: kind ? [...prefix.keys()].indexOf(kind) + 1 : 0, methods, names, re: new RegExp(`^${source}$`) });
+    }
+  });
+  const rank = (m) => (m.kind === null ? 0 : m.kind === "models" ? 2 : 1);
+  return out.sort((a, b) => rank(a) - rank(b) || a.op - b.op);
+}
+
+// The operation a path is, with the values its placeholders took.
+function operationOf(path) {
+  for (const m of matchers) {
+    const hit = path.match(m.re);
+    if (!hit) continue;
+    const values = {};
+    m.names.forEach((n, i) => { values[n] = hit[i + 1] === undefined ? "" : decodeURIComponent(hit[i + 1]); });
+    return { ...m, values };
+  }
+  return null;
 }
 
 async function openIndex(base, policy) {
@@ -175,15 +224,16 @@ const indexedRevision = (rec, revision) => revision === "main" || revision === r
   || (/^[0-9a-f]{7,39}$/.test(revision) && rec.revision.startsWith(revision));
 
 // Repository state the kernel reads: 0 public, 1 missing, 2 private, 3 gated, 4 disabled.
-export async function release(repo, revision) {
-  const rec = await record(repo);
+export async function release(repo, revision, kind = "models") {
+  // The index holds models; a dataset or a Space is asked of Hugging Face.
+  const rec = kind === "models" ? await record(repo) : null;
   if (rec && (indexedRevision(rec, revision) || !useHuggingFace)) {
     if (!indexedRevision(rec, revision)) return { state: 0, revision: false };
     return { state: 0, revision: true, sha: rec.revision, siblings: siblingsOf(rec), record: rec };
   }
   if (!useHuggingFace) return { state: 1 };
-  return cached(`info:${repo}@${revision}`, async () => {
-    const r = await fetch(`${HF}/api/models/${repo}/revision/${encodeURIComponent(revision)}?blobs=true`, { signal: AbortSignal.timeout(15000) });
+  return cached(`info:${kind}/${repo}@${revision}`, async () => {
+    const r = await fetch(`${HF}/api/${kind}/${repo}/revision/${encodeURIComponent(revision)}?blobs=true`, { signal: AbortSignal.timeout(15000) });
     if (r.status === 401 || r.status === 404) {
       const code = r.headers.get("x-error-code");
       if (code === "RevisionNotFound") return { state: 0, revision: false };
@@ -263,13 +313,13 @@ function refuse(answer, method) {
   const d = dialect.get(answer) ?? dialect.get("other");
   const headers = { ...CORS, "content-type": "application/json", "cache-control": "no-store", "x-error-message": d.message };
   if (d.error) headers["x-error-code"] = d.error;
-  if (answer === 10 || answer === 13) headers["www-authenticate"] = "Bearer";
+  if (answer === 10 || answer === 13 || answer === ANONYMOUS) headers["www-authenticate"] = 'Bearer realm="Authentication required", charset="UTF-8"';
   return new Response(method === "HEAD" ? null : JSON.stringify({ error: d.message }), { status: d.status, headers });
 }
 const json = (body, status = 200, extra = {}) => new Response(JSON.stringify(body), { status, headers: { ...CORS, ...extra, "content-type": "application/json", "cache-control": "no-store" } });
 
-async function resolve(method, via, repo, revision, path) {
-  const info = await release(repo, revision);
+async function resolve(method, via, repo, revision, path, kind = "models", prefix = "") {
+  const info = await release(repo, revision, kind);
   const commitKind = /^[0-9a-f]{7,40}$/.test(revision) ? 1 : 0;
   const held = info.state === 0 && info.revision ? holders(info) : null;
   const sibling = info.siblings?.get(path);
@@ -311,7 +361,7 @@ async function resolve(method, via, repo, revision, path) {
   const target = fromRecord
     ? `${fromRecord}${path}`
     : source === "huggingface.co"
-      ? `${HF}/${repo}/resolve/${info.sha}/${path}`
+      ? `${HF}/${prefix}${repo}/resolve/${info.sha}/${path}`
       : `${held.sources.find((x) => x.kind === source).resolve}${path}`;
   return new Response(null, {
     status: 302,
@@ -568,8 +618,17 @@ async function passthrough(request, url, upstreamPath) {
     init.body = await request.text();
     init.headers["content-type"] = request.headers.get("content-type") ?? "application/x-www-form-urlencoded";
   }
+  // A redirect is Hugging Face's answer, not a step to take on the client's
+  // behalf; one back into Hugging Face is pointed at this origin instead.
+  init.redirect = "manual";
   const r = await fetch(target, init);
   const headers = { ...CORS, "content-type": r.headers.get("content-type") ?? "application/json", "cache-control": "no-store" };
+  const location = r.headers.get("location");
+  if (location) headers.location = location.startsWith(HF) ? url.origin + location.slice(HF.length) : location;
+  // Events and metrics are streams that do not end; they are passed on as they arrive.
+  if (headers["content-type"].includes("text/event-stream")) {
+    return new Response(request.method === "HEAD" ? null : r.body, { status: r.status, headers });
+  }
   for (const h of ["x-error-code", "x-error-message", "x-total-count", "x-xet-cas-url", "x-xet-access-token", "x-xet-token-expiration"]) {
     if (r.headers.get(h)) headers[h] = r.headers.get(h);
   }
@@ -597,34 +656,51 @@ async function route(request) {
   let via = null;
   const pinned = path.match(/^via\/([^/]+)\/(.*)$/);
   if (pinned) { via = pinned[1]; path = pinned[2]; }
-  // Read-only: GET and HEAD, plus the one read Hugging Face sends as a POST (paths-info). Every other method is the
-  // same refusal on every route, rather than whatever the route it lands on happens to do with it.
-  const read = request.method === "GET" || request.method === "HEAD" || (request.method === "POST" && /^api\/models\/.+\/paths-info\//.test(path));
-  if (!read) return refuse(0, request.method);
+  if (path === "" || path === "health") {
+    return json({ runner: "edge", kernel: Boolean(kernel), index: index ? index.records.size : 0, huggingFace: useHuggingFace, operations: matchers.length });
+  }
   try {
-    const file = path.match(/^([\w.-]+\/[\w.-]+)\/resolve\/([^/]+)\/(.+)$/);
-    if (file && (request.method === "GET" || request.method === "HEAD")) {
-      return await resolve(request.method, via, file[1], decodeURIComponent(file[2]), decodeURIComponent(file[3]));
+    const found = operationOf(`/${path}`);
+    const plan = found ? await kernel.dispatch(new Uint8Array([8, METHOD_NO[request.method] ?? 0, found.kindNo, found.op])) : [4];
+    const how = plan[0];
+    if (how === 1) {
+      const { rev, path: file } = found.values;
+      const prefix = found.kind === "models" ? "" : `${found.kind}/`;
+      const repo = found.values.repo.includes("/") ? found.values.repo : await fullName(found.kind, found.values.repo);
+      if (!repo) return refuse(10, request.method);
+      return await resolve(request.method, via, repo, rev, file, found.kind, prefix);
     }
-    if (path === "api/whoami-v2") return refuse(10, request.method);
-    if (path === "api/models-tags-by-type" && browse.length) return tagsByType();
-    if (path === "api/quicksearch" && browse.length) return quicksearch(url);
-    if ((path === "api/models-tags-by-type" || path === "api/quicksearch") && useHuggingFace) {
-      return await passthrough(request, url, `/${path}`);
-    }
-    if (/^api\/models(\/|$)/.test(path) && !/\/(preupload|commit|xet-write-token)\//.test(path)) {
-      if (request.method === "POST" && !/\/paths-info\//.test(path)) return refuse(0, request.method);
-      const local = index ? await fromIndex(request.clone(), url, path) : null;
-      if (local) return local;
-      if (useHuggingFace) return await passthrough(request, url, `/${path}`);
-      if (path === "api/models" && index) return searchIndex(url);
-      return refuse(10, request.method);
-    }
-    if (path === "" || path === "health") {
-      return json({ runner: "edge", kernel: Boolean(kernel), index: index ? index.records.size : 0, huggingFace: useHuggingFace });
-    }
-    return refuse(0, request.method);
+    if (how === 2) return await fromHub(request, url, path, found);
+    if (how === 3) return useHuggingFace ? await passthrough(request, url, `/${path}`) : refuse(17, request.method);
+    // 4, and 0 from a kernel older than the route decision: refused as
+    // Hugging Face refuses a client with no token.
+    return refuse(ANONYMOUS, request.method);
   } catch (error) {
     return new Response(JSON.stringify({ error: String(error?.message ?? error) }), { status: 502, headers: { ...CORS, "content-type": "application/json", "x-error-message": "The edge could not reach an upstream" } });
   }
 }
+
+// The full name of a repository named without its namespace, as Hugging Face
+// gives it: its API answers the short name with a redirect to the full one.
+async function fullName(kind, name) {
+  if (!useHuggingFace) return null;
+  return cached(`name:${kind}/${name}`, async () => {
+    const r = await fetch(`${HF}/api/${kind}/${encodeURIComponent(name)}`, { signal: AbortSignal.timeout(15000) });
+    if (!r.ok) return null;
+    const id = (await r.json()).id;
+    return typeof id === "string" && id.includes("/") ? id : null;
+  });
+}
+
+// An operation the index can answer: from the signed index when it holds the
+// repository, and from Hugging Face's own answer otherwise.
+async function fromHub(request, url, path, found) {
+  if (path === "api/models-tags-by-type") return browse.length ? tagsByType() : relayOr(request, url, path);
+  if (path === "api/quicksearch") return browse.length ? quicksearch(url) : relayOr(request, url, path);
+  const local = index ? await fromIndex(request.clone(), url, path) : null;
+  if (local) return local;
+  if (useHuggingFace) return await passthrough(request, url, `/${path}`);
+  if (path === "api/models" && index) return searchIndex(url);
+  return refuse(10, request.method);
+}
+const relayOr = (request, url, path) => (useHuggingFace ? passthrough(request, url, `/${path}`) : refuse(17, request.method));

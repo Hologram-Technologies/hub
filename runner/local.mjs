@@ -502,7 +502,10 @@ export async function handle(request, { onNote = () => {} } = {}) {
   let via = null;
   const pinned = path.match(/^via\/([^/]+)\/(.*)$/);
   if (pinned) { via = pinned[1]; path = pinned[2]; }
-  const file = path.match(/^([\w.-]+\/[\w.-]+)\/resolve\/([^/]+)\/(.+)$/);
+  // A model's file is served here, checked byte by byte. A dataset's or a
+  // Space's is the edge's: `datasets/` and `spaces/` name the repository type,
+  // as they do on huggingface.co, not a namespace (HK-31).
+  const file = /^(datasets|spaces)\//.test(path) ? null : path.match(/^([\w.-]+\/[\w.-]+)\/resolve\/([^/]+)\/(.+)$/);
   if (file && (request.method === "GET" || request.method === "HEAD")) {
     try {
       return await serveFile(request, via, file[1], decodeURIComponent(file[2]), decodeURIComponent(file[3]), onNote);

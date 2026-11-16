@@ -1,0 +1,23 @@
+\begin{lexlean}{Proofs.Anonymous}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksAnonymous,
+  parameters: [method : Nat, kind : Nat, op : Nat],
+  result: Bool,
+  body: (((Kernel::readAnswer method kind op) =? 0) && (not ((Kernel::route method kind op) =? 4)))
+}
+
+theorem{
+  name: anonymousHolds,
+  parameters: [method : Nat, kind : Nat, op : Nat],
+  statement: ((breaksAnonymous method kind op) = false),
+  proof: linear_arithmetic{definitions: [Kernel::route, breaksAnonymous]},
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

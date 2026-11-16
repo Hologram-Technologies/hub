@@ -92,7 +92,7 @@ statement = "Every header item and every link that stays in the hub opens a scre
 id = "HK-12"
 level = "build"
 suite = "kernel"
-statement = "A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code"
+statement = "A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code, except the refusal of a client with no token, which carries exactly the headers Hugging Face sends it"
 
 [[id]]
 id = "HK-13"
@@ -213,3 +213,15 @@ id = "HK-34"
 level = "build"
 suite = "apex"
 statement = "The landing hero fits every screen from 320 pixels wide: no part of it is wider than the window, so nothing is cut off and the page never scrolls sideways"
+
+[[id]]
+id = "HK-31"
+level = "build"
+suite = "surface"
+statement = "Every read operation Hugging Face answers a client with no token, for models, datasets and Spaces, is one the hub answers at Hugging Face's own path and in its terms, and none of them is refused"
+
+[[id]]
+id = "HK-32"
+level = "build"
+suite = "surface"
+statement = "Every request the hub does not answer as a read is refused as Hugging Face refuses a client with no token: 401 with a Bearer challenge"

@@ -1,0 +1,23 @@
+\begin{lexlean}{Proofs.Surface}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksSurface,
+  parameters: [method : Nat, kind : Nat, op : Nat],
+  result: Bool,
+  body: ((not ((Kernel::readAnswer method kind op) =? 0)) && ((Kernel::route method kind op) =? 4))
+}
+
+theorem{
+  name: surfaceHolds,
+  parameters: [method : Nat, kind : Nat, op : Nat],
+  statement: ((breaksSurface method kind op) = false),
+  proof: linear_arithmetic{definitions: [Kernel::route, breaksSurface]},
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

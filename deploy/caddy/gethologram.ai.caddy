@@ -31,11 +31,14 @@ gethologram.ai, hub.uor.foundation {
 		reverse_proxy hub-edge:8787
 	}
 
-	# The Hugging Face dialect's files and model API. Clients send their Hugging Face token to whatever HF_ENDPOINT
-	# names; it never reaches the edge.
+	# The Hugging Face dialect, for models, datasets and Spaces: every /api/ path, every file route and the access
+	# reports. The edge reads which operation a request is from the kernel's surface table and refuses what the
+	# kernel refuses (HK-31, HK-32), so nothing here decides. Clients send their Hugging Face token to whatever
+	# HF_ENDPOINT names; it never reaches the edge. The object store's addresses stay with the Spaces server.
 	@edge {
-		path_regexp edge ^(/api/models(/|$)|/[^/]+/[^/]+/resolve/)
+		path_regexp edge ^(/api/|/(datasets/|spaces/)?([^/]+/)?[^/]+/resolve/|/(datasets/)?[^/]+/[^/]+/user-access-report$)
 		not path /via/*
+		not path /api/v1/objects/sha256:*
 	}
 	handle @edge {
 		request_header -Authorization
