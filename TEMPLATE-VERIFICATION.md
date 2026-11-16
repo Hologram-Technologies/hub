@@ -2553,3 +2553,41 @@ honest about what the hub can *reach* until the record is added.
 
 The header is now Models, Spaces, Buckets, Docs - Hugging Face's own header
 and its order, minus Datasets, which this hub does not index.
+
+### The gate that let the header shrink
+
+A header item whose screen the kernel does not render is the mistake this
+change could have made, and HK-11 is the gate that would catch it. It is
+evidence only once it has been seen to fail, so it was made to.
+
+The generator cannot produce this defect: `navRoute` and `hasScreen` are both
+derived from the one `ROUTES` list in `app/tools/site_spec.py`, so a header
+item and its route cannot disagree there. It was therefore written straight
+into the generated model - one branch of `navRoute` in `app/src/Site.lex.tex`,
+nav item 1 (Spaces) changed from `(routeSpaces)` to `(routeCount)`, which is
+exactly "the route was removed and the header item was left behind":
+
+    body: (if (item =? 0) then (routeModels) else (if (item =? 1) then
+           (routeCount) else ...
+
+`just app`, in the SDK image `prismpm.lock` selects, exited 1:
+
+    LEXLEAN ERROR: LexLean verification failed:
+    Lean rejected `HologramHubKernel.Proofs.Nav` (error): omega could not
+    prove the goal: No usable constraints found.
+    primary: src/Proofs/Nav.lex.tex, line_start: 15, line_end: 37
+    PP5001: LexLean verification failed
+    error: recipe `app` failed with exit code 1
+
+Lines 15 to 37 of that file are `navHolds`, the theorem that no input meets
+`breaksNav`. With the route gone, `hasScreen (navRoute 1)` is
+`routeCount <? routeCount`, which is false, so `breaksNav 1` is true and the
+theorem is not provable. The gate names the file, the theorem and the reason.
+
+Restored by re-running `python app/tools/gen_kernel.py`, after which
+`app/src/` is byte-identical to `971bed1` on main - the commit whose
+`acceptance / ubuntu-24.04` job ran the whole of `just vv`, proof step
+included, and passed in 18m20s. That passing run is the restored result;
+nothing was re-proved locally, because the local Docker daemon was shared
+with another session's proof throughout and its `app` step was unreliable for
+that reason rather than any other.
