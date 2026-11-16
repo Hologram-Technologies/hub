@@ -285,9 +285,18 @@ SCREENS = {
         # What the page says about the list it is showing: where the rows came
         # from, how many shards they were read from, and the rule that derived
         # them. A reader can tell a signed listing from one that is not.
+        # Said only when the listing *is* signed. There was an "Unsigned
+        # listing" badge beside it until 2026-11-16, and because the roll can
+        # never be hashed whole - a page is a ranged read of 400 MB - it was
+        # permanent on the catalogue every visitor lands on, in the red this
+        # site uses for a failure. A warning that is always on is not a
+        # warning.
+        #
+        # What a row is worth is still said per row, which is where a reader
+        # needs it: every card carries Verified, Queued, Unverified or Listed
+        # only, and a model page says which witnesses named each address.
         "listing": {
             "signed": "Signed listing",
-            "unsigned": "Unsigned listing",
             "detail": "{n} models, {shards} shards, {rules}",
         },
         # Models the swarm lists that this hub does not index. They are read

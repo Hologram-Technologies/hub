@@ -9,7 +9,8 @@
 // given and compares with a signed root, which needs the whole file. A ranged
 // read is a few hundred bytes out of 400 MB, so a page drawn this way is the
 // host's word. `checked` on the handle is false for exactly that reason, and
-// the interface says "Unsigned listing" when it is drawing from here.
+// the interface draws its "Signed listing" badge only when it is NOT drawing
+// from here. What a row is worth is said per row instead, on the card.
 //
 // The roll itself stays checkable: its shards are small, named by its root,
 // and `tests/roll/published.mjs` refuses to publish one that is not.
