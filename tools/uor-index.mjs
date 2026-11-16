@@ -31,13 +31,15 @@
 // ONNX file is reported as unaddressed rather than addressed by guesswork.
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open as openFile, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { createWriteStream } from "node:fs";
+
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 
+import { Blake3 } from "../try/vendor/prism-code/src/blake3.mjs";
 import { uorBucket, uorShardPath } from "../web/uorkey.mjs";
 
 const run = promisify(execFile);
@@ -90,6 +92,29 @@ if (missing.length) throw new Error(`uor-index: models named in manifests/uor.tx
 // One file's label and leaves, from bytes this process streamed and hashed.
 // The file is written to disk because it is read whole, and removed straight
 // after: nothing here keeps a weight file.
+// A tensor's canonical address: BLAKE3 over the tensor's own raw bytes.
+//
+// This is the hub's number, not `uor-addr`'s. The canonical form fixes its own
+// leaves to SHA-256 by definition -- `address_blake3` folds a skeleton whose
+// leaves are still SHA-256 -- so the leaf cannot be BLAKE3 and is published
+// beside this as `uorLeaf`, labelled as uor-addr's. BLAKE3 over the raw bytes
+// is what `runner/uor.mjs` already emits per tensor, what hologram's
+// substrate.rs calls the leaf identity, and what the Q engine names blocks by.
+// One tensor, one identity, across the three.
+//
+// Read in chunks, because a tensor is gigabytes and the address must not need
+// the tensor in memory any more than a reader checking it does.
+async function blake3OfRange(handle, begin, length, buffer) {
+  const hash = new Blake3();
+  for (let at = 0; at < length; at += buffer.length) {
+    const want = Math.min(buffer.length, length - at);
+    const { bytesRead } = await handle.read(buffer, 0, want, begin + at);
+    if (bytesRead !== want) throw new Error(`read ${bytesRead} of ${want} bytes at ${begin + at}`);
+    hash.update(buffer.subarray(0, want));
+  }
+  return `blake3:${Buffer.from(hash.digest()).toString("hex")}`;
+}
+
 async function addressOne(repo, revision, file, work) {
   const url = `${HF}/${repo}/resolve/${revision}/${file.path}`;
   const local = join(work, "subject.gguf");
@@ -103,8 +128,20 @@ async function addressOne(repo, revision, file, work) {
   // Its JSON is this build's only source for either.
   const { stdout } = await run(LABEL, [local], { maxBuffer: 256 * 1024 * 1024 });
   const minted = JSON.parse(stdout);
-  await rm(local, { force: true });
   if (minted.bytes !== file.size) throw new Error(`${repo}/${file.path}: uor-label read ${minted.bytes} bytes, the record says ${file.size}`);
+  // The canonical address of each tensor, taken here from the same bytes
+  // `uor-label` just read, while the file is still on disk. `uor-label` gave
+  // the ranges; this gives the addresses over them.
+  const handle = await openFile(local, "r");
+  try {
+    const buffer = Buffer.alloc(4 << 20);
+    for (const tensor of minted.tensors) {
+      tensor.address = await blake3OfRange(handle, tensor.begin, tensor.length, buffer);
+    }
+  } finally {
+    await handle.close();
+  }
+  await rm(local, { force: true });
   console.log(`  ${repo}/${file.path}: ${minted.label.slice(0, 23)}... ${minted.tensors.length} tensors in ${((Date.now() - started) / 1000).toFixed(1)} s`);
   return { minted, seconds: (Date.now() - started) / 1000 };
 }
@@ -155,6 +192,11 @@ for (const repo of wanted) {
         // canonical-form version is ambiguous the moment upstream bumps one,
         // so the two travel together and never apart.
         label: minted.label,
+        // uor-addr's own sha256-axis label over the same skeleton. Published
+        // beside the blake3 one because they name the same bytes, and a reader
+        // who has only ever seen sha256 labels should be able to tell that
+        // rather than guess at it.
+        sha256Label: minted.sha256Label,
         canonicalForm: minted.canonicalForm,
         realization: minted.realization,
         // Where these exact bytes were streamed from, so a client checking a
@@ -204,11 +246,18 @@ for (const bucket of [...shards.keys()].sort((a, b) => a - b)) {
 }
 
 const manifest = {
-  format: "hologram.hub.uor/v1",
-  // Which released code minted these labels, and which canonical form it used.
-  // An address is only an address while both are fixed, so both are published
-  // beside it.
-  addresser: { crate: "uor-addr", version: "0.2.0", realization: "gguf" },
+  format: "hologram.hub.uor/v2",
+  // Which released code minted these labels, which canonical form it used, and
+  // which axis the label is on. An address is only an address while all three
+  // are fixed, so all three are published beside it. Both axes are 71 bytes, so
+  // a reader tells them apart by the prefix and never by the length.
+  addresser: { crate: "uor-addr", version: "0.2.0", realization: "gguf", axis: "blake3" },
+  // A tensor's address is this hub's own: BLAKE3 over the tensor's raw bytes,
+  // the same number runner/uor.mjs emits. `uorLeaf` beside it is uor-addr's
+  // canonical-form leaf, which is SHA-256 by the form's definition and is what
+  // the model label binds. They are different numbers for the same bytes, so
+  // each says whose it is.
+  tensorAddress: { axis: "blake3", over: "the tensor's raw bytes", by: "runner/uor.mjs" },
   canonicalForm: rows.length ? rows[0].canonicalForm : null,
   shardBits: SHARD_BITS,
   counts: {

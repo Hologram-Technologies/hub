@@ -34,6 +34,26 @@ in `model/authorities.toml` as `UOR-ADDR-0-2-0`.
 - A tensor's leaf is the SHA-256 of that tensor's own data region and nothing
   else. It is not a hash of a hash, and it does not depend on the file around it.
 
+The axis is a separate matter from the canonical form, and the distinction cost
+this repository a decision to get right. `uor-addr` exposes `address_blake3`
+beside `address`, but the canonical form fixes its **leaves** to SHA-256 by
+definition: the axis is applied to the finished skeleton, so `address_blake3`
+yields `blake3(skeleton-with-sha256-leaves)`. Read from the 0.2.0 crate source,
+`crates/uor-addr/src/gguf/mod.rs`, and the ONNX realization says the same. So
+choosing an axis changes a model's label and cannot change a tensor's leaf.
+
+That leaves two numbers per tensor, and this repository publishes both, each
+labelled as whose it is:
+
+| In a row | What it is | Whose |
+| --- | --- | --- |
+| `address` | BLAKE3 over the tensor's own raw bytes | this hub's, the same number `runner/uor.mjs` emits, matching hologram's `substrate.rs` leaf identity and the Q engine's block names |
+| `uorLeaf` | SHA-256 of the same bytes | `uor-addr`'s canonical-form leaf, and what the model label binds |
+
+Both are 71 bytes, because both prefixes are seven characters. A reader decides
+the axis from the prefix and never from the length; `web/uorkey.mjs` does, and
+`HK-25` is partly there to keep it that way.
+
 The second is the one that pays. It means a reader can check one tensor from a
 ranged read, and the skeleton stays small whatever the model weighs.
 
@@ -45,7 +65,8 @@ ranged read, and the skeleton stays small whatever the model weighs.
 
 | | |
 | --- | --- |
-| κ-label | `sha256:cef511af809a72bd9a826959c1e91757618dae8903d9aabf5d87258ff947f7a3` |
+| κ-label, blake3 axis (published) | `blake3:0df83c209a7db6f42c40975dfb63cdaa2aa0c58bc7d272c0b8b72f7b851878c9` |
+| the same skeleton, sha256 axis | `sha256:cef511af809a72bd9a826959c1e91757618dae8903d9aabf5d87258ff947f7a3` |
 | canonical form | 2 |
 | skeleton | 4,360 bytes |
 | data section starts at | byte 2,240 |
@@ -64,7 +85,11 @@ is bytes 2,240 to 12,479 of the file:
 | `curl` with `Range: bytes=2240-12479` | 206, 10,240 bytes, 0.537 s, same digest |
 | a browser's `fetch`, cross-origin from an unrelated site | 206, `type: "cors"`, 763 ms, same digest |
 
-All three equal the leaf the canonical form publishes. So a visitor's own browser
+All three equal the leaf the canonical form publishes. The same range taken with
+BLAKE3 gives the tensor's published address,
+`blake3:f26f2448d865fe3e8466f479b08117e1998a923b0f4941be23d02373d737935e`, and
+the builder's number and the vendored implementation's agree on it — which is
+the check that the builder, `runner/uor.mjs` and the page cannot drift apart. So a visitor's own browser
 can check a tensor's canonical address against the source, over one ranged read,
 without the file and without this hub's word for anything. That is what the
 model page's address tab offers, and the verdict it shows is the kernel's accept

@@ -324,23 +324,36 @@ fn json_string(value: &str) -> String {
 fn run(path: &str) -> Result<String, String> {
     let raw = std::fs::read(path).map_err(|e| format!("{path}: {e}"))?;
 
-    // The label comes from `uor-addr` and from nowhere else. Everything below
-    // only explains it.
-    let outcome = uor_addr::gguf::address(&raw)
+    // Both labels come from `uor-addr` and from nowhere else. Everything below
+    // only explains them.
+    //
+    // The axis is a choice; the canonical form is not. `address_blake3` and
+    // `address` fold the same skeleton through different hashes, so the two
+    // labels name the same bytes by different names. The blake3 one is
+    // published, because it is the axis this family addresses tensors on. The
+    // sha256 one is kept to check the skeleton with, below.
+    let blake3 = uor_addr::gguf::address_blake3(&raw)
         .map_err(|e| format!("{path} is not a GGUF v3 file uor-addr will address: {e:?}"))?;
-    let label = outcome.address.as_str().to_owned();
+    let label = blake3.address.as_str().to_owned();
+    let sha256_label = uor_addr::gguf::address(&raw)
+        .map_err(|e| format!("{path} did not address on the sha256 axis: {e:?}"))?
+        .address
+        .as_str()
+        .to_owned();
 
     let skeleton = uor_addr::gguf::canonicalize(&raw)
         .map_err(|e| format!("{path} did not canonicalize: {e:?}"))?;
 
     // The first check: κ is the σ-axis applied to the canonical form, so
-    // hashing the skeleton must give the label back. If it does not, the bytes
-    // walked below are not the bytes the label was taken over, and no leaf read
-    // out of them would mean anything.
+    // hashing the skeleton must give a label back. It is made on the sha256
+    // axis because that is the hash this binary carries; it holds the skeleton
+    // to the label just the same, since both axes are folded over these exact
+    // bytes. Without it, the leaves walked below might not be the ones either
+    // label was taken over, and no leaf read out of them would mean anything.
     let restated = format!("sha256:{}", hex(&Sha256::digest(&skeleton)));
-    if restated != label {
+    if restated != sha256_label {
         return Err(format!(
-            "hashing the canonical skeleton gives {restated}, but uor-addr's label is {label}"
+            "hashing the canonical skeleton gives {restated}, but uor-addr's sha256 label is {sha256_label}"
         ));
     }
 
@@ -395,7 +408,7 @@ fn run(path: &str) -> Result<String, String> {
         // bytes. Both are printed because confusing them would send a reader
         // to the wrong range.
         rows.push(format!(
-            "{{\"name\":{},\"ggmlType\":{},\"shape\":[{}],\"begin\":{},\"length\":{},\"canonicalOffset\":{},\"leaf\":\"sha256:{}\"}}",
+            "{{\"name\":{},\"ggmlType\":{},\"shape\":[{}],\"begin\":{},\"length\":{},\"canonicalOffset\":{},\"uorLeaf\":\"sha256:{}\"}}",
             json_string(&tensor.name),
             entry.ggml_type,
             dims,
@@ -433,11 +446,12 @@ fn run(path: &str) -> Result<String, String> {
     }
 
     Ok(format!(
-        "{{\"format\":\"hologram.hub.uorlabel/v1\",\"file\":{},\"bytes\":{},\"realization\":\"gguf\",\"canonicalForm\":{},\"label\":{},\"skeletonBytes\":{},\"dataStart\":{},\"tensors\":[{}]}}",
+        "{{\"format\":\"hologram.hub.uorlabel/v2\",\"file\":{},\"bytes\":{},\"realization\":\"gguf\",\"canonicalForm\":{},\"label\":{},\"sha256Label\":{},\"skeletonBytes\":{},\"dataStart\":{},\"tensors\":[{}]}}",
         json_string(path),
         raw.len(),
         uor_addr::gguf::CANONICAL_FORM_VERSION,
         json_string(&label),
+        json_string(&sha256_label),
         skeleton.len(),
         data_start,
         rows.join(",")

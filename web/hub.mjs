@@ -5,12 +5,12 @@
 // classes are gethologram.ai's, so the two sites look and behave alike.
 
 import { load } from "./app/vendor/prism-code/src/browser.mjs";
-import { blake3Hex } from "./app/vendor/prism-code/src/blake3.mjs";
+import { blake3, blake3Hex } from "./app/vendor/prism-code/src/blake3.mjs";
 import { verifyBundle } from "./sigstore.mjs";
 import { openBrowse } from "./browse.mjs";
 import { ICON, art } from "./icons.mjs";
 import { swarmKeyOf } from "./swarmkey.mjs";
-import { isUorLabel, uorShardOf } from "./uorkey.mjs";
+import { isBlake3Label, isUorLabel, uorDigestHex, uorShardOf } from "./uorkey.mjs";
 
 const root = new URL(".", import.meta.url);
 const html = document.documentElement;
@@ -218,7 +218,12 @@ async function deriveTensor(row, tensor) {
     if (response.status !== 206) return { reached: false };
     const body = new Uint8Array(await response.arrayBuffer());
     if (body.length !== tensor.length) return { reached: false };
-    return { reached: true, accepted: await addressed(body, tensor.leaf.slice("sha256:".length)) };
+    // BLAKE3, because that is the axis a tensor is addressed on, taken with
+    // the same implementation `runner/uor.mjs` uses so the page and the runner
+    // cannot disagree about what a tensor is called. The axis is read from the
+    // label's prefix: both axes are 71 bytes, so the length says nothing.
+    if (!isBlake3Label(tensor.address)) return { reached: false };
+    return { reached: true, accepted: await accepts(blake3(body), uorDigestHex(tensor.address), body.length) };
   } catch {
     return { reached: false };
   }
@@ -358,15 +363,23 @@ function fromRoll(r, index, faces, s, now) {
   };
 }
 
-// The kernel decides whether these are the addressed bytes, the same rule a
-// download goes through.
-async function addressed(body, expected) {
+// The kernel's accept rule over a digest already taken, and the one place the
+// request is built. The rule does not care which hash produced the thirty-two
+// bytes it is given -- it compares them, and the size -- so the axis is the
+// caller's business and the comparison is never the caller's.
+async function accepts(observed, expected, length) {
   if (!/^[0-9a-f]{64}$/.test(expected ?? "")) return false;
-  const observed = new Uint8Array(await crypto.subtle.digest("SHA-256", body));
   const request = new Uint8Array(81);
   request.set([2]); request.set(hex(expected), 1); request.set(observed, 33);
-  request.set(u64(body.length), 65); request.set(u64(body.length), 73);
+  request.set(u64(length), 65); request.set(u64(length), 73);
   return (await kernel.dispatch(request))[0] === 20;
+}
+
+// The kernel decides whether these are the addressed bytes, the same rule a
+// download goes through. A shard is named by SHA-256, which is what the signed
+// roots carry.
+async function addressed(body, expected) {
+  return accepts(new Uint8Array(await crypto.subtle.digest("SHA-256", body)), expected, body.length);
 }
 
 // The signature over the root, checked the way a model's manifest is: the
@@ -1475,7 +1488,7 @@ async function drawModel(main, id) {
         <h3>${esc(f.path)}</h3>
         <dl class="facts"><div><dt>${esc(s.uor.fileLabel)}</dt><dd class="addr">${esc(f.label)}</dd></div></dl>
         <div class="scroll"><table><thead><tr>${s.uor.columns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>
-        ${f.tensors.map((t, ti) => `<tr><td class="path">${esc(t.name)}</td><td>${esc(`[${t.shape.join(", ")}]`)}</td><td class="size">${esc(bytes(t.length))}</td><td class="addr">${esc(t.leaf.slice(0, 23))}...</td>
+        ${f.tensors.map((t, ti) => `<tr><td class="path">${esc(t.name)}</td><td>${esc(`[${t.shape.join(", ")}]`)}</td><td class="size">${esc(bytes(t.length))}</td><td class="addr">${esc(t.address.slice(0, 23))}...</td>
           <td><button type="button" data-file="${fi}" data-tensor="${ti}">${esc(s.uor.derive)}</button> <span class="checked dim">${esc(s.uor.unchecked)}</span></td></tr>`).join("")}
         </tbody></table></div></section>`).join("")}`;
   };

@@ -445,8 +445,13 @@ content -- modulo metadata-key order, tensor order and tensor-data layout --
 address alike, so the same tensors have the same address wherever they come
 from. `crates/uor-label` calls it, `tools/uor-index.mjs` publishes a label and
 every tensor's leaf under `data/uor/`, and a model page offers to check one
-(`HK-24`, `HK-25`). The leaf of a tensor is the SHA-256 of that tensor's own
-data region, so the check is a ranged read of one tensor and the verdict is the
+(`HK-24`, `HK-25`). A tensor is addressed on the BLAKE3 axis over its own raw
+bytes -- the same number `runner/uor.mjs` emits above, so one tensor has one
+identity here, in hologram's substrate and in the Q engine. `uor-addr`'s
+canonical-form leaf is SHA-256 by that form's definition, whatever axis the
+label is on, and is published beside the address as what the label binds. Both
+labels are 71 bytes, so the axis is read from the prefix and never the length.
+Either way the check is a ranged read of one tensor and the verdict is the
 kernel's: measured 2026-11-16, 10,240 bytes of a 483,520-byte file in a browser,
 206 and cross-origin, matching. GGUF today; `docs/uor-addresses.md` has the
 measurements, the costs and what is not addressed yet.

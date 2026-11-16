@@ -280,10 +280,27 @@ fn index_hk_24() {
         );
     }
 
-    // The address is upstream's, from upstream's own entry point.
+    // The model label is upstream's, from upstream's own entry point, on the
+    // axis this family addresses on.
     assert!(
-        minter.contains("uor_addr::gguf::address"),
-        "the address must come from uor-addr rather than be assembled here"
+        minter.contains("uor_addr::gguf::address_blake3"),
+        "the model label must come from uor-addr's blake3 axis rather than be assembled here"
+    );
+    // A tensor's address is this hub's own, taken over the tensor's raw bytes
+    // by the builder. It is not uor-addr's leaf and must not be read out of
+    // one: the canonical form fixes its leaves to SHA-256 whatever the axis,
+    // so a row that called the leaf its address would name the wrong number.
+    assert!(
+        builder.contains("blake3OfRange"),
+        "the builder must take each tensor's address over the bytes itself"
+    );
+    assert!(
+        builder.contains("tensor.address = await blake3OfRange"),
+        "a tensor's address must be the blake3 the builder computed"
+    );
+    assert!(
+        !builder.contains("address: minted") && !builder.contains("address = minted"),
+        "a tensor's address must not be read out of the minter's leaf"
     );
     // A label and the canonical form that minted it travel together: a label
     // whose form is unknown is ambiguous the moment upstream bumps one.
@@ -339,8 +356,19 @@ fn index_hk_25() {
     // `addressed` is that rule; a comparison written here would be the page's
     // own opinion wearing the kernel's clothes.
     assert!(
-        page.contains("accepted: await addressed(body, tensor.leaf"),
-        "the verdict must be the kernel's answer about the bytes the page fetched"
+        page.contains("accepts(blake3(body), uorDigestHex(tensor.address)"),
+        "the verdict must be the kernel's answer about the bytes the page fetched, on the tensor's own axis"
+    );
+    // Both axes are 71 bytes, so a label's axis is read from its prefix and
+    // never from its length. A page that took the length for the axis would
+    // check a blake3 address with sha256 and refuse good bytes.
+    assert!(
+        page.contains("isBlake3Label(tensor.address)"),
+        "the page must decide a tensor's axis from its prefix"
+    );
+    assert!(
+        !page.contains("length === 71") && !page.contains("length == 71"),
+        "the page must not infer an axis from a label's length"
     );
     for wrong in [
         "=== tensor.leaf",

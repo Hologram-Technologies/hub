@@ -18,7 +18,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { UOR_LABEL, uorShardOf } from "../../web/uorkey.mjs";
+import { UOR_LABEL, uorAxis, uorShardOf } from "../../web/uorkey.mjs";
 
 const dir = process.argv[2];
 if (!dir) {
@@ -30,10 +30,12 @@ let checks = 0;
 const ok = (what) => { checks += 1; console.log(`  ok  ${what}`); };
 
 const root = JSON.parse(await readFile(join(dir, "root.json"), "utf8"));
-assert.equal(root.format, "hologram.hub.uor/v1");
+assert.equal(root.format, "hologram.hub.uor/v2");
 assert.equal(typeof root.shardBits, "number");
 assert.ok(root.shardBits >= 1 && root.shardBits <= 16, "shardBits is 1 to 16");
 assert.equal(root.addresser?.crate, "uor-addr");
+assert.equal(root.addresser?.axis, "blake3", "the root must say which axis its labels are on");
+assert.equal(root.tensorAddress?.axis, "blake3", "the root must say which axis a tensor is addressed on");
 assert.ok(root.addresser.version, "the root names which release minted its labels");
 ok("the root names the addresser, its version and the shard width");
 
@@ -69,7 +71,14 @@ for (const shard of root.shards) {
     assert.ok(row.revision, `${row.repo}/${row.path} names no revision`);
     assert.ok(row.tensors.length, `${row.repo}/${row.path} has no tensors`);
     for (const t of row.tensors) {
-      assert.match(t.leaf, UOR_LABEL, `${row.repo}/${row.path}:${t.name} has no address`);
+      // Two numbers for the same bytes, each saying whose it is: the hub's
+      // blake3 address and uor-addr's sha256 canonical-form leaf. A row that
+      // carried only one of them, or the same number twice, would have lost
+      // the distinction the whole arrangement rests on.
+      assert.equal(uorAxis(t.address), "blake3", `${row.repo}/${row.path}:${t.name} is not addressed on the blake3 axis`);
+      assert.equal(uorAxis(t.uorLeaf), "sha256", `${row.repo}/${row.path}:${t.name} has no uor-addr leaf`);
+      assert.notEqual(t.address.slice(7), t.uorLeaf.slice(7), `${row.repo}/${row.path}:${t.name} gives one digest two axes`);
+      assert.match(t.uorLeaf, UOR_LABEL, `${row.repo}/${row.path}:${t.name} has no address`);
       // The range a reader needs. Without it the only way to check a tensor is
       // to take the whole file, which is the cost this index exists to avoid.
       assert.ok(Number.isInteger(t.begin) && t.begin >= row.dataStart,
