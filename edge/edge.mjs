@@ -576,7 +576,8 @@ async function passthrough(request, url, upstreamPath) {
   const link = r.headers.get("link");
   if (link) headers.link = link.replaceAll(HF, url.origin);
   let body = await r.text();
-  if (r.ok && headers["content-type"].includes("json")) {
+  // A HEAD has no body to rewrite; parsing the empty string would throw and turn a 200 into a 502.
+  if (r.ok && request.method !== "HEAD" && headers["content-type"].includes("json")) {
     body = JSON.stringify(JSON.parse(body), (k, v) => (k === "xetHash" || k === "xetEnabled" ? undefined : v));
   }
   return new Response(request.method === "HEAD" ? null : body, { status: r.status, headers });
