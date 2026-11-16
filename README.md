@@ -106,8 +106,8 @@ library, licence, source and status — derived by `tools/facets.mjs`, the one
 place the hub decides what those are. The root names each shard by the hash of
 its bytes and names the rule that derived the rows, so the page checks a shard
 before drawing it, with the kernel's accept rule, and says whether the listing
-it is holding is signed. `tools/web-data.mjs` now copies only what the index
-does not carry: the registry, the apps list, and one avatar per owner, fetched
+it is holding is signed. `tools/web-data.mjs` now writes only what the index
+does not carry: the Spaces list, from this repository's own catalog, and one avatar per owner, fetched
 from Hugging Face's avatar CDN at the size that CDN stores and copied whole.
 Which owners those are it reads from the index it is assembling beside, not
 from any hub, so a mark never belongs to a row the page does not draw.
@@ -161,10 +161,11 @@ it could be. Counts of another host's traffic - downloads and likes - sit
 under `observed`, which names the host and the day they were read, because
 nobody holding a copy of the index can re-derive them.
 
-Registry, Apps and Buckets are screens of the kernel too. The registry and apps
-lists are copies of the live hub's, taken at each deploy by `tools/web-data.mjs`
-because the live hub does not let another origin read them; each page shows
-the copy's source, date and SHA-256. Buckets explains account storage, which
+Spaces and Buckets are screens of the kernel too. The Spaces live in this
+repository (`spaces/`), each a sealed artifact named by the hash of its
+manifest, imported from hologram-live and checked file by file (HK-27); the
+page shows where the catalog came from, when, and its SHA-256, and
+`deploy/spaces/` serves the apps themselves. Buckets explains account storage, which
 stays on gethologram.ai, and checks any object by its address: the page
 fetches it from the hub's object store, hashes it with the address's own hash
 (BLAKE3 or SHA-256) and asks the kernel's accept rule.

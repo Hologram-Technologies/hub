@@ -42,7 +42,8 @@ then only kept for whoever copied a command in between.
 | `/{repo}/resolve/…`, `/api/models…` | this repository's edge (`edge/`) | 2026-11-16 |
 | `/via/<source>/{repo}/resolve/…` and `/via/<source>/api/…` (all but `SHA256SUMS`) | the edge | 2026-11-16 |
 | the site to a browser: `/`, `/models/*`, `/spaces/`, and its own files | this repository's `web/`, from Pages through Caddy | 2026-11-16 |
-| `/buckets/`, `/registry/`, the Spaces apps under `/spaces/<id>/` | hologram-live | |
+| the Spaces apps under `/spaces/<id>/`, and the style files they load | this repository's `spaces/`, assembled and checked by `deploy/spaces/` (HK-27) | next |
+| `/buckets/`, `/registry/` | hologram-live | |
 | `/docs/*`, `/agent.md`, `/llms.txt`, `/openapi.json`, `/.well-known/*` | hologram-live; not yet here | |
 | `/v2/` (OCI, Ollama), `/mcp`, `/api/account/*`, `/api/v1/objects*`, `/healthz`, `/api/hub/health`, `/archive.json`, `/pins.json` | hologram-live and the services it runs | |
 

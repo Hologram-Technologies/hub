@@ -1,0 +1,80 @@
+{
+  "format": "hologram.space.lock/v1",
+  "id": "remove-background",
+  "root": "sha256:11e7f7d43e22842ee6098c6957566b4f39569b43955ab7a6da999c20fb5fa7ea",
+  "manifest": "manifest.json",
+  "files": {
+    "assets/index-17_Va4sS.js": {
+      "sha256": "ce9c3830e0ff19c8eff7246d21c94bc557d48e2198b15fa85533b253833033b6",
+      "bytes": 700431,
+      "cid": "bafkreigotq4dbyh7dheo75zenuq4ss6fk7ki4imywfp2qvjtwjjygmbtwy",
+      "mediaType": "text/javascript"
+    },
+    "assets/index-SojaDS6z.css": {
+      "sha256": "6a8b7efe21b23237f6c3690c1952e6ea7913f71c4c6f3703ab8ddde3a2f967db",
+      "bytes": 788,
+      "cid": "bafkreidkrn7p4insgi37nq3jbqmvfzxkpej7ohcmn43qhk4n3xr2f6lh3m",
+      "mediaType": "text/css"
+    },
+    "assets/ort.webgpu.min-7V0I_OOb.js": {
+      "sha256": "9111ed99f88e50616ef3289f000dc557637c72d528096d225f9d5fb4748f153b",
+      "bytes": 623524,
+      "cid": "bafkreierchwzt6eokbqw54zit4aa3rkxmn6hfvjibfwsex45l62hjdyvhm",
+      "mediaType": "text/javascript"
+    },
+    "example.jpg": {
+      "sha256": "2b5d6423b8948eb53319661633039912afa6455a9055f0c984ff88eeae1b5bfe",
+      "bytes": 78124,
+      "cid": "bafkreibllvschoeur22tgglgcyzqhgisv6tekwuqkxymtbh7rdxk4g237y",
+      "mediaType": "image/jpeg"
+    },
+    "holospace.json": {
+      "sha256": "ffd1ac66fd2eb20a713f33e98b53397621c4eeda5ea4e08bbd200ae601efd0f0",
+      "bytes": 2712,
+      "cid": "bafkreih72gwgn7jowifhcpzt5gfvgolwehco5ws6utqixpjabltad36q6a",
+      "mediaType": "application/json"
+    },
+    "icon.svg": {
+      "sha256": "517f18d02944fcecec14430872d255b1d5bdeab58ab7f13f1a8394ddcdf1f94d",
+      "bytes": 284,
+      "cid": "bafkreicrp4mnakke7twoyfcdbbznevnr2w66vnmkw7yt6gudsto434pzju",
+      "mediaType": "image/svg+xml"
+    },
+    "index.html": {
+      "sha256": "e7b86744aa6a70e108478e02817a51570624e490305c8d754cbaadcd475f6746",
+      "bytes": 5827,
+      "cid": "bafkreihhxbtujktkodqqqr4oakaxuukxaysojebqlsgxktf2vxguox3hiy",
+      "mediaType": "text/html"
+    },
+    "runtime/holo-opfs-kappastore.mjs": {
+      "sha256": "438e2528a6f04dad1cbc9f1d09828a33aafcf25e95e6b8d16d4c553c42d8ce98",
+      "bytes": 5448,
+      "cid": "bafkreicdryssrjxqjwwrzpe7dueyfcrtvl6pexuv424nc3kmku6efwgota",
+      "mediaType": "text/javascript"
+    },
+    "runtime/holo-spaces-hf-fetch.mjs": {
+      "sha256": "41c210d503c17357559a3885488a7d36d6be5db40582b26fd2e7f218f06bd9a3",
+      "bytes": 12888,
+      "cid": "bafkreicbyiinka6bonlvlgryqveiu7jw227f3nafqkzg7uxh6impa26zum",
+      "mediaType": "text/javascript"
+    },
+    "runtime/ort/onnxruntime-web-1.17.1/ort-wasm-simd-threaded.jsep.wasm": {
+      "sha256": "b081048a1c9973a0e054d9966a23c1925be414235b0507b2ac612136b67b6c8d",
+      "bytes": 19514999,
+      "cid": "bafybeiazqo66lruhho4avgl534gdvahe4y2btpl5txvu6owqcgjpp72bsm",
+      "mediaType": "application/wasm"
+    },
+    "runtime/ort/onnxruntime-web-1.17.1/ort-wasm-simd.jsep.wasm": {
+      "sha256": "adf595aa5fab7390d413dd259ceb28711b0591a52059f1ea9e5efe6040479681",
+      "bytes": 17411110,
+      "cid": "bafybeibidj7aopwvnaifgb3mqnfhpkycu4wsik5py37nia27lp75pc2nqq",
+      "mediaType": "application/wasm"
+    },
+    "runtime/space.css": {
+      "sha256": "9c5d3eb99921178b624089bd9a430063e9f4d608323e9b5832a66adf13c02803",
+      "bytes": 2122,
+      "cid": "bafkreie4lu7ltgjbc6fweqejxwnegadd5h2nmcbsh2nvqmvgnlprhqbiam",
+      "mediaType": "text/css"
+    }
+  }
+}

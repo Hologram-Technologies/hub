@@ -54,6 +54,12 @@ model does not sanction.
 | `HK-19` | `build` | A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served |
 | `HK-22` | `build` | A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts |
 
+## spaces
+
+| ID | Level | Statement |
+| --- | --- | --- |
+| `HK-27` | `build` | Every Space the site publishes is the sealed artifact its catalog names: each file hashes to its lock entry, the manifest hashes to the root, and the runtime comes from locked packages whose bytes match the lock too |
+
 ## Cited authorities
 
 Never re-derived, vendored, or gated on.

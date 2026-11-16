@@ -2916,3 +2916,75 @@ from the published `/openapi.json`**, so that spec under-reports rather than
 over-promises. And `/api/whoami-v2` is a bare 404 on the apex where
 `edge/edge.mjs` gives a typed 401 `RepoNotFound`; both are refusals, but the
 Answers table's codes describe the edge's.
+
+## HK-27: the Spaces, published only as they were sealed
+
+The twelve Spaces gethologram.ai serves were built and stored in
+`Hologram-Technologies/hologram-live`. They move here so this repository is
+their one source. Each is a sealed artifact: `holospace.lock.json` names every
+file by SHA-256 and size, and its root is the SHA-256 of `manifest.json`.
+So an import can be checked, not just trusted.
+
+What is carried here: each Space's own files (`spaces/<id>/`), the small
+shared runtime (`spaces/runtime/`), the catalog and the three style files the
+Spaces were sealed to load from the hub's origin (`spaces/compat/`), 16 MB in
+all, imported from hologram-live at `329335d`. What is not: the ONNX Runtime,
+about 178 MB. Its files are byte for byte the ones npm publishes in
+`@huggingface/transformers` 3.0.0-alpha.7, 3.2.1, 3.3.1, 3.3.3 and 3.5.0,
+`@xenova/transformers` 2.14.1 and `onnxruntime-web` 1.17.1 (every file hashed
+against its lock entry on 2026-11-16), so `spaces/sources.json` pins those
+tarballs by their sha512 integrity instead. One file no package publishes, a
+100-byte shim for the 3.0.0-alpha.7 runtime, is carried.
+
+Registered first and failing, as R3 requires:
+
+    panicked at crates/conformance/tests/spaces.rs:6:
+    HK-27 is registered and not built: assert what its scenario states
+
+**What the check found.** Assembling the twelve, `tools/spaces.mjs` refused
+three of them: kokoro-tts, remove-background and smollm-chat.
+
+    spaces: kokoro-tts/runtime/holo-spaces-hf-fetch.mjs: not the bytes its lock names
+
+Their locks name `runtime/holo-spaces-hf-fetch.mjs` at
+`4c587387…` (12,896 bytes). Those bytes are in none of the places that could
+hold them:
+- not in either version hologram-live's history has (`41c210d5…`, `fff64e2a…`);
+- not in its registry storage;
+- not on the server's IPFS node or the Filebase gateway.
+
+gethologram.ai serves every Space the shared runtime, `41c210d5…`, so these
+three have not been the artifacts their roots name. They are re-sealed with the
+file they run. The lock entry and the manifest layer take its digest, size and
+raw CID, the root becomes the SHA-256 of the new canonical manifest, and the
+IPFS root is dropped, because that tree is no longer the artifact. Each one is
+recorded in `spaces/sources.json` under `resealed`, old root and new:
+
+| Space | was | is |
+| --- | --- | --- |
+| kokoro-tts | `sha256:2fe30a8f…` | `sha256:2bb82cc2…` |
+| remove-background | `sha256:c357b95f…` | `sha256:11e7f7d4…` |
+| smollm-chat | `sha256:f3633596…` | `sha256:88491b11…` |
+
+Checked first that the CID function reproduces the original tool's output, on
+an entry it sealed (kokoro-tts `icon.svg`).
+
+Then `spaces_hk_27` passes, and `tools/spaces.mjs` assembles all twelve:
+
+    spaces: 12 Spaces, each the artifact its root names
+
+Planted: one byte appended to `spaces/kokoro-tts/icon.svg`.
+
+    panicked at crates/conformance/tests/spaces.rs:102:
+    kokoro-tts/icon.svg: the size is not the lock's
+
+Restored, the file hashes to its lock entry again (`872dd0aa…`) and the test
+passes.
+
+The Spaces are served from the VPS (`deploy/spaces/`), not from Pages. The
+Pages site is 888 MB of its 950 MB budget (the 2026-11-16 run), and the
+runtime alone would take it past that. `deploy/spaces/deploy.sh <commit>` runs
+the same assembler, so a release that fails HK-27 is never swapped in. It
+swaps by renaming one symlink. The rename and the cleanup were run three times
+in a scratch directory on the server: the live link always resolves, and the
+previous release is kept for a rollback.

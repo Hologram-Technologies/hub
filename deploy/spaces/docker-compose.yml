@@ -1,0 +1,25 @@
+# The Spaces as gethologram.ai serves them, at /root/hub-spaces on the VPS: a static file server over the directory
+# deploy.sh assembles and checks (HK-27). Caddy reaches it on the twenty_default network as hub-spaces:8080; no host
+# port is published. They are not on Pages because the ONNX Runtime they load is about 178 MB, past what the Pages
+# site has left of its budget.
+name: hub-spaces
+services:
+  spaces:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    # releases/ holds one directory per deployed commit and `current` names the live one; a bind mount of a single
+    # release would keep serving it after the swap, so the parent is mounted and the symlink is followed.
+    command: ["caddy", "file-server", "--root", "/srv/current", "--listen", ":8080"]
+    volumes:
+      - ./releases:/srv:ro
+    mem_limit: 128m
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
+    networks:
+      default:
+        aliases: [hub-spaces]
+networks:
+  default:
+    name: twenty_default
+    external: true
