@@ -285,6 +285,17 @@ link. `HK-04` keeps the swarm off the edge, and `HK-19` keeps it off any file
 whose bytes could not be checked afterwards. Both are proved for every input,
 so neither is enforced by the runner's own code.
 
+There is no fifth slot, and `docs/hippius-source-study.md` is why the most
+recent candidate did not become one. Hippius mirrors 62 Hugging Face
+repositories and publishes a per-file SHA-256 that agrees exactly with this
+hub's own record — measured 2026-11-16, the first third-party host to manage
+that here. It is still not a source: every blob answers `401` without a token
+fetched from a second path, the blob response carries no
+`access-control-allow-origin` however the preflight answers, and a large file
+is hundreds of chunks behind a pointer with no URL of its own. A redirect
+cannot carry a token exchange, so the same sentence that keeps the swarm off
+the edge keeps Hippius off it.
+
 `runner/swarm.mjs` is a leeching BitTorrent client with no dependencies: an
 HTTP tracker announce, the peer wire protocol over TCP, and a piece handed on
 only when its SHA-1 equals the hash the torrent's infohash committed to.
