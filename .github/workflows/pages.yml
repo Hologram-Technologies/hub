@@ -217,8 +217,9 @@ jobs:
           predicate-type: https://hologram.foundation/hub/index/v1
           # Two sources, named apart, because they are not equally first-hand:
           # every fact about a release is Hugging Face's own answer, and which
-          # other sources hold its bytes is still the live hub's claim.
-          predicate: '{"tool":"tools/index.mjs","releases":"https://huggingface.co","holders":"https://gethologram.ai/data/files"}'
+          # other sources hold its bytes is the old hub's claim, as this
+          # repository recorded it once (sources/holders.json, HK-29).
+          predicate: '{"tool":"tools/index.mjs","releases":"https://huggingface.co","holders":"sources/holders.json, read from https://gethologram.ai/data/files on 2026-11-16"}'
           show-summary: false
 
       # ---- the canonical UOR addresses of the models this build streamed

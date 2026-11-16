@@ -1,0 +1,4188 @@
+{
+ "format": "hologram.hub.holders/1",
+ "read": {
+  "from": "https://gethologram.ai/data/files/<repo>.json",
+  "written": "2026-11-16T10:00:35Z",
+  "by": "Hologram-Technologies/hologram-live apps/model-hub/deploy/build-site.sh, the daily build of the old hub"
+ },
+ "kept": "Only what tools/index.mjs uses: each source with a resolve base, its kind and the files it lacks; sha256 is of the whole file as read.",
+ "holders": {
+  "0bserverx/Qwen3.8-27B-Heretic-Abliterated-Uncensored-GGUF": {
+   "revision": "ab8d7bd81d03117501e4da60cccdff4c80f0eea0",
+   "sources": [],
+   "sha256": "feba210ebab412c5ff4ed69b42b2b8a71be61819227aeff6155d2d08f2fbe2d1"
+  },
+  "0ppxnhximxr/snapref-v2a": {
+   "revision": "e6d6a21e4d56faae4454a1cc9bfd065d87358bf2",
+   "sources": [],
+   "sha256": "9708c0a9e3edabc53e50e39ac56fafa84f00dbb79d5730e56675d0f95fe2cd7c"
+  },
+  "ACE-Step/Ace-Step1.5": {
+   "revision": "19671f406d603126926c1b7e2adc169acbcade22",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ACE-Step/Ace-Step1.5/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "96dc5ceb97de53d512900907197ee5c5f8b593f8d277c8fe2518a0459f5ba611"
+  },
+  "AJ-Gonzalez/coder-lfm3-1.7b-k3.1-pro": {
+   "revision": "0374050114790b46ebaeb85716a84e03b1840235",
+   "sources": [],
+   "sha256": "95e9e7548f2fa437e0f71f08ef0451b91b7eedcdc00d06a0f16bf84e35f9701b"
+  },
+  "Abiray/DeepSeek-V4.1-Flash-1017-Uncensored-GSQ-RCO-Coder-GGUF": {
+   "revision": "cfe5da6df1b4e22baf864e33f5132a6202c821e3",
+   "sources": [],
+   "sha256": "0c29507220644d8899e69f318692ad1495968ac0921ef418550925a487f98ce1"
+  },
+  "Abiray/DeepSeek-V4.1-Flash-1017-Uncensored-GSQ-RCO-IQ2_XXS-GGUF": {
+   "revision": "7cd42ba35d96db00d89feef3582a6e63214a56be",
+   "sources": [],
+   "sha256": "c83c6233a828a096ea4ad138bb4fce40538eeafac1f2df540bf8837476920fdc"
+  },
+  "Abiray/MiniMax-H3-Image-GGUF": {
+   "revision": "fec7ec774db49d0c785bdc2174a488576b7396dd",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Abiray/MiniMax-H3-Image-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "f4a45a8d2fe94b70d3947d85321fa01abcdebbcfd3690f376e11143c5609569a"
+  },
+  "Alissonerdx/BFS-Best-Face-Swap": {
+   "revision": "2209ae537ac5e883d6ec7db5b7bd6dccf1a0eba7",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Alissonerdx/BFS-Best-Face-Swap/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "hf_remote_info.json",
+      "hf_upload.out.log"
+     ]
+    }
+   ],
+   "sha256": "41e4be02a987cd703d209aa3a462ffcda8d944dc247481da95925316a9c56608"
+  },
+  "Alissonerdx/Minimax-H3-ComfyUI": {
+   "revision": "94d3f46b2a3a8ce2a0111ad6fd52020e5e117f65",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Alissonerdx/Minimax-H3-ComfyUI/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "README.md",
+      "docs/motion-transfer.md"
+     ]
+    }
+   ],
+   "sha256": "fb397e95303064dff12eb40c6f70d6013822a057b7344cc89d58ad5ef1c821b0"
+  },
+  "AtomicChat/DeepSeek-V4.1-Flash-1017-Uncensored-GSQ-RCO-GGUF": {
+   "revision": "4f1d2f730cff977961db81789e81bfc0d3e6dd2e",
+   "sources": [],
+   "sha256": "474aa374fc22dd8b59cec14de0fe482335d0264a34b17a80fc373dcb8fc8575e"
+  },
+  "AtomicChat/LFM3-1.7B-Uncensored-GGUF": {
+   "revision": "3ad712542eb9de349dbd28f2739b69c925cdec7d",
+   "sources": [],
+   "sha256": "7483c35d9c26619a51d0a6488e6274d91103fbf43359fd8291896f930b333cc4"
+  },
+  "AtomicChat/Qwen-Image-2.1-Turbo-Uncensored-GGUF": {
+   "revision": "881a778e306c44920e42536def3e52c3a3ecc7cd",
+   "sources": [],
+   "sha256": "4d5d48f23fe90213ce8dcd7f805c634a64663a8450aa0b79a71af0516f5c7e6f"
+  },
+  "AtomicChat/ZONOS3-Mini-GGUF": {
+   "revision": "feed993eac8402ca81eec7fe9111210afa1f4038",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/AtomicChat/ZONOS3-Mini-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "01163cc933b314305aea60c9a5d5def8cfd22fbdc387f1d0ca3f8f61032ddbb2"
+  },
+  "BAAI/AREX-2": {
+   "revision": "d4e3502f92d9e889031c2d04e387ab2eb3520268",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/BAAI/AREX-2/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "42a251cc5869ca296cf94e9d6bb3ce1e99896d99b837907e1a82a15b638ba89c"
+  },
+  "BAAI/bge-m3": {
+   "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/BAAI/bge-m3/resolve/master/",
+     "missing": [
+      "imgs/.DS_Store"
+     ]
+    },
+    {
+     "kind": "ipfs",
+     "resolve": "https://ipfs.filebase.io/ipfs/bafybeicabpm3eebmgxvbi3flyqwtbwh3zwza2cvsepglxe3gvmxecwurfu/",
+     "missing": []
+    }
+   ],
+   "sha256": "5cb5778873b00ac6377ceb5c899844d5e0fb3df932b6c43334bf7dc39d5c6bf3"
+  },
+  "BennyDaBall/HyperFlow-H3-Flash-INT8-ComfyUI": {
+   "revision": "b5d22a34bfb159b0bc559458aac3412d0647f743",
+   "sources": [],
+   "sha256": "9c1fff95bec021ccf0ba8c1b1ec7def76ae12ddbd282d06d8da69b9ce0f609f5"
+  },
+  "BreezeBlue/Breeze-TTS-2": {
+   "revision": "3e28c5151381a722f1d8661b4118c298caa77aa4",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/BreezeBlue/Breeze-TTS-2/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "68af1a0018baa6d0b12634511ec57ca94d3d22bf322bbe54c630cef632f44da8"
+  },
+  "Cactus-Compute/cactus": {
+   "revision": "d2c5cd70432ed78345f3ba6b620bff2feeec6c86",
+   "sources": [],
+   "sha256": "b1511b4b6b4d2a3d936c39994c600bdf7620aee873684999a86a630bb4586d84"
+  },
+  "Cactus-Compute/mirage": {
+   "revision": "3d03cee88c0acbe4e71b94b567ab14e6e55f40c9",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Cactus-Compute/mirage/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "7a725beb0b7b1298ddc182e756237951df7b139a7344c7b03596e1c15966317e"
+  },
+  "Cactus-Compute/needle3": {
+   "revision": "c95d25b4efa1e9601e785d92438e4ade0dbddbf8",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Cactus-Compute/needle3/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "d9d031bf75306a6836fb5442f0ef7ab7a530dd0cbccf03389ea77043842691ae"
+  },
+  "Cactus-Compute/whistle": {
+   "revision": "ad73f1468dd5203791e0cc81d31544c553563645",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Cactus-Compute/whistle/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "49a26a2a74ec6378f00433a9977522fde154be9dc19a4674ba073697286d9c22"
+  },
+  "ChenDY/NitroFusion2": {
+   "revision": "31614c6fc9ef01ebb74d5ca99b830b277d876b02",
+   "sources": [],
+   "sha256": "96f52700c1416860601ea65f19126554b5ed579fe229202d60896f3ae5950d8c"
+  },
+  "Cloudflare/clef": {
+   "revision": "171287b2571042abec9e7b99752aee58216b0ed0",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Cloudflare/clef/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE"
+     ]
+    }
+   ],
+   "sha256": "3577a479af9c92991e2a2b3fa48d7a889d5f908101f01dc38b0c45e63d2e7dfa"
+  },
+  "Cloudflare/clef-flash": {
+   "revision": "22b75507981345858dd152fbd9a6f8c0c4068b0a",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Cloudflare/clef-flash/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE"
+     ]
+    }
+   ],
+   "sha256": "358d56c91bc4ea37f21e6f2d13a82321c259b3cb6422be740240465e8f8fd697"
+  },
+  "Comfy-Org/Idol": {
+   "revision": "e907d8dca6c465735eaf4ce9b3a3c2c6401d5705",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Comfy-Org/Idol/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "556cf497cf5dbbced57feb9a47fd37e8a64cc467f30b10ef4da3315fd5afd484"
+  },
+  "Comfy-Org/Krea-2": {
+   "revision": "588feaf955b08b9ac4723eeb751752ab045dba71",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Comfy-Org/Krea-2/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "4a372979be78f93b02f4da4bd8ed6da302573afaaabbfadd52f67ef5a2233795"
+  },
+  "Comfy-Org/MOSS-Image": {
+   "revision": "2929efe3cdd506c0a430bcfca70a9a8d805cc095",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Comfy-Org/MOSS-Image/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "d182e997c027e52e0c22d70c892c5a874d80e526293366b4ca7da724dc811a83"
+  },
+  "Comfy-Org/MiniMax-H3": {
+   "revision": "4b53a35191437de05370da548e59aeabe2a5a09a",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Comfy-Org/MiniMax-H3/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "README.md"
+     ]
+    }
+   ],
+   "sha256": "1ad951e52c42c7b1bcd960b70df240e5e043d4cacd83f38e4d9ee4439ae9a844"
+  },
+  "Comfy-Org/MiniMax-H3-Image": {
+   "revision": "0bb149f51e3156ed4b90dd45d5620346bfe1df8f",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Comfy-Org/MiniMax-H3-Image/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "e98d0b8dc96460bb645c4bccd72ea507ee23d14ea1e76dce909d80b69ebd0ce5"
+  },
+  "Comfy-Org/Qwen-Image-2.1": {
+   "revision": "aacf31a6d48e707f352ecba714cee0680da3479b",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Comfy-Org/Qwen-Image-2.1/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "7410549596149e82c04e02ef80b2925ff5a4b98384959d8c1fd5c98b556c00b6"
+  },
+  "Comfy-Org/RelayVSR": {
+   "revision": "202c35eb0a5bb64b7017d5a09ea9acea87b7a081",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Comfy-Org/RelayVSR/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "ff947fa5f3d38c111d2f3efa57867c85eca9c631502186cb53c96c3853f35dc3"
+  },
+  "Comfy-Org/UltraTex": {
+   "revision": "8020f2c3a384ba5429aa707442fa6728597c7bcb",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Comfy-Org/UltraTex/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "24d39e2bc18c97874557cdc9961ef3d1d7afe71bf7c9392be6002eb8c24164f2"
+  },
+  "Comfy-Org/Wan-2.2": {
+   "revision": "ee6f4a40737a995bf5818954cfce6d59443b0f04",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Comfy-Org/Wan-2.2/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "1a4ef51fe0b0e87b15f54ce88bedf166e153365229142643aa906052a0321cdc"
+  },
+  "Comfy-Org/WeVisOne-VL": {
+   "revision": "135355350443103e34089dd39264fe0651691929",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Comfy-Org/WeVisOne-VL/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "dd46bcb28fbe57784a7d6b05b06f6473015749875f34b0423b0e87d576afac14"
+  },
+  "Comfy-Org/YuE2": {
+   "revision": "2f76ca75e6ee094169de899cc7fc99d6887e2196",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Comfy-Org/YuE2/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "a35795c0cab7c32e564394f6f79b175e4fb28a98e68bb915c871681eeedbabb4"
+  },
+  "ConceptCountry/qwen-concept-27b": {
+   "revision": "4c96373036dd26a8023ffe4149ad941d85f4a36d",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ConceptCountry/qwen-concept-27b/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "bf16/.gitattributes"
+     ]
+    }
+   ],
+   "sha256": "10bd3a340eaa34c79073a15565d940c5201e8ffe75250b70a790505dd018b00c"
+  },
+  "ContinuousIntelligence/ci-proto": {
+   "revision": "ee3031351a151e3f6febf8c62b53e6ea1008bef6",
+   "sources": [],
+   "sha256": "7accd858c1dbaf80b627f8036d97e175c564c3776a467e3b9aed0c3f8ce630d9"
+  },
+  "ConwayResearch/Underdog-Saluki-27B-1.0": {
+   "revision": "442e28ec9d89d9e732ddea2f0b9e017db20730a8",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ConwayResearch/Underdog-Saluki-27B-1.0/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "a00a6128cc5993e51eb7cd4b467601dab8f250676f2dd1066027b1152b27f7fa"
+  },
+  "ConwayResearch/Underdog-Woof": {
+   "revision": "be702960539777fc3f698e54335276a8391b00f9",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ConwayResearch/Underdog-Woof/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "b7d408a10de406f932361dd987291503406d8a535b373fc1c3de14217838a4ca"
+  },
+  "ConwayResearch/Underdog-Woof-Japanese": {
+   "revision": "2814985816be329a9574dc79944927adc53318fb",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ConwayResearch/Underdog-Woof-Japanese/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "f79a3a620b73ea8e4b94b0a15851e3ccaa63c8fa0d9a3f0336e299e3cf456fa2"
+  },
+  "DavidAU/Qwen3.5-9B-The-Defiant-Fable-Uncensored-Heretic-NEO-IMATRIX-MAX-MTP-GGUF": {
+   "revision": "4d47954f2ef8277567a20508dd3f88def5404455",
+   "sources": [],
+   "sha256": "ee310564d4b1016659960017655a9d34a44a6b1770bd5e54986be5e050660364"
+  },
+  "DavidAU/Qwen3.8-27B-TURBO-Fable-Cold-Fusion-735-882-Heretic-Uncensored-NEO-CODER-MAX-MTP-GGUF": {
+   "revision": "36116c48f4e81b4c66a9c63da13a72959999a5f6",
+   "sources": [],
+   "sha256": "786f65d33f4482b61944d57febd83e8aaffe8201bd9b56d39761e9e10399f61e"
+  },
+  "DavidAU/Qwen3.8-27B-Turbo-Brilliance-50X-Reasoning-Instruct-NEO-MAX-MTP-GGUF": {
+   "revision": "657b80fe61334271ae8b7f6cece7f289845abbdb",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/DavidAU/Qwen3.8-27B-Turbo-Brilliance-50X-Reasoning-Instruct-NEO-MAX-MTP-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "3f7d7b2ea18322fdc18f29d0523884dcf4be30b60b0d99af3c23457bc9776124"
+  },
+  "DavidAU/Qwen3.8-27B-Ultimate-Heretic-Uncensored-Turbo-Brilliance-50x-AGI-NEO-GGUF": {
+   "revision": "3d006e1f65f40432627a9d70083ea19c1aa62549",
+   "sources": [],
+   "sha256": "6fc033745f2ce5610bb931b77176fc5d1a9aa47cdccc040c591a9f30b3e3bd66"
+  },
+  "DavidAU/Qwen3.8-40B-Ultimate-Heretic-Uncensored-Turbo-Brilliance-50x-AGI-NEO-GGUF": {
+   "revision": "16ff9d7e1a9187d0b3d931ec0c34587774748651",
+   "sources": [],
+   "sha256": "ecd8e4e82d910223e99c19919bfb43bb12d17958b8c902b0efc4952036b093dc"
+  },
+  "DavidAU/Qwen3.8-Flash-Next-Abliterated-Uncensored-Turbo-Brilliance-50x-Reasoning-Instruct-GSQ-RCO-GGUF": {
+   "revision": "623b419bd443e6e76ec51ca4b95d951da93c6969",
+   "sources": [],
+   "sha256": "2a34594bb9c5fc441c17337c8eff408f28fe48b4e20fd39e70a28bd5c137cfd4"
+  },
+  "DeepHat/DeepHat-V1-7B": {
+   "revision": "361a5ce60e67c815ff868a253fdfd54364dbb84f",
+   "sources": [],
+   "sha256": "f17562543eb982be49fb478e9b27c54f7874d270d4060f7a24bbc371a226cdcd"
+  },
+  "Diffuspace/Clover-35B-A3B-Preview": {
+   "revision": "4b0402b65e523d0183a14c431955438714cb16ff",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Diffuspace/Clover-35B-A3B-Preview/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "21a5734831e035c0b8542dc1a971ee2a4158d4ea54d6cc63aa0d68b2db7cede6"
+  },
+  "Edge0/Audio8-TTS-Realistic-Air": {
+   "revision": "4d02073010389bdcc86e2f0bc52137b3e2ab7580",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Edge0/Audio8-TTS-Realistic-Air/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "d35e77086fc7fa9250a45e6c2628bbaf88c60004dac4cfbf4c99dbd0d8f337c4"
+  },
+  "Edge0/Edge0-120B-NVFP4": {
+   "revision": "d5e59cd3e8f4b8f0de3d203e671b6bcb328b8799",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Edge0/Edge0-120B-NVFP4/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "README.md"
+     ]
+    }
+   ],
+   "sha256": "69d5f9ce4f7cc0569e629bd11dc19984283469dd87421e71ed1ae7422c9c029e"
+  },
+  "Edge0/Edge0-120B-q3k": {
+   "revision": "a48a2e286b4c89482cac6e8fcd109b4fce477eed",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Edge0/Edge0-120B-q3k/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "README.md"
+     ]
+    }
+   ],
+   "sha256": "d408160944ccbb90d2cbd8ad64ee01d21ee31cca5f81306796f0c81af4baa469"
+  },
+  "Edge0/Edge0-145B-NVFP4": {
+   "revision": "33fb7836436148de82db50bc3af658df577c05bb",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Edge0/Edge0-145B-NVFP4/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "README.md"
+     ]
+    }
+   ],
+   "sha256": "e1b1f5b54b059d7ed4f1010c423c91765932e20cc59eb0d11902aedca3379009"
+  },
+  "Edge0/Edge0-145B-q3k": {
+   "revision": "4136439da122aecc9b482810f775054e998763fb",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Edge0/Edge0-145B-q3k/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "README.md",
+      "third-party/Qwen-LICENSE.txt"
+     ]
+    }
+   ],
+   "sha256": "59f1645c928eb94d7276e29774707335c4d853d652672b81a6af6aa3bfb0a2ef"
+  },
+  "Efficient-Large-Model/Open-H3-Regenerate-2K": {
+   "revision": "50c09cf1df5f9262b9279868c1c666bd5fe3476b",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Efficient-Large-Model/Open-H3-Regenerate-2K/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "9bc4e5782683075529bf9443f3aa0a7b76031aa9bc15ec670ad30613cd438dfa"
+  },
+  "Efficient-Large-Model/Open-H3-Regenerate-2K-IC": {
+   "revision": "54a7104b204fb46486cf85c2f600942118186d57",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Efficient-Large-Model/Open-H3-Regenerate-2K-IC/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "9dc3d64661a3f04036e35fe47e7319103d207bdd7eaeb915e42687ebfecd088d"
+  },
+  "Felldude/MiniMaxImage_hdr_diffusers_vae": {
+   "revision": "5dbcad1efc61ae1832226f8f6dbe996c3341c97d",
+   "sources": [],
+   "sha256": "a9cf9a71d4612dc3a7d8a28e9fd003e9a462272c7db9ce091701dea5450628d1"
+  },
+  "FluidVoice-Labs/fluid-speech-pro": {
+   "revision": "46027a3bffc5817ce8f9b29add0a062610134a90",
+   "sources": [],
+   "sha256": "c058097b741ab0ef5e690fdd07db23171341668054f1c895ee4954d30b1edb6c"
+  },
+  "FrostWolfAI/Spark-X2.6-4B-abliterated-GGUF": {
+   "revision": "7b6b5379aba823cbdbd4c82e737e1086b7ad22f0",
+   "sources": [],
+   "sha256": "e5820ec27b7551c63bea51c532b357f86a6367a8592b80fd69a33920d70e9b4d"
+  },
+  "FunAILab/Open-Vision-Banana": {
+   "revision": "be5da66250cc385ff9c75ebbe4114e13ec305848",
+   "sources": [],
+   "sha256": "7f55d11813f18555379ea383f2fcb2041a45dff811b2d464dd2a62815adbb8a2"
+  },
+  "GrootTeam/Groot-19B-A3B-261023-GGUF": {
+   "revision": "2fa1ec958e3bbf7312cf0af97802ff26bfdc5260",
+   "sources": [],
+   "sha256": "d2d5cb122c503b03234a280d6a70d1ad7b87711d5a28cd332ecd5d0915294f07"
+  },
+  "HAL-X-AI/THX-02": {
+   "revision": "9d140f41f7c847ce7b43c3b61cd4de6a03988f68",
+   "sources": [],
+   "sha256": "e9b5538edc3dcf7209ef324b20f5b61a1797f6835078bf6595fb450f2b25e87a"
+  },
+  "HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive": {
+   "revision": "45b6a334b4bcd1d7f37179df58b3b1d66a184e5d",
+   "sources": [],
+   "sha256": "adff83f304028e656fe75b0c09d96fed589854257c8805af4ab57fd74a47bf8e"
+  },
+  "HauhauCS/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced": {
+   "revision": "ae8045ac2bd216293ca49a3065da2c942dde4b68",
+   "sources": [],
+   "sha256": "706bc120d9186b5e6fcb8f4f1d7d10300aa6e3d61a4086ebfa871df9f190230c"
+  },
+  "HauhauCS/Gemma4-26B-A4B-QAT-Uncensored-HauhauCS-Balanced-MTP": {
+   "revision": "f9093662a2e7ae0503f637088bc96f77a1a70c83",
+   "sources": [],
+   "sha256": "bde058133d6f3441ba33caf3d6f22e27c7039877da81f0269da909998a62f56d"
+  },
+  "HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive": {
+   "revision": "c09cdbcdb1fefad6d335809d445621b5f5ba0c6e",
+   "sources": [],
+   "sha256": "a79070e4ec5236a8dde00a93f3929618bc50a02e17797bf1e15c9f27300cd54b"
+  },
+  "HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive": {
+   "revision": "0a41c68809d375475f954be12ba7c40efa56c2a9",
+   "sources": [],
+   "sha256": "9ce9c02b67bffa27c21b2201e2e571f7cbf476d91b2aac1ab7346103c55ede77"
+  },
+  "HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive": {
+   "revision": "f12a584fecbeb5f20001130d8ecd66c9327ae685",
+   "sources": [],
+   "sha256": "fb4c82512b34cbab14b914cf2ab118bb952971ef21be0ba6e02e866c628c291b"
+  },
+  "HauhauCS/Qwen3.8-27B-Uncensored-HauhauCS-Aggressive-MTP-GGUF": {
+   "revision": "993a5971fda8f30dd1b7eb2654792ba4415c7460",
+   "sources": [],
+   "sha256": "c1280108dcb2c5478607ffaeba5e33d21a611aaedb5d43b86fc63a946c484c19"
+  },
+  "IFM/PAN2": {
+   "revision": "82f54c6cea3e20a9c451b61d7360016e5970503d",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/IFM/PAN2/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "55aa352393cb5de365a23c4273d4f1cb79bd37ae050cab2a419030c89c9a1ee3"
+  },
+  "ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-GGUF": {
+   "revision": "54229d38d588a66d1c6cff08af7b281b9326c656",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "7c7becaa479de186b59135fb7137b786851fcbc0f5c4d29b2faf5037743c285d"
+  },
+  "ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF": {
+   "revision": "65d53bc8be65123e255ff02f3ded958b6dbf54fd",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "cbec9a6a5cb5cc0b90d3332941aba4c3a3f8d7aa2593298d95869a4c53269c77"
+  },
+  "ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF": {
+   "revision": "d562806dbafae37109975e970aae91b43e73b440",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "b6f1fe8e3e7e538c8a9f03e0d89ec855305cc8a327b1a679f5c58f850c46892f"
+  },
+  "ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-Coder-GGUF": {
+   "revision": "bba88856f8c3c0c9e40e45f82d05e228b814ac43",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-Coder-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "b8169a3f762cf658d4d65721de3b2cf681ec54c2d51bb65c4f8e553dcc9b515d"
+  },
+  "ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF": {
+   "revision": "ed59f92082b1e93c0e96d60a8b11aab089b52f09",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "14538372ab1b388c96cd4742a8fdd94860075989a40817abc4e3e839ece42a25"
+  },
+  "InterpreticAI/Qwen4-27B-Uncensored-v3-FP8": {
+   "revision": "4a0d532a3fdc044bc93e644fdb49903329b8a0d0",
+   "sources": [],
+   "sha256": "fc805f22bd9a25d4d3737ca455dab1c1a74e1164d976c58cba530a04b7d0c443"
+  },
+  "IteraCompute/Qwen4-27B-NVFP4": {
+   "revision": "48c1adea25618d1b8d3cf9e401121e50509efd8d",
+   "sources": [],
+   "sha256": "870e73a479746e4de3efd0c9753ef91cfd881c7d0ea13a9cb9d94c4c6289fa0c"
+  },
+  "Jacklu0831/deletion-tuning-masks": {
+   "revision": "dfe80f9fa54f34324e4dd64bea46521e30d930f0",
+   "sources": [],
+   "sha256": "23ccf3cd49e4ba1d59459d53a203cdab395bcdec4800e3b4e8618edbb98a8a04"
+  },
+  "Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B": {
+   "revision": "7d7edca1b1e820d89127f9c8ac4b035e0f27652e",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "b96f71c0309d2fb79a12a6dfa3bc74060e562d64027e31328cc43939fa766db1"
+  },
+  "Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF": {
+   "revision": "44e28a16a8bdb1e91d14c59e1de0937d8901aed2",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "35e8159bc10f3a414d2f410244aa04c166f6268ed4a7444f14999d268fe608c0"
+  },
+  "JonathanColetti/Qwen3.8-27B-Uncensored-GGUF": {
+   "revision": "45d0fc0ad6cfcf9eeee6008ddaea925536409b18",
+   "sources": [],
+   "sha256": "f772a8e2dc931bed9b815f57af17940d17c62e47d30a937129080650901d2a16"
+  },
+  "KBlueLeaf/MOSS-Image-heal": {
+   "revision": "a639943df44a4f326e95b9c43058ae7e1a0a8f34",
+   "sources": [],
+   "sha256": "9f1450113f565e6570d0ea55e4a78957612f8548921af8bc6c2aacff5aa44d5c"
+  },
+  "KRAFTON/Raon-1-nano": {
+   "revision": "fcf2d1d55e84e2f9fbe7b5d724dcfc4d861cfcee",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/KRAFTON/Raon-1-nano/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "07b9ca9ce1c697a2b1203f298ce284863153e845b53c4a9eeee04d48b6b0bf80"
+  },
+  "KRAFTON/Raon-1-nano-gguf": {
+   "revision": "4534f1f6d767998136f585752fceaa03bb808e38",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/KRAFTON/Raon-1-nano-gguf/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "bdc32d18f7ae2db252c092c67af2a2ed2168aec62efdf34ce0a3823dec061138"
+  },
+  "KRAFTON/Raon-1-nano-litert-lm": {
+   "revision": "f5bc293e528bf2b9a3ac7484c6edd8cd5ba0f5e9",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/KRAFTON/Raon-1-nano-litert-lm/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "6a7326a0a8f54c498535bff937301a146911e9e657411dff36c80d7fc4c2f00b"
+  },
+  "KRAFTON/Raon-1-nano-mlx": {
+   "revision": "36057d67e248248acaede0374a73ca416bd4588d",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/KRAFTON/Raon-1-nano-mlx/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "cdad0e8380a4f5216661d42898ceb3a6f99b19a76f8bc8fd5b74aa7680ebc571"
+  },
+  "KasugaiSakura/Qwen-Image-2.1-Uncensored-Abenzerps-GGUF": {
+   "revision": "240ef1d68f778115f8ff69965eca9ad6d3ccdcf1",
+   "sources": [],
+   "sha256": "f8370c08fc73c8421d312c07709d4700f8596c00628ce7ee4a28436c668a2ec3"
+  },
+  "Kijai/MiniMax-H3-TAE": {
+   "revision": "a213ac8bf2f148b4f32372279a7f207846978900",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Kijai/MiniMax-H3-TAE/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "0ec5135083575ceb7532d83e83350771ea1b1964d2e626c507634e926f1d59f4"
+  },
+  "Kijai/MiniMax-H3-experimental": {
+   "revision": "c2e7b89b1800123c49a0f620a1932c01d8952256",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Kijai/MiniMax-H3-experimental/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "b718e59447a1a60f5cb0c75b787ab4a42b1638bacb523d24d58ccd0d0cf2212f"
+  },
+  "KittenML/kitten-tts-2-mini": {
+   "revision": "c01797caec3967b400da457656e011eb81f530a4",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/KittenML/kitten-tts-2-mini/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "e4f02c5564ad789575f1ce7014dbc58def36cddee7e0bcf958fd09c9038f7748"
+  },
+  "LBH-123-AI/Minimax_h3_latent_Upscaler": {
+   "revision": "85a0187096046badc0a71ab6bd6be182ab06c0f4",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/LBH-123-AI/Minimax_h3_latent_Upscaler/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "33128fe988d3b65c14bae9d0a9d1db4e6709995554eac4f3d670620a66eb1b56"
+  },
+  "LSDJesus/MiniMax-H3-Image-fp8-nvfp4": {
+   "revision": "1d810bd38052f3b28792f351e7b1988ac0cefee3",
+   "sources": [],
+   "sha256": "e40867e0c3227b16873679188c6e4475132f12075d6f98c3a218b671f7086ba5"
+  },
+  "LiquidAI/LFM2.5-24B-A2B": {
+   "revision": "3dc4cd09c9a2a99e1e819693e79d3aba5e9bb4f2",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/LiquidAI/LFM2.5-24B-A2B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "228546e1c3b8407ae1b2db2d80f73ac44b1c923e919f5877d37bd870ed2bf5c4"
+  },
+  "LiquidAI/LFM3-1.7B": {
+   "revision": "1da06bec6a819da10b54c67e5c90972b46d81871",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/LiquidAI/LFM3-1.7B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "70cb4dd796a8edfff01fe949baf10bc804f09bcbf708db92369b1481d182f2c1"
+  },
+  "LiquidAI/LFM3-1.7B-GGUF": {
+   "revision": "cd0c74c575b5c416f3011b5b4c298077f26ca8c2",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/LiquidAI/LFM3-1.7B-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "c00a4c2e457f7462daaf2c46ffa1c07c34ff8d258aaafb7221fb50044053f691"
+  },
+  "LiquidAI/LFM3-Audio-2B": {
+   "revision": "2d6c1f99c129b3ef07a8d168bc0ff08e2bdb93f1",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/LiquidAI/LFM3-Audio-2B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "b72fea9e2ba6837149b9f2de647cc120ce0f146dbeda7cf8c2baae00e129417e"
+  },
+  "LiquidAI/LFM3-Omni-2B": {
+   "revision": "21d75123f86c1f7ffb4bef1ea202710c4e7ebe67",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/LiquidAI/LFM3-Omni-2B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "1cfeeb75b28d59bc1060a5275e74a2a5af927f16c5672e8673d386669925fd99"
+  },
+  "LiquidAI/LFM3-Omni-2B-GGUF": {
+   "revision": "d508b88f08a5b4286f2d2805a6a8d69a0ff44c72",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/LiquidAI/LFM3-Omni-2B-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "d09db1232ec8bfc753db6b172014930e5c78feeee530e17fd90fa5916e6c5a29"
+  },
+  "LiquidAI/LFM3-VL-2B": {
+   "revision": "23387beda43c60310348e83e25f78f33c3140d3a",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/LiquidAI/LFM3-VL-2B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "7f174ad68c8645bd6bd82f8217ff4a8ff0f66aa146b891329090e33372584443"
+  },
+  "LiquidAI/Liquid-Codec": {
+   "revision": "b5abfac46ef92275f191a52c41013315f237301d",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/LiquidAI/Liquid-Codec/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "11e469379e27b42668f61e1e9ca0df5de094b14deabb6ad7e99d911d6b9ed85a"
+  },
+  "LiquidAI/d1-2B": {
+   "revision": "a6bce774e6dde338dcc3036ceb5d91f78bf4c19e",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/LiquidAI/d1-2B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "27a396ef1987d4a505aee1a94a66f577e50f94feda8484830599576c670d03c9"
+  },
+  "MicksHF/Qwen-Image-2.1-Anime-Fusal": {
+   "revision": "dd66651616ec3a689e5fdbfd2e63f60c3723c9bc",
+   "sources": [],
+   "sha256": "48282b607585ab44052e476185db442b1649eb3183267cc31743810183abca07"
+  },
+  "MiniMaxAI/MiniMax-H3-Image": {
+   "revision": "5f90473023975e6271b0ed1dd84c4e88e4bbc6d3",
+   "sources": [],
+   "sha256": "e61cba6472aa50f7469813f92cd912c278f0d25a8ffbc66cbb66a91df0296599"
+  },
+  "MiniMaxAI/MiniMax-H3-Image-PE": {
+   "revision": "35603d4b63949afa12cb098227fffefedf081afa",
+   "sources": [],
+   "sha256": "80ab5e7534d22971013a4952193bfd9160a58bac6def91971e6f2e687500730c"
+  },
+  "MiniMaxAI/MiniMax-M3.1-Flash": {
+   "revision": "ce7f4df87d2e05262f5775f373dac4772f134041",
+   "sources": [],
+   "sha256": "f959ab14fdf9b66c8f7270826a2cec3ca599df386e1bd0707babba70e4fcbb28"
+  },
+  "MiniMaxAI/MiniMax-Music3": {
+   "revision": "1b525ccb685ae809f33027c51c351eeb5833cf72",
+   "sources": [],
+   "sha256": "d8688d8c33e90f9eeae97bb21bf4af967760004dfdfe13eebc8e58851a9a30bd"
+  },
+  "MinimaLabs/KLM-1.6": {
+   "revision": "8fabc98abe194f7450cf19ed743caa7e85a4e5b0",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/MinimaLabs/KLM-1.6/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "README.md",
+      "fast_decode.py",
+      "modeling_klm.py"
+     ]
+    }
+   ],
+   "sha256": "0278b767ae612c21647739f2f517d3ef0a9fc0073744db9576ee0d1f41e4a77e"
+  },
+  "MoonMath-ai/DeepSeek-V4.1-Flash-1017-uncensored": {
+   "revision": "bec0742e10fec66d20436a78ffa22a193ec9021c",
+   "sources": [],
+   "sha256": "dba6fcf4f9a4e23ac54c140eaca4c41f5e195d1c677b2fe9183ceab3f7ed1a37"
+  },
+  "Nanbeige/Nanbeige4.3-33B": {
+   "revision": "df919e1e2cf077a22204c78b6c826bf3db18bc08",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Nanbeige/Nanbeige4.3-33B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "29a3cd960c628da7492aa7fc9f8969be291be810db5fcd70cdddc9f0e85f1edb"
+  },
+  "NousResearch/Arete-27B": {
+   "revision": "108f0afbdcfaa1ceeda4a635004304dfff6d4da2",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/NousResearch/Arete-27B/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE"
+     ]
+    }
+   ],
+   "sha256": "1c48339b858edcd48dc69cdf12f973bf39fd5b64c5e53099184d1505d81c1f40"
+  },
+  "OBLITERATUS/DeepSeek-V4.1-Flash-1017-obliterated": {
+   "revision": "29a9f998fe73e25c4f22734f5f312ba22d19e238",
+   "sources": [],
+   "sha256": "1de57d3dbef3a1572c453dcaff30791977bcae215e4e1e28a345fef89ae94da8"
+  },
+  "OBLITERATUS/Qwen3.8-27B-OBLITERATED": {
+   "revision": "a58c3b53b3ce71551eafde2ed5ec8df48e0f4ff8",
+   "sources": [],
+   "sha256": "cdf24bab548f5f57226095144b4068a08e10eccd6a5f3dd87b731617690b6ab8"
+  },
+  "OliviaRossi/Minimax-h3_Singularity-x-10Eros-Max_PRISM": {
+   "revision": "f35f94f7a09d48f637649f665a4d468784187468",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/OliviaRossi/Minimax-h3_Singularity-x-10Eros-Max_PRISM/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "361ebcf716a8e6b37dc2abb5616ddaff95ddf0dae8673fd75a1d0c781ae78c4e"
+  },
+  "Oomni/mithi-v1-flash": {
+   "revision": "94bc455ae91679460cad7a5d3d30b7baf9c1cf13",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Oomni/mithi-v1-flash/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "fd63e5720bcadeef83fdde50810977778e1f2b3301dce3b9c9074fbc0bda5aa6"
+  },
+  "OpenMOSS-Team/MOSS-Image-Base": {
+   "revision": "85975793d8b3d432f1b6e27f352abaa4c2a4c0d3",
+   "sources": [],
+   "sha256": "58ecd69d633f054d59f8f90e3aa2b3ec3730c7e551eda66712714f31a89eae36"
+  },
+  "OpenMOSS-Team/MOSS-Image-SFT": {
+   "revision": "f972bd4b4b9e3852133cc5da954d87bc32cd8fb9",
+   "sources": [],
+   "sha256": "b4a15944f3b0599c8adebb11570b24f1df226b89e1fabf0ced5ff33b110134e1"
+  },
+  "PaddlePaddle/PaddleOCR-VL-1.6": {
+   "revision": "132c45f52c0a26ed5a6b2f6bd8e3985794cc27dd",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/PaddlePaddle/PaddleOCR-VL-1.6/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "2011e94458da0f33b861dd32f3e752c8bbcaebd8d00b22dc1190a7f3423ed486"
+  },
+  "PedroMarinhoDev/ReCaVSR-ComfyUI": {
+   "revision": "2fffebd4413433ad4b8be7aec44b7fb60c897d6a",
+   "sources": [],
+   "sha256": "ecd258a730310ac4c78b7e1c2072f88e4739fb3e4f80252f04d738d67336ec9d"
+  },
+  "Pika-Labs/Pika-H3-Flex": {
+   "revision": "ca45d99f9b1d1859ffb9dc1cd6bfaaa994257f56",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Pika-Labs/Pika-H3-Flex/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "1a2cb44ac594cb4fbf02031bfe7c1ff9830d3c5e6670ed54c55f77150742df60"
+  },
+  "Pika-Labs/Pika-H3-Flex-Turbo-LoRA": {
+   "revision": "dcacd93a50f714ba1cd61c7ca2cc5f65e9a1ec60",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Pika-Labs/Pika-H3-Flex-Turbo-LoRA/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "d99b0a6f4baf4d62b39920643edcad9e2ac86431a7dc861ce1c74a59cd486d96"
+  },
+  "Prior-Labs/tabpfn_3_5": {
+   "revision": "06bf2ba35c80a92a3b9abb436b99cf49e7a0365e",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Prior-Labs/tabpfn_3_5/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "65d08174c511688f66d207c3b6fb5749ae6c119d455f4825aefa3910600e831b"
+  },
+  "PrunaAI/P-H3-Image": {
+   "revision": "7f98acef503cf2bcfba821a78cb1cf1a9928b2df",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/PrunaAI/P-H3-Image/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "fc4230c7200e17c5d5798c878c3c04fc679d60c14083ef76808b3d5e3c189f07"
+  },
+  "PrunaAI/P-H3-Image-Comfy": {
+   "revision": "44a0fb73f299da1bb715bdb5ff59ce3fd3c6f543",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/PrunaAI/P-H3-Image-Comfy/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "38a999547444b2d4d1df39a52dece37b0730ead02df868eaf23afc3b25b023dc"
+  },
+  "PrunaAI/P-Q-Image-2.1-Remove-Object": {
+   "revision": "fa5b4fee99c04a2b85c91ab6e471173a23d6c976",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/PrunaAI/P-Q-Image-2.1-Remove-Object/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "77a91cbc33d6f36538c4e3b1c8ecb19a9f598794d7f99da731f1ca8d4a0b9a64"
+  },
+  "PrunaAI/P-Q-Image-2.1-Remove-Object-Comfy": {
+   "revision": "675588fc7126be52f991d07c5c9242031f3ade1b",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/PrunaAI/P-Q-Image-2.1-Remove-Object-Comfy/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "a74812299e580799b86af454bfab14bfbd99731c6c38975d1ecfa48c66337e08"
+  },
+  "Quazim0t0/Qwenx86-4B-compact": {
+   "revision": "fb4f07e9999d53fab3c207cd44809d1e9de280b0",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Quazim0t0/Qwenx86-4B-compact/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE-Qwen3.5",
+      "chipformer/LICENSE",
+      "chipformer/__init__.py",
+      "chipformer/check.py",
+      "chipformer/chip8.py",
+      "chipformer/compile.py",
+      "chipformer/dense.py",
+      "chipformer/dsl/__init__.py",
+      "chipformer/dsl/batch.py",
+      "chipformer/dsl/evaluate.py",
+      "chipformer/dsl/graph.py",
+      "chipformer/dsl/lib.py",
+      "chipformer/fuzz.py",
+      "chipformer/games.py",
+      "chipformer/hf_export.py",
+      "chipformer/q35/__init__.py",
+      "chipformer/q35/arith_bench.py",
+      "chipformer/q35/batch.py",
+      "chipformer/q35/bridge.py",
+      "chipformer/q35/check.py",
+      "chipformer/q35/chip8_q35.py",
+      "chipformer/q35/demo.py",
+      "chipformer/q35/emit.py",
+      "chipformer/q35/evals.py",
+      "chipformer/q35/fast.py",
+      "chipformer/q35/host.py",
+      "chipformer/q35/ir.py",
+      "chipformer/q35/lib/__init__.py",
+      "chipformer/q35/lib/asm.py",
+      "chipformer/q35/lib/bcd.py",
+      "chipformer/q35/lib/macros.py",
+      "chipformer/q35/merge.py",
+      "chipformer/q35/mute.py",
+      "chipformer/q35/prims.py",
+      "chipformer/q35/record.py",
+      "chipformer/q35/report.py",
+      "chipformer/q35/spike.py",
+      "chipformer/q35/spikes_pos.py",
+      "chipformer/q35/spikes_replay.py",
+      "chipformer/q35/text_eval.py",
+      "chipformer/q35/tiny.py",
+      "chipformer/ref/__init__.py",
+      "chipformer/ref/emu.py",
+      "chipformer/ref/play.py",
+      "chipformer/ref/profile.py",
+      "chipformer/rv/__init__.py",
+      "chipformer/rv/asm.py",
+      "chipformer/rv/batchcheck.py",
+      "chipformer/rv/bridge.py",
+      "chipformer/rv/calc.py",
+      "chipformer/rv/chat.py",
+      "chipformer/rv/core.py",
+      "chipformer/rv/elf.py",
+      "chipformer/rv/env/calc/bn.h",
+      "chipformer/rv/env/calc/calc.c",
+      "chipformer/rv/env/calc/gen_sled.py",
+      "chipformer/rv/env/crt0.S",
+      "chipformer/rv/env/mpy/Makefile",
+      "v4/LICENSE-Qwen3.5",
+      "v4/chipformer/LICENSE",
+      "v4/chipformer/__init__.py",
+      "v4/chipformer/check.py",
+      "v4/chipformer/chip8.py",
+      "v4/chipformer/compile.py",
+      "v4/chipformer/dense.py",
+      "v4/chipformer/dsl/__init__.py",
+      "v4/chipformer/dsl/batch.py",
+      "v4/chipformer/dsl/evaluate.py",
+      "v4/chipformer/dsl/graph.py",
+      "v4/chipformer/dsl/lib.py",
+      "v4/chipformer/fuzz.py",
+      "v4/chipformer/games.py",
+      "v4/chipformer/hf_export.py",
+      "v4/chipformer/q35/__init__.py",
+      "v4/chipformer/q35/arith_bench.py",
+      "v4/chipformer/q35/batch.py",
+      "v4/chipformer/q35/bridge.py",
+      "v4/chipformer/q35/check.py",
+      "v4/chipformer/q35/chip8_q35.py",
+      "v4/chipformer/q35/demo.py",
+      "v4/chipformer/q35/emit.py",
+      "v4/chipformer/q35/evals.py",
+      "v4/chipformer/q35/fast.py",
+      "v4/chipformer/q35/host.py",
+      "v4/chipformer/q35/ir.py",
+      "v4/chipformer/q35/lib/__init__.py",
+      "v4/chipformer/q35/lib/asm.py",
+      "v4/chipformer/q35/lib/bcd.py",
+      "v4/chipformer/q35/lib/macros.py",
+      "v4/chipformer/q35/merge.py",
+      "v4/chipformer/q35/mute.py",
+      "v4/chipformer/q35/prims.py",
+      "v4/chipformer/q35/record.py",
+      "v4/chipformer/q35/report.py",
+      "v4/chipformer/q35/spike.py",
+      "v4/chipformer/q35/spikes_pos.py",
+      "v4/chipformer/q35/spikes_replay.py",
+      "v4/chipformer/q35/text_eval.py",
+      "v4/chipformer/q35/tiny.py",
+      "v4/chipformer/ref/__init__.py",
+      "v4/chipformer/ref/emu.py",
+      "v4/chipformer/ref/play.py",
+      "v4/chipformer/ref/profile.py",
+      "v4/chipformer/rv/__init__.py",
+      "v4/chipformer/rv/asm.py",
+      "v4/chipformer/rv/batchcheck.py",
+      "v4/chipformer/rv/bridge.py",
+      "v4/chipformer/rv/calc.py",
+      "v4/chipformer/rv/chat.py",
+      "v4/chipformer/rv/core.py",
+      "v4/chipformer/rv/elf.py",
+      "v4/chipformer/rv/env/calc/bn.h",
+      "v4/chipformer/rv/env/calc/calc.c",
+      "v4/chipformer/rv/env/calc/gen_sled.py",
+      "v4/chipformer/rv/env/crt0.S",
+      "v4/chipformer/rv/env/mpy/Makefile"
+     ]
+    }
+   ],
+   "sha256": "c30f6a0555c8c9196127804499bf83471ce7c549fad67c52f1213e0f91ce13b4"
+  },
+  "Qwen/Qwen-Image-2.1": {
+   "revision": "d26bb61231c349cf6b7896fa83353113880e1ba3",
+   "sources": [],
+   "sha256": "e798b02ced166310eae461695f7416360c623e2ad3f7ce4cca5e1555dd4e5212"
+  },
+  "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF": {
+   "revision": "13fb94bfda8c8cf22497dc57b78f391a9acb426a",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/master/",
+     "missing": [
+      ".msc"
+     ]
+    }
+   ],
+   "sha256": "6a1b6b2db309e6f2dc12941a55d248deff3b57b6bb234ff2270adc746ca0c570"
+  },
+  "Qwen/Qwen3-0.6B": {
+   "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen3-0.6B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    },
+    {
+     "kind": "ipfs",
+     "resolve": "https://ipfs.filebase.io/ipfs/bafybeibpsitfep42kdnxg2n4srn7plwjmw5lh4xpeaney7zweslwbl7p2m/",
+     "missing": []
+    }
+   ],
+   "sha256": "c6535cfed404ad2f3d19df1e2f52756dfaac4b28c6f7ce544e30d7b0f4ec24a5"
+  },
+  "Qwen/Qwen3-8B-GGUF": {
+   "revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen3-8B-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "365db86e86b9c139f5e97fb9a9fde5cf1f89f116608af47bc9f304d4212ff10f"
+  },
+  "Qwen/Qwen3-ASR-1.7B": {
+   "revision": "7278e1e70fe206f11671096ffdd38061171dd6e5",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen3-ASR-1.7B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    },
+    {
+     "kind": "ipfs",
+     "resolve": "https://ipfs.filebase.io/ipfs/bafybeiawbayx3nu6ib3vsz752lfn555ctiwx6fzul6c5te67pks5jo2ype/",
+     "missing": []
+    }
+   ],
+   "sha256": "37dd915645ff3ff938707550a413376d6ab888be6f9e059b52e93ec1515a4f07"
+  },
+  "Qwen/Qwen3-Coder-30B-A3B-Instruct": {
+   "revision": "b2cff646eb4bb1d68355c01b18ae02e7cf42d120",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen3-Coder-30B-A3B-Instruct/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "5958f62a43fcceceff370ef1dd2ab1a30b5df687482bde2d26b600cb02ff5b0e"
+  },
+  "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice": {
+   "revision": "0c0e3051f131929182e2c023b9537f8b1c68adfe",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    },
+    {
+     "kind": "ipfs",
+     "resolve": "https://ipfs.filebase.io/ipfs/bafybeihoqmarjg2h5n5hxol5y3jb3v3hyw4mxm6kvh6mz7vdms67xxshw4/",
+     "missing": []
+    }
+   ],
+   "sha256": "f25885d9ca73bfa130145844102aaf79384692404b6cd7a54ae853729b669570"
+  },
+  "Qwen/Qwen3-VL-8B-Instruct-GGUF": {
+   "revision": "f982a07559d4a2f6c8744d840bf6fccab30eea96",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen3-VL-8B-Instruct-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "eff9c34913b819e04df81c244ae98703154db2c993bb7f7d5e71024e050f4365"
+  },
+  "Qwen/Qwen3.5-0.8B": {
+   "revision": "2fc06364715b967f1860aea9cf38778875588b17",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen3.5-0.8B/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE"
+     ]
+    },
+    {
+     "kind": "ipfs",
+     "resolve": "https://ipfs.filebase.io/ipfs/bafybeicy3fzh7nv4gcei75hqnrto6lrigiyy7ovwbyeo3msdcyywyyd43y/",
+     "missing": []
+    }
+   ],
+   "sha256": "899d235f7707bf4f39fa9ca574bbb2d58c9bcb9e5b49ebb8eef55f724ad5a532"
+  },
+  "Qwen/Qwen3.5-4B": {
+   "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen3.5-4B/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE"
+     ]
+    }
+   ],
+   "sha256": "0ee6c4daba995e36c3214829ea35ba29484a436470d02401646bb86187611181"
+  },
+  "Qwen/Qwen3.5-9B": {
+   "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen3.5-9B/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE"
+     ]
+    }
+   ],
+   "sha256": "0bf605fbf341f86636c557b971661f2efec3beb1a6c1d8d908918f275ba3192a"
+  },
+  "Qwen/Qwen3.6-35B-A3B": {
+   "revision": "345d467b117d1fd5eda9b879a5988de9ae5f47a7",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen3.6-35B-A3B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "1f672381a6ebef449d022c2dc816e64697d9b1bf3c784169ed10e736cb61b706"
+  },
+  "Qwen/Qwen3.8-2.4T-A95B": {
+   "revision": "4f885e51d6bbfee5866446d56d3f96f336c39723",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen3.8-2.4T-A95B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "aced9977526fdf5d8b534f123a8bdeba170d0ff95f606a27d98b8fe9aa912a04"
+  },
+  "Qwen/Qwen3.8-27B": {
+   "revision": "37561816e66b5b9153b1b64c10968c18c1e6f4a0",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen3.8-27B/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE",
+      "README.md"
+     ]
+    }
+   ],
+   "sha256": "a674a74b23c8cc3f2509587d11aaa15a740bd5e7d461e6a524d32b0c1999738e"
+  },
+  "Qwen/Qwen3.8-27B-FP8": {
+   "revision": "c3a462cc3d38cf351f3b26cbd763469eeb74ef81",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen3.8-27B-FP8/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE",
+      "README.md"
+     ]
+    }
+   ],
+   "sha256": "a059888300b2124c0a3e9102a60a9860d3c4751ee9ec62da88b86b38cc7d77c4"
+  },
+  "Qwen/Qwen3.8-Flash-Next": {
+   "revision": "812d96e10a0dd82b69d749e68693698cf6c36daa",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen3.8-Flash-Next/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE"
+     ]
+    }
+   ],
+   "sha256": "b5f00541dc01e594ee92943ca1cb06246a2cd7eae7c9a3f4328f56d1a1bbdd77"
+  },
+  "Qwen/Qwen3.8-Flash-Next-FP8": {
+   "revision": "7fb48d708ca6cd8eeed8f4db0433be18af96984f",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Qwen/Qwen3.8-Flash-Next-FP8/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE"
+     ]
+    }
+   ],
+   "sha256": "42d148962c931fd237f4eedeccfa8a29dcf99eb1188039bc0586c1f832388172"
+  },
+  "RavichandranJ/Dolphin3-Cyber-8B-GGUF": {
+   "revision": "145d66f096c8a99aad63be19ada1fbc46d3230bd",
+   "sources": [],
+   "sha256": "525736cb7503dc4c6cb286172a2fe0b8ca7c023959b5ccfb38cb2c9eefd885ca"
+  },
+  "RecursiveSI/flint": {
+   "revision": "2a247be0c0aec895ccb0ac7ca92229ec6df37288",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/RecursiveSI/flint/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "caaf97daad6e01e32f338ce1991c0e5e90b34c5693368f04c7e56d9e64fcce4e"
+  },
+  "Respair/Nichijou_TTS": {
+   "revision": "127ccbebc9cf55085a7a05af634caeb8a84117f4",
+   "sources": [],
+   "sha256": "0e720288f880257b827f8ce54fb561ec7eece4b93cf17d0bf104a7c50cf3a398"
+  },
+  "RikiyaT/Qwen3.5-0.8B-weight-space-programming": {
+   "revision": "d1671a178705bcab7644806d23c535517f35723b",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/RikiyaT/Qwen3.5-0.8B-weight-space-programming/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE"
+     ]
+    }
+   ],
+   "sha256": "3ad20cceafd226dbbd2e1dc291f6a267a328df047007a7488a6616521b0f4524"
+  },
+  "SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF": {
+   "revision": "90a3350cd800ec1fe0d1660a38414ad9e985782f",
+   "sources": [],
+   "sha256": "cdaceb233e5b9959f87828e3ff5ec8a5eff6af428781174aa590a77dd66c33fa"
+  },
+  "SC117/Qwen3.8-Flash-Next-abliterated-UD-GGUF": {
+   "revision": "2eb0ef18bfb05164030b5559539bc1e183fa977f",
+   "sources": [],
+   "sha256": "10ec8852f3965868eef5b589b11f5c59ea6921daeda95365ecbe0cc21abcc543"
+  },
+  "SC117/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF": {
+   "revision": "3db919a964b1f0ae0d1000ba7be90b3e38b1f7a3",
+   "sources": [],
+   "sha256": "f36cfba14112de95a015a9c263153053332123225a1a1dce3de53ccf57f9676d"
+  },
+  "Sakura721/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-GGUF": {
+   "revision": "5306fb4e901fa7aa8a4896b6e1d46f670164d595",
+   "sources": [],
+   "sha256": "b5625ace798394a9f984b5da23c9c7755f178df2c0df2651fe63ca05a114f722"
+  },
+  "Scantist/GLM-5.3-SLIM-GGUF": {
+   "revision": "be750186b094d278ffd5407a1e214b2240451d29",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Scantist/GLM-5.3-SLIM-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "37f762db90348bd158aa1014006e5a90ffbabd15890e6c0b9e201bec03e2e292"
+  },
+  "ScarletKc/ScarletKc-2.0": {
+   "revision": "ddebd3b2d5f6a91e1d9491c3dc2982551ffb3340",
+   "sources": [],
+   "sha256": "8a4f1e92910dbba6c67591ca5db46c418239339ce03127b63c86298e07dd8e1d"
+  },
+  "ScarletKc/ScarletKc-2.0-GGUF": {
+   "revision": "d1b46d09985f2dc7e1d5d3f7a128ce96f0a8f40f",
+   "sources": [],
+   "sha256": "0e1268dd46292b93f977a8fb5711f184b5d2fe7426368f991eaef6350ac422dd"
+  },
+  "Semub/Seedance-2-AI-Video-Generator-free": {
+   "revision": "17eaa083081ed429de0ed24023af71aae2c031c9",
+   "sources": [],
+   "sha256": "f2c3f1d357240ec9b76a87f74f55112c136e954a019bf1ef01c283c19ddf5fab"
+  },
+  "Sparset/Thinklite-27B": {
+   "revision": "2aa81615c583852cd561164946f1a458ed21b13f",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Sparset/Thinklite-27B/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE"
+     ]
+    }
+   ],
+   "sha256": "17a3f14de728f781c6edde03eb60fb782b705757d038025c613637e9a331fcd6"
+  },
+  "StarpowerTechnology/WVY-Blender-5m": {
+   "revision": "bee66bac6cbd0a8e45c7c16bdad925ca5fc5a5d7",
+   "sources": [],
+   "sha256": "80ab44fc1ba44d4ce58b56ce6bda7faf698b947e2397ec7afbfcb6d62eaac53c"
+  },
+  "SyzygyResearch/Mach-Boom": {
+   "revision": "01860b06bdf8498761255ad1c64b99980b96486d",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/SyzygyResearch/Mach-Boom/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "57f62bc6c41b28472c0ef0a332dc267cd45b8f63bf79384d461ff41941f5ab24"
+  },
+  "TenStrip/10Eros-Max": {
+   "revision": "804e16fbc3c894764353f2914e5b0943da45f9f4",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/TenStrip/10Eros-Max/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "0c8baa177aadf37dd194bde4bcb2655f4fc86d406e6e2786db35973f98b95b7c"
+  },
+  "TheDrummer/Artemis-31B-v1.2": {
+   "revision": "73c8815a18f0de792819ea087fb252beee900ff0",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/TheDrummer/Artemis-31B-v1.2/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "a02669712981d9dfcfea3af763fa70bbaacd1b68a2a1fa5490405134ebe4980e"
+  },
+  "TheDrummer/Orion-26B-A4B-v1.1": {
+   "revision": "83d2c769e4c198714a442f4cc3a7400f776adb8b",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/TheDrummer/Orion-26B-A4B-v1.1/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "6931e516478b6f1fdd7cf004df68f9b5cabbe6b4a87043305754137d43797ce5"
+  },
+  "Tongyi-MAI/Z-Image-Turbo": {
+   "revision": "f332072aa78be7aecdf3ee76d5c247082da564a6",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Tongyi-MAI/Z-Image-Turbo/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "ab96c56f1d47a415286a960622f8e3c24d6736de9984f6ebbd5b7d4d6270c9fa"
+  },
+  "TontaubeAI/TontaubeV1.1-int4": {
+   "revision": "2cff8331a357cdd50b05c823f5172eaa3ac6c121",
+   "sources": [],
+   "sha256": "037f508807f2b10eb94d9bf88ec82e6d16cbf59c95570d34311d50662600ae7b"
+  },
+  "Ultralytics/YOLO26": {
+   "revision": "070ac3c51435984d992ba92eb3f234daf4e4500d",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Ultralytics/YOLO26/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "1eb0fef386be6e30c696d19bb0611249c26d7280695065e8378e7a16b01af538"
+  },
+  "VideoRebirthAI/hyperflow": {
+   "revision": "5bde94d7de3e78dafa2abc43ee2f280a1cb244e8",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/VideoRebirthAI/hyperflow/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "94dd888a566534104f6179bc3d6960d57fe2a71d2b6948aac3ad6e64243157b3"
+  },
+  "VideoRebirthAI/hyperflow-h3-flash": {
+   "revision": "6834923e1a9ca4d15a2349a622b6677bea1404cb",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/VideoRebirthAI/hyperflow-h3-flash/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "48f21ddd988731e863edd161a44afb3f9f8e5e08a460595eefba96b2bec8e4fd"
+  },
+  "Viggle/Qwen-Image-2.1-viggle-turbo": {
+   "revision": "009a44a895ef85f7e643c80fdca9543795248867",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Viggle/Qwen-Image-2.1-viggle-turbo/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "c1887a6798abb52e15bcd21e6bc2aff9efb2d8e2282156e436b0ddb020d2745d"
+  },
+  "Viggle/Viggle-Image-Swap": {
+   "revision": "572d4971fd0d11f643232a95c126f9317e13f937",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Viggle/Viggle-Image-Swap/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "79c7e948a1be70b1bcca5e613c84448bf2ebd12fdf7fa9f0f27764f81e21f349"
+  },
+  "Viggle/Viggle-Remake": {
+   "revision": "7e5be143702dd53b9154482de673b8519ed2d4d6",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Viggle/Viggle-Remake/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "83a121561e9370a6e83839e64928616e8ad48c03772b1f6b93ddd769b40ac357"
+  },
+  "Wan-AI/Wan2.1-T2V-1.3B": {
+   "revision": "37ec512624d61f7aa208f7ea8140a131f93afc9a",
+   "sources": [],
+   "sha256": "6edc682f19d5d3c44537b5ef4ee87d24862a98192ca4c2bbdc3633745ebdf0b9"
+  },
+  "Wan-AI/Wan2.2-T2V-A14B": {
+   "revision": "c8c270b13ee05bfa474194ac9fb07a5868a97cea",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Wan-AI/Wan2.2-T2V-A14B/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "README.md",
+      "configuration.json"
+     ]
+    }
+   ],
+   "sha256": "a64e5a4af27834d16424b703a26f453ff8b7d24dfd14f8701d8e91f516452ebb"
+  },
+  "Wan-AI/Wan2.2-TI2V-5B": {
+   "revision": "921dbaf3f1674a56f47e83fb80a34bac8a8f203e",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Wan-AI/Wan2.2-TI2V-5B/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      ".msc",
+      ".mv",
+      "README.md",
+      "configuration.json"
+     ]
+    }
+   ],
+   "sha256": "5e65e66576b12d2a3a8723027ef7a71a273f4f1ee73617bcc40f499983ef2af1"
+  },
+  "WarmBloodAban/Minimax-h3_Singularity": {
+   "revision": "1259cf16cd0b655ba691a32fb46a409142762972",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/WarmBloodAban/Minimax-h3_Singularity/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "video/.gitkeep"
+     ]
+    }
+   ],
+   "sha256": "70c9bfd71f60000f947196ad5a13b185bd91994124565eb510911734276bf911"
+  },
+  "XHToken/Spark-X2.6-4B": {
+   "revision": "64ca8f2a295b8ceb2757b9d4749a6558c4759e5b",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/XHToken/Spark-X2.6-4B/resolve/master/",
+     "missing": [
+      "README.md"
+     ]
+    }
+   ],
+   "sha256": "62403a9fc5786c92e0cd600528a9611458157e66302b8adac30f70a0f57e5113"
+  },
+  "XHToken/Spark-X2.6-4B-GGUF": {
+   "revision": "9d716770ac7477776de5f891f70cdf98b003a5cd",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/XHToken/Spark-X2.6-4B-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE",
+      "README.md"
+     ]
+    }
+   ],
+   "sha256": "6b38bbec2955217aafc8efcc632a1eeec3a7720d44187d2cb377f9add2d25000"
+  },
+  "XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B": {
+   "revision": "1f09ddcc1a0ea45751ae0dfe2af20d533168c46f",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "44ed81bb88d5bf71e0e47e6f32edbfb00ebd72cd9f26099d902b4d26fc4ecea6"
+  },
+  "ZhengmingYu/DMAD": {
+   "revision": "b08c2bf3be8e67039c363781e6eaacc9713340cd",
+   "sources": [],
+   "sha256": "55e36575a0ad98eb847559646e196ba4dec70ca69a6025396caee9ac8ef0eda4"
+  },
+  "Zyphra/ZONOS3-Mini": {
+   "revision": "d2d142a86b1e6aeb4252679673c86ecd86177bf8",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/Zyphra/ZONOS3-Mini/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "9b2dffc8688af870a4b85034e94f6830a100ac0e0c620387aaa1ffc34d2c8dcf"
+  },
+  "abenzerps/Qwen-Image-2.1-Turbo-Quantized": {
+   "revision": "4de83c75b119a35a7f09bd15f824cf4543de45f3",
+   "sources": [],
+   "sha256": "469544e52c000cbfab57c715d1d5e9cd42c5eead1c17bf9319e9fea01393abb5"
+  },
+  "adventists-ai/Sophon-Realtime-v1": {
+   "revision": "5348da3d30185f5a8c362ad531b05b085019d831",
+   "sources": [],
+   "sha256": "b63c630d2ba3c20edafec9a79c83ec87c6adfdd255c13a6ca6b12ec30e112c2c"
+  },
+  "agentionai/Qwen3.8-Flash-Next-Gyro-GGUF": {
+   "revision": "257c95704b87e99d12e4b1cbd65794837009d587",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/agentionai/Qwen3.8-Flash-Next-Gyro-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "f5e7e3560b4065d2cdcff3592e6aab10f61c79c55aa0a89e7e75fc12f148cfd6"
+  },
+  "agentionai/Qwen3.8-Flash-Next-Gyro-abliterated-Huihui-GGUF": {
+   "revision": "ea3bd58cd257d371b65ea54a644e4f61f4bd4156",
+   "sources": [],
+   "sha256": "fab8b1d8bba67ae8bb3cd75697858c0711bb54dc935418d50e5649157dc618a3"
+  },
+  "agents-course/notebooks": {
+   "revision": "cecf8edffb02101c90634b84076bd93b1a20c713",
+   "sources": [
+    {
+     "kind": "ipfs",
+     "resolve": "https://ipfs.filebase.io/ipfs/bafybeihee4vraktkdjom3ntmnhhjzxt2dihidihemzft6rfkfbk7uw2t6m/",
+     "missing": []
+    }
+   ],
+   "sha256": "6992877e94458b5da4f61d4a3ad471551321b241b4efe0ab6f4d798b2b719fa3"
+  },
+  "aj9o9/Qwen3.8-27B-DSpine-b16-GGUF": {
+   "revision": "e27cc7dfe121a0c9327eb36a7cce82a0dfa9e3e6",
+   "sources": [],
+   "sha256": "7fbba9167f1cb52788741df83edd4512451f13e8b343546d9d5a40e0529b376e"
+  },
+  "akatz-ai/MiniMax-H3-Character-Swap-LoRA": {
+   "revision": "96ea3407b230b6f7df71c58c70e31df96bd7e533",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/akatz-ai/MiniMax-H3-Character-Swap-LoRA/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "b329271bc65d18a69104ef6609c37e9feef6913280be42bb8fc3f4a3d5d72e41"
+  },
+  "akhaliq/MiniMax-H3-Image-Character-Swap": {
+   "revision": "0b7f918092f9e23c01ca62b63d7c17e4fce6faa9",
+   "sources": [],
+   "sha256": "36c4ae52cc4ea00b5156d1fb6939783411a12c1e1157637b1524e2326ef95168"
+  },
+  "akhaliq/minimax-h3-image-pdmd-2step": {
+   "revision": "ef1e3b9a237fc7a57ba4d07174ecca397d695d8a",
+   "sources": [],
+   "sha256": "6f8ecf054ca93ed512496d3d41f55ceac0f77638fed6fc292f0d7769b73e30bc"
+  },
+  "alesha-pro/Qwen3.8-Flash-Next-abliterated-GSQ-RCO-Strata-GGUF": {
+   "revision": "d4af3be5701549435e0770d625f79dd2def1358f",
+   "sources": [],
+   "sha256": "a1b48931ae0d15bb2da62585fce6826d6c676e034cb36b955ab1b2d58d524662"
+  },
+  "audio-cpp/audio.cpp-gguf": {
+   "revision": "ca0b203eb1bb87f333a7cfbad2d5f6672b4ccba7",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/audio-cpp/audio.cpp-gguf/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "7421f1793ab19471f19cec2021332410f3228955b8492c91ebf3143df1464155"
+  },
+  "autotrust/AutoTrust-Decider-Pro-Vision-27B-v1.1": {
+   "revision": "ae156900e9f338e423042b89e25d0fd8093064d4",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/autotrust/AutoTrust-Decider-Pro-Vision-27B-v1.1/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "a8020ff87bfe264c80d27d11ec83edac04fdf3c0c7fadb1f6f8b21b465dbb38a"
+  },
+  "autotrust/Qwen3.8-Flash-Next-E384-FP4-V2": {
+   "revision": "17a920e58033e325152783f633aad87209da8a45",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/autotrust/Qwen3.8-Flash-Next-E384-FP4-V2/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "bc0f81aef9dd4957d1ed7402e2733d9c1a9158632da6e4cb009d56005d241278"
+  },
+  "baidu/ERNIE-5.5-Flash-Base": {
+   "revision": "028544b2ffceea189b2d8768ed2b9d09b06f2343",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/baidu/ERNIE-5.5-Flash-Base/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "2f3007a74412030e4dbad33fd205497f78ba422573350b7ad4117736bf9afee7"
+  },
+  "baidu/ERNIE-5.5-Flash-Base-BF16": {
+   "revision": "dfab899dadcff8f4d08af24b75a26c6d4d2e0b09",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/baidu/ERNIE-5.5-Flash-Base-BF16/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "2575869d3c79d88e8103aa601dba3cacdd8fd1761e00fd6ece27e916d660d6d7"
+  },
+  "baidu/Unlimited-OCR": {
+   "revision": "8249d20b2822a7d8a4c22c8d8c9069b5ac36bda3",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/baidu/Unlimited-OCR/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "7ac6fa615691e03b236675416359a43ad47ac269fcb7455b80141d760c7addbe"
+  },
+  "baidu/Unlimited-OCR-2": {
+   "revision": "0480966938291445591f69f08a13b041c073a96a",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/baidu/Unlimited-OCR-2/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "eaa70860dfb8b80580e1ac5d9266612006f63a538ca9b4f892be3a38460f2940"
+  },
+  "bartowski/MiMo-V2.6-Distill-Qwen-9B-GGUF": {
+   "revision": "4371da10c84fb26da3592d4cf312d24aa82b7b65",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/bartowski/MiMo-V2.6-Distill-Qwen-9B-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "9ff2277947e788b36f270380c1f5c9f777cb84f2016e961e16db6f8a35a8bb2e"
+  },
+  "bartowski/NousResearch_Arete-27B-GGUF": {
+   "revision": "9762c8502a79bd2b8634735d75f426b9febe092c",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/bartowski/NousResearch_Arete-27B-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "2120fb26409458ad21825075d9bc08e57ed1b7e70d3d0aa883fe04c9010106f8"
+  },
+  "bartowski/TheDrummer_Orion-26B-A4B-v1.1-GGUF": {
+   "revision": "ecc1d958b6b4a83445ab80262965e151e00d97ac",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/bartowski/TheDrummer_Orion-26B-A4B-v1.1-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "e58cd0f749803cfb35d5cda00b0d9e9faa38f673f11ecfd2fef20ffff3ac0f46"
+  },
+  "baselabs/mammoth-1": {
+   "revision": "61cec44c281c693992e3d6ebeb44dd3402dfa186",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/baselabs/mammoth-1/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "1e79c8b91e0d564fea06bd2514569faff824558be4ca7a74619c9e3b34600ebd"
+  },
+  "black-forest-labs/FLUX.2-klein-4B": {
+   "revision": "e7b7dc27f91deacad38e78976d1f2b499d76a294",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/black-forest-labs/FLUX.2-klein-4B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "16269af4f7624828549a02d2d76aefb50042a647689f60ea348a735f6bd1bd53"
+  },
+  "burner22/numbat": {
+   "revision": "6b7f8fc548cbafe9bec441f03af2d92a55cb4012",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/burner22/numbat/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "00259647a29e4617635cc7745972349d37f010d196e04cfd7a913ec382bf9493"
+  },
+  "ccore/Qwen3-1.7B-GLB-3D-Coder": {
+   "revision": "8b1f81e0195b0daae93288f8fc9d717b60ce5fc3",
+   "sources": [],
+   "sha256": "b435941f07d93a386cf232eb9eacbe333142f0a0422d7f62f50d5f638dac39e0"
+  },
+  "ccore/Qwen3.5-4B-3D-Coder": {
+   "revision": "4b9f05f3a0382725b679c5e32a338b88acaf0064",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ccore/Qwen3.5-4B-3D-Coder/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "b3945fd865fc90f98f32b2eac257e7ed40a0675db4c9903dbe470a91877453de"
+  },
+  "ccore/Qwen3.5-4B-GLB-3D-Coder": {
+   "revision": "8f32a199f8b22fe3157b9c5c8b42b052a0750dd3",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ccore/Qwen3.5-4B-GLB-3D-Coder/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE"
+     ]
+    }
+   ],
+   "sha256": "06e941916ef3c0b6fc90f217295768b52b15663dcf561dad1fdf331011f113d4"
+  },
+  "ceia-research/lumi-4b": {
+   "revision": "27b30f40b930fd05cee5e1c1f8790f70fa5b816d",
+   "sources": [],
+   "sha256": "c940cad562cc56ebea43f169122a7a5254c415ba2beb11a67c38111daef6f142"
+  },
+  "chatrlabs/Qwen-Image-2.1-Uncensored-Omni-LoRA-v0.1": {
+   "revision": "d6f9c7e4e420971b49c3df9ace6b566b3f2eda48",
+   "sources": [],
+   "sha256": "29d7a4531a1a17800c6d342c1e251d873dbcf5cf50baf2cd562018e1deb9c7ac"
+  },
+  "chatrlabs/Qwen-Image-2.1-Uncensored-Omni-Quantized": {
+   "revision": "f5265c60e98818d5baa9e5329cea624daabcbece",
+   "sources": [],
+   "sha256": "5ea1c03aaa29d6685c3d04221169e1842003d2f74e9f69846a5d42fde9ca7183"
+  },
+  "circlestone-labs/Anima": {
+   "revision": "6e0b2da2112573380abfb6a1435a60a994b254f2",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/circlestone-labs/Anima/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE.md"
+     ]
+    }
+   ],
+   "sha256": "7c25580e09ecdc71d2bc763439a0fb90338c22a12e48277c2122ea2a3e299d85"
+  },
+  "convaiinnovations/laya": {
+   "revision": "85cc74ddae6109077ebe2853a9b3077fb6606a78",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/convaiinnovations/laya/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "097b30c29d57e47509e5225425827031e997acafefb7d97236ed308ae67fb5dc"
+  },
+  "data-archetype/moss_image_base_dmd2": {
+   "revision": "f36d91fc11a3135cf499504e57f2bc9a17a0c1dc",
+   "sources": [],
+   "sha256": "4614e19aa1891a0a2defcdf0f4613bc94c0e280e6ac6dc893d70a1197bca29e1"
+  },
+  "datalab-to/indra-ocr": {
+   "revision": "bd02167fdf2005a19962cc15188f8496a2c87d3b",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/datalab-to/indra-ocr/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "3dc1d90350f0e467bcbf2a559719fd02398c4b67906a3bcc00e8cd1247fee260"
+  },
+  "dealignai/DeepSeek-V4.1-Flash-1017-UNCENSORED-FP8": {
+   "revision": "c19ca5ca4eaeb79d29fdf08aea8327da95b1116a",
+   "sources": [],
+   "sha256": "ed5f940fd2b3e3b325782f9364ba1fd0560d9dccbb7e683442182d77a1e57b8d"
+  },
+  "dealignai/DeepSeek-V4.1-Flash-UNCENSORED-FP8": {
+   "revision": "d61c59ea5e514e25d305b5850e8a432f7a9969f2",
+   "sources": [],
+   "sha256": "ac4158dc750d2cdfc82703da1bc1946e721d376d1d556c4ecae50280a234f3c2"
+  },
+  "dealignai/GLM-5.3-CYBERSECURITY-FP8": {
+   "revision": "5915c1b88f998a9c1e1a0c83688e285a08ae3ca5",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/dealignai/GLM-5.3-CYBERSECURITY-FP8/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "79eba41edbe592682313df338daa00118727a026892440a4f4598457190aca04"
+  },
+  "deepseek-ai/DeepSeek-V4-Flash": {
+   "revision": "60d8d70770c6776ff598c94bb586a859a38244f1",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V4-Flash/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "f853b5d8bce74f7415d454fef965fd326f7b2dc009803e428e4c26e472b0fb23"
+  },
+  "deepseek-ai/DeepSeek-V4.1-Flash": {
+   "revision": "314113f8a7dadb388215396ba5fbee2c610a04d6",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V4.1-Flash/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      ".gitignore"
+     ]
+    }
+   ],
+   "sha256": "fc6cc91cb3aad76a56fcbecc1d5487685357d8990f2170d8eee342e33505bcc6"
+  },
+  "deepseek-ai/DeepSeek-V4.1-Flash-1017": {
+   "revision": "08c8657f02291e11b6f6b63e0e16014f8e748518",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V4.1-Flash-1017/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "63dd3a617ab55af199444dd5c7023e9eda8e025b6b86b7c9061f3d093adae46b"
+  },
+  "empero-ai/Qwen3.8-35B-A3B-Distill-GGUF": {
+   "revision": "b1f9d1dcc3de8aa867669b0ab919384aeeb9b8d5",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/empero-ai/Qwen3.8-35B-A3B-Distill-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "5ae66a72665ec4f33569c78e8e8bd361be0f3bf3e53bc8a00f88a413c1b1ce3c"
+  },
+  "empero-ai/Qwen3.8-9B-Distill-GGUF": {
+   "revision": "760121cd70bb4c36b2b5ec58eb765e0df5987efe",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/empero-ai/Qwen3.8-9B-Distill-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "37666d1872820db57423972d6b0bc07a39fa2afd5d698d80d52a26f17b21fccf"
+  },
+  "empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF": {
+   "revision": "5cebd89dd078b033c26988248740ddadf40f2fbd",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "5595df4483b2bf8d0623171dc6ecfbd545d95a69915c16e343bcedb86abb83bc"
+  },
+  "ethanfel/Qwen3-VL-32B-Ultra-Heretic-H3-ComfyUI-INT8-ConvRot": {
+   "revision": "e8967f6a39ea5b4939a1aff81be3e8706490c0e8",
+   "sources": [],
+   "sha256": "1e8e4295b6f9412f40e79a4e924da94846ed4d876a0532b1cf9ccbdae04e0de4"
+  },
+  "facebook/meta-encoder-v1": {
+   "revision": "ed04ebd4defb8e837b5eaea164143177272696ac",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/facebook/meta-encoder-v1/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "6d9d845a3c4db5aa5312e49157c76cc6554faf61a9312de6c1e6ec7defc59bfa"
+  },
+  "fafsaf1/flowhmr-0.46B": {
+   "revision": "a6b069c6529a07259b290f5fff05de674fe20474",
+   "sources": [],
+   "sha256": "b5b531fc7f7fc0cd548498f3e1810969d895acbff40f0ff6e8b70858c6001258"
+  },
+  "fal/MiniMax-H3-Realism-People-LoRA": {
+   "revision": "039cc8579d7aa357a882d7f4111b25da4f72dccc",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/fal/MiniMax-H3-Realism-People-LoRA/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "a09031b15a0467541331c1150f593de100c120520db761e99a3290fda42bd770"
+  },
+  "fastino/GLiDE-27B": {
+   "revision": "4d32743ae96b74f0116f050d37742bbd43c04e7d",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/fastino/GLiDE-27B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "9607aa0a131d976b0a07c9d28c309797a34f23d73ad5ac9b276cd74826dc58fa"
+  },
+  "fishaudio/drama-3": {
+   "revision": "78e5ab79e49aa9a25abe8799eff2c4d73a1c3216",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/fishaudio/drama-3/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "d50dfb53e80bac376f4b6e0e632c9cdf04f6edf7b1a88a5696e8716870b032b6"
+  },
+  "fishaudio/s2-pro": {
+   "revision": "1de9996b6be38b745688de084d87a5633f714e4e",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/fishaudio/s2-pro/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "ee2cbe08372cfe71488a38941fceb9e09a1ca74429dcd51c16a35a1cd27f6989"
+  },
+  "froggeric/Qwen-Fixed-Chat-Templates": {
+   "revision": "855bffc49448e299789730ff92c9b8d834d6cc14",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/froggeric/Qwen-Fixed-Chat-Templates/resolve/master/",
+     "missing": []
+    },
+    {
+     "kind": "ipfs",
+     "resolve": "https://ipfs.filebase.io/ipfs/bafybeieaqyiuryvdyhh5u2l56tgrobgkqsocqmlywn47ake3goelarxaum/",
+     "missing": []
+    }
+   ],
+   "sha256": "beaf6eae3e87a9acf62b58313782ac8b1eaae98abf3b8d360b32341651e6c483"
+  },
+  "fulcrumresearch/echo": {
+   "revision": "00894f456b6ff2cadff870a204a4f43bea1b0d85",
+   "sources": [],
+   "sha256": "84964876aaeb95f0f2b210b0f3410dec985db77cca6138eff3500112df0a59f2"
+  },
+  "gevaertlab/MANTA-27B": {
+   "revision": "38aa02eb5398bc854d04e93480526010a8d9caa4",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/gevaertlab/MANTA-27B/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE_base_model"
+     ]
+    }
+   ],
+   "sha256": "40c7b79622a1f85ef25a16b1225dce230fadd5525cc4d9bd26c9514769079d4d"
+  },
+  "google/embeddinggemma-2": {
+   "revision": "f9972ac22e696a105c482202646979e33e4b5a1e",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/google/embeddinggemma-2/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "de8ad6dc8420ff9e37e77efb9a225c552e6f0ff45cc03f68f10237731b61f98b"
+  },
+  "google/gemma-4-12B": {
+   "revision": "1a2c7729392586f5ecddae8807ee2ef741eabb9a",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/google/gemma-4-12B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "55e9290c761fe817bf863a133956d4cd02d5f532e098921087483c39a054ec54"
+  },
+  "google/gemma-4-26B-A4B-it": {
+   "revision": "4d7ae4984b7db7de8f8457170b3f1a419ee76d52",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/google/gemma-4-26B-A4B-it/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "b64f84388fa985593c0c1660298c69e445ad0d788ccaba47978957774c6900d8"
+  },
+  "google/gemma-4-31B-it": {
+   "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/google/gemma-4-31B-it/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "991a43087e7d94175b8fd1aac09781fd29f479f5f5648b18a07d37dffa6f980e"
+  },
+  "google/gemma-4-E2B-it": {
+   "revision": "4adf15748de9e1a0097b6274cee9c15836c41c37",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/google/gemma-4-E2B-it/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "5f393f8d5fb21392ebc75395f767df4bdd7733a1c67ba714c0000f9529a5bb65"
+  },
+  "google/timesfm-3.0-pytorch": {
+   "revision": "43046b85ec22d584a13f8098c2ed39c889e129c2",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/google/timesfm-3.0-pytorch/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "c81d3a7dcc00b29dd45cfe157bd5ddc46be4077f59a445a9bf57e39760835126"
+  },
+  "gradium/phonon-31m-en": {
+   "revision": "92741c5b07d085ff840e26fea8ce43110b87852f",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/gradium/phonon-31m-en/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "39ec17cb141065541dfe075b2a14deb21e1a4e34688702f299b51795cb7aa9b8"
+  },
+  "hexgrad/Kokoro-82M": {
+   "revision": "f3ff3571791e39611d31c381e3a41a3af07b4987",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/hexgrad/Kokoro-82M/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    },
+    {
+     "kind": "ipfs",
+     "resolve": "https://ipfs.filebase.io/ipfs/bafybeiauiszvph34uhfnyzxi3uojfcm546hfcyi7cd5ozd272latt5pnnu/",
+     "missing": []
+    }
+   ],
+   "sha256": "bfd1629e99f944b86271b92bd3cdd1b70d888c763412b9808c2dc5d001342d7c"
+  },
+  "higa2515/Qwen3.8-27B-QSA-GGUF": {
+   "revision": "e4c378e709c29a72997f56b5f97f9cd282fede83",
+   "sources": [],
+   "sha256": "0b549249acbaef8e18fe28d1ce1a895225468080925592f80e5ac4fbd13970a8"
+  },
+  "higurashi-ai/Haru-4B": {
+   "revision": "8d6e83bcd3701a76fc27a764965665da1df7da78",
+   "sources": [],
+   "sha256": "12300c89e58c56fb90f511937202ead7662e26df0da607c4f3fa21aacf3a23c6"
+  },
+  "huawei-csl/Qwen3.6-35B-A3B-MACaQ-R-GGUF": {
+   "revision": "8f8d8fdd67a1c4d1773bae87b849324c820c6b2e",
+   "sources": [],
+   "sha256": "e3e9d8cd57da40c274379e32761091ced9573d6dda4759f72ab19f7d27a66b2a"
+  },
+  "huihui-ai/Huihui-DeepSeek-V4.1-Flash-1017-abliterated-GGUF": {
+   "revision": "73fa239749dfc09e847ea5e1149626d064224d92",
+   "sources": [],
+   "sha256": "df71c309078c9c3d495fc7c614ac1233ed26209cda07a22a00132325e4411663"
+  },
+  "huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF": {
+   "revision": "c43a994637c10f5c376b7a471b3afc7663f80b9b",
+   "sources": [],
+   "sha256": "1796e184ddd289ff870e73379f64b16699cfe5d2afcfe2ce4d9c18f1560a8762"
+  },
+  "huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated-MTP-GGUF": {
+   "revision": "1fbb5305060b5365c84879612a619d0d2c0b137a",
+   "sources": [],
+   "sha256": "64181703cfc108c38b2c090579451d8a4258161fcef44d6b298db886b9546fc8"
+  },
+  "huihui-ai/Huihui-Qwen3.8-27B-abliterated": {
+   "revision": "739e3c5b89849f6c238ce1e5b70008612ae42cdd",
+   "sources": [],
+   "sha256": "d55ca2afeb95b57fdb02d438a7afb584e9f9dbc6fb99e3ba6f2bba0ccd8da7a1"
+  },
+  "huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF": {
+   "revision": "06b4baa33b310388002b3dd1c1ea701ff691c901",
+   "sources": [],
+   "sha256": "00027069ad765892c3b6286125a580e7645f2ea4ab7404cfcb90f3bcd7366f55"
+  },
+  "huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-v2-GGUF": {
+   "revision": "cbc7fba13f1939ac3fa42b18d77ccf43847d74ef",
+   "sources": [],
+   "sha256": "1992f5a8326a706f43befbebfaad7eada0c14a6566c91728bf517a9804e369dc"
+  },
+  "huihui-ai/Huihui-gemma-4-26B-A4B-it-qat-q4_0-unquantized-abliterated-GGUF": {
+   "revision": "6cd6fd4d423acb18e05f1f808958d14db5226ac1",
+   "sources": [],
+   "sha256": "f705ae338bacbf0b8a8371146deb306ea6aadad8d04694c82d8dc80cc2395fd8"
+  },
+  "iapp/OpenThai2.0-OCR-Markdown": {
+   "revision": "b6d9c95c9542de44ab03744d56b841ed212035e3",
+   "sources": [],
+   "sha256": "c3e3e1393c99b464d7ade870e921c09be8d3b35416ab2d92211bda82b4904963"
+  },
+  "iapp/OpenThai2.0-OCR-Text": {
+   "revision": "40e8e9ff752b65153b1a71d521ec9390882afd7e",
+   "sources": [],
+   "sha256": "e9f985e6feb548faa2210425a746fc0829339b5c136355fa0724a32097a58001"
+  },
+  "ibm-granite/granite-4.1-3b-llmon-preview": {
+   "revision": "55a14cac002854bb64c7f465c30da29209b170c8",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ibm-granite/granite-4.1-3b-llmon-preview/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "e1211a6fe93870344d127295e43d968b2209ca41356ec6b3642d788c12dd395c"
+  },
+  "ibm-granite/granite-4.1-8b-llmon-preview": {
+   "revision": "e1787b0329a1abf7e58337a9988a68884a5ec629",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ibm-granite/granite-4.1-8b-llmon-preview/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "c3ad8ad88d5070c58183ecaca8727b417c56a987f9a022869a69314e9eb34038"
+  },
+  "inclusionAI/LemonDecider": {
+   "revision": "05ec18fa0994b7369cb25ac76c19ed0865c776fd",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/inclusionAI/LemonDecider/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "e555f8bf321f8e7a7b2bee2a6952ac2e3ce433733adff8055a0e983e2231294a"
+  },
+  "inclusionAI/Ming-3.0-tts-0.5B": {
+   "revision": "7247f4c94a5b2e987404ed28a5cfec41b1a4ca61",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/inclusionAI/Ming-3.0-tts-0.5B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "2dd0e93561ac3f9a5472f03f9c04d694ef3e4e3610baced11530ed3288b105a6"
+  },
+  "jackjusko/Swift-1.5-Flash-Next-Heretic-ReverseEngineer": {
+   "revision": "bd3bca068a544d459cf42902bf21a0fac00ec853",
+   "sources": [],
+   "sha256": "c8f7f445de03d904a612d98601d3fcc7ce1082e8158595b1f1a0c62f31889953"
+  },
+  "jesdga/Qwen3.8-Flash-Next-Basalt": {
+   "revision": "65de5a9e636e8bbe1200cbcd6eb8aa421e6a66c6",
+   "sources": [],
+   "sha256": "245e3a3995673367ec9c95970ca9e4e2c05ccbb2abed354506b79775e6afed49"
+  },
+  "jgkwak/solv3r": {
+   "revision": "994c4de5008241dab7839c5d3c3b0c5a61918038",
+   "sources": [],
+   "sha256": "715c2afec9ef41abb454591ed9f5c48b7c21a02c5c7fed6ec640449f5ad025b3"
+  },
+  "jialinyyzz/humanizer": {
+   "revision": "2e57b6528a4070c33f3e09ca24e3325a84272f68",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/jialinyyzz/humanizer/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "18c2c46656f0c6d2f5b2de18e36a157898c9fb78978f7b2a99bb3bb9bc8494f5"
+  },
+  "k2-fsa/OmniVoice": {
+   "revision": "c5fdb5ccb189668d56333f77ba2629f4cd7535f4",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/k2-fsa/OmniVoice/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "audio_tokenizer/.gitattributes"
+     ]
+    }
+   ],
+   "sha256": "bc7ad9036541ece4972fa58081a2a4682c819665acd5065328442b53787584fe"
+  },
+  "kopper/ReCaVSR": {
+   "revision": "9c874580eedeea516f31ee1f7c562a311dbf9cf7",
+   "sources": [],
+   "sha256": "f80ba9e16a433d0210b2a2e16d0361cff4049542b02b2d084ece3a04437db403"
+  },
+  "kopper/RelayVSR": {
+   "revision": "751954dc8adf34aa1d636a39fc548b9089703c85",
+   "sources": [],
+   "sha256": "8b8d5f6508c03770189752c0535982993c99bf60e9268c763a22b8d74ae79459"
+  },
+  "kusuriya-labs/Qwen3.8-13.5B": {
+   "revision": "2cfe198d543b90fa3137bcd06d8796e32fdf5724",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/kusuriya-labs/Qwen3.8-13.5B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "31b6841fe7573e43b2ad7f4b9c2aa65903adac38b15ad6542f9a92fe26c8c68a"
+  },
+  "larryvrh/MiniMax-H3-Turbo-Lora": {
+   "revision": "43a74557ac3f6539db8e0f2a959d03feb7a81480",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/larryvrh/MiniMax-H3-Turbo-Lora/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "f170882d2fbd1f054ccf9279aadac0bd77a755ad576e276be26208f892b75367"
+  },
+  "lee1jun/LES-eg2-665M-asr-en": {
+   "revision": "5ef626fcb5ac27d778feb949423a06709f27c794",
+   "sources": [],
+   "sha256": "0f6a42ab56a0bf5ae2c29c63b907300d48bf10ca37b86e9972ae3bb08d4909fd"
+  },
+  "lightonai/LightOnOCR-3-0.8B": {
+   "revision": "36d8636925327c671bd8e479c517a004f7566bd9",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/lightonai/LightOnOCR-3-0.8B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "4e0ffd687a64390ddf06e8abc171e28999c2a1815bcf2f074fbd3e62002ab611"
+  },
+  "lightonai/LightOnOCR-3-4B": {
+   "revision": "b71010f095dc3735de7ee6b9969bff8f8f50b39a",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/lightonai/LightOnOCR-3-4B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "4083502b376e61ccd4ac2f057ff8ff1484d889e1f74408240aea532bb5724d8d"
+  },
+  "lightx2v/Minimax-h3-Turbo": {
+   "revision": "1a4a150fc6707329409eb52e5d75a0e987ac1928",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/lightx2v/Minimax-h3-Turbo/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "7b2b97997c477a7c9d766da28e622b987849f0cee7d57b7e7d574076c90a49ac"
+  },
+  "litert-community/gemma-4-E2B-it-litert-lm": {
+   "revision": "2d74ac41a33d7da82f39f7d5720a04c68514a103",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/litert-community/gemma-4-E2B-it-litert-lm/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "README.md"
+     ]
+    }
+   ],
+   "sha256": "0aef6b2231663a8a851ad57104057eb3b68ad9298d2e42414d3f4ca7ccc17d31"
+  },
+  "llmfan46/gemma-4-E4B-it-ultra-uncensored-heretic-GGUF": {
+   "revision": "1465f37b7dbd15e91241ae78ffebecb9f25e15de",
+   "sources": [],
+   "sha256": "caa492e5e2084f759d3b17c2a92d6297b9b0240bc97224c3bfb7c6d494480d4d"
+  },
+  "localai0301/Anima-RGBA": {
+   "revision": "c1e34fb312d98af65db290fc5aba4dfb2f03f49b",
+   "sources": [],
+   "sha256": "ec5176f98f50e65a3c4b866ffbb3ff888d9bb2465fa2df5d40e09424662e7679"
+  },
+  "lodestones/Kromoss": {
+   "revision": "4db9ddf73babac7cc98295cae2ddf000b492858c",
+   "sources": [],
+   "sha256": "4cc079b1899fe0a6646f656a830614556f085355dbfddd6e734a6e8aa5d343a8"
+  },
+  "lodestones/MOSS-Image-SFT-8-steps-dmd": {
+   "revision": "f95df83b5e90ae91ea412434b3f9b7f1c8c6314f",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/lodestones/MOSS-Image-SFT-8-steps-dmd/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "7c9c07eeee1606015642b53dfea0d4d9e88d76238988be36bd1eea16ed068833"
+  },
+  "lucidml/gta": {
+   "revision": "05692bbf0f03dcdac5af3e131dc7b088866fd3f8",
+   "sources": [],
+   "sha256": "f13f133403826fd4649d680fb9c21cfe385ce17db287bf80b84e1dd7923a54b3"
+  },
+  "m-a-p/YuE2-3B": {
+   "revision": "8f24312f187763b9854adeec87e437e2b03bbff1",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/m-a-p/YuE2-3B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "3f44e603576c05f8df2ac49d43805d21886a23afd582de2e2682c77077c42e78"
+  },
+  "manuelgscom/dale-0.8b-GGUF": {
+   "revision": "a022ea10affef8758b48350a46d7d0737b432250",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/manuelgscom/dale-0.8b-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE"
+     ]
+    }
+   ],
+   "sha256": "b56aab80918a8e345ede4a4843ed0452933c38fbc034f5163869fb1fa5e037f2"
+  },
+  "maritaca-ai/S5-nano": {
+   "revision": "fe3a3581c33cb22917770ef1987b7c6e30929425",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/maritaca-ai/S5-nano/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE"
+     ]
+    }
+   ],
+   "sha256": "af2e37d4f58bcb7d74ab63ab3659ff2e4328f68f6f7e18ac206ce3f89223ae3f"
+  },
+  "meituan-longcat/LongCat-2.5": {
+   "revision": "60032d966e6369b822f0e61d2eff01368d38b111",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/meituan-longcat/LongCat-2.5/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "192c8a750bc8cefe62b1acb4b30406e9f9af834296ad36eeeff45a51cbdaf95d"
+  },
+  "meituan-longcat/LongCat-Video-Avatar-1.5": {
+   "revision": "92016c71d5d318d0f5d84e4db30015a571484ab6",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/meituan-longcat/LongCat-Video-Avatar-1.5/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "vocal_separator/download_checks.json",
+      "vocal_separator/mdx_model_data.json",
+      "vocal_separator/vr_model_data.json"
+     ]
+    }
+   ],
+   "sha256": "76fe802b9c99bd66063cba7fa84062573ffb4a771af78400a8d9338e20a006d0"
+  },
+  "memorilla/Memorilla-Qwen3-8B": {
+   "revision": "f6b15af56aa687861c8d2d03b1cd8f7979881361",
+   "sources": [],
+   "sha256": "2013cfecf1dc9901a5c1aeb50d09cfc9cf90548d17b715cbc57f5f0559d47dd3"
+  },
+  "meta-models/Muse-Glimmer-30B": {
+   "revision": "cec94fcfd6512f2cfe708138c32533b346ea4f69",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/meta-models/Muse-Glimmer-30B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "6eae6531f76a6c7e3d39a2e5f076db2e343700f108d754e62bb3b776d5a1d89f"
+  },
+  "microsoft/TRELLIS.2-4B": {
+   "revision": "af44b45f2e35a493886929c6d786e563ec68364d",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/microsoft/TRELLIS.2-4B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "2d6db7ff23fbe0a0d018b087be5c5d437b56377b182af77c01668a1b65612138"
+  },
+  "migtissera/Tess-4.5-594B-A17B": {
+   "revision": "fec223cb020dabff73bbd5d4d668a299f5582471",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/migtissera/Tess-4.5-594B-A17B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "a4c42a2998e0dfe22db1f91ee4882439bea9ef27c303c75e54b3c040371e52c8"
+  },
+  "minishlab/blink-8M": {
+   "revision": "593ed556e9a417e80b3b251a28ba8f412bed026e",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/minishlab/blink-8M/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "7159419a1127b305f66d045718e4ebf0919a36b95b9e629f493f8c0c0fa928f7"
+  },
+  "mistralai/Mistral-Large-4-1T-A52B": {
+   "revision": "af26e7869af601441d5cdf75a1272469ddc3d059",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/mistralai/Mistral-Large-4-1T-A52B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "de5ffa7ac28c08449f54fbffbe0786f60e892bf781821193d7186218dcec0a5f"
+  },
+  "mlx-community/Qwen3.8-27B-4bit": {
+   "revision": "10c35caafbb80f7dc6a7a432cdd11af10a6d4818",
+   "sources": [],
+   "sha256": "e97c1dfa79a24129cc657eaacf16560ea498370cb4b08e949dc88f04fa044da5"
+  },
+  "moganai/MoganOCR-TR": {
+   "revision": "40b9be5359c6e2e138717be08e813073643ab52f",
+   "sources": [],
+   "sha256": "efb50f65d5a4f7c8afc4bc5fb4581b864b5a955050fcee55cec3fe028654d7f8"
+  },
+  "moondream/parakeet-ultra": {
+   "revision": "73175eb7aeb0d82f1e2a6b53b3aabc10a90bcd0b",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/moondream/parakeet-ultra/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "5ba16c2c5a0162562d6488eff4f8d3fc6a101a5ee97e12db780988d562a6935d"
+  },
+  "moonshotai/Kimi-K3": {
+   "revision": "f831ab66814297da540d832a5235f8e904f29d06",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/moonshotai/Kimi-K3/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "19c42084e20c7a8382a91d5abc79cb4bd55da028fa9d939199aa6f98931cb743"
+  },
+  "moonshotai/Kimi-K3.1-Pro": {
+   "revision": "d9e99b0792a5e93b78ea9bea62a68167e36ddd9e",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/moonshotai/Kimi-K3.1-Pro/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "abf02c7a3982d30da7071131be0c553f4434d2d1a00b351d2a08639bd6f6c3d6"
+  },
+  "mradermacher/DeepSeek-V4-Pro-Qwen3.5-4B-UNCENSORED-heretic-GGUF": {
+   "revision": "617ff2a8186836b41cbe3998abdc0f4572b51aa5",
+   "sources": [],
+   "sha256": "79f16647db715949671a7c40b6ef9b1c10974c627a5723f635d44b21f716e1b0"
+  },
+  "mradermacher/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-GGUF": {
+   "revision": "a713868aa6cd2df2225dee8f77d1b8b07414d742",
+   "sources": [],
+   "sha256": "b5e10a007eb5e464582b3e149d2775418661bded65cd07b57fcf52c705320b3c"
+  },
+  "mradermacher/LFM-3-Coder-Claude-Distill-GGUF": {
+   "revision": "d4f962f1369900febfc55ba962eb0010bfef5494",
+   "sources": [],
+   "sha256": "1acacb88633f0efc0810251d9e717da99720ec4accba7a38c467a8de58ee0eb2"
+  },
+  "mradermacher/gemma-4-31B-it-ARA-heretic-GGUF": {
+   "revision": "1b49bbdcb3dfaa67cc4daced7da7d16552959f97",
+   "sources": [],
+   "sha256": "1c5b04fff2f797a125351aebdf0204249091b2f047606ce861481799a796144c"
+  },
+  "n4ze3m/tiny-voca": {
+   "revision": "a46fbe0c8514cb32f5e80be987e6c96ef0540f8d",
+   "sources": [],
+   "sha256": "b5c6209b34ce5ac1274727b44cf28c8b749b9715664940a00065b198f8d3daac"
+  },
+  "nace-ai/drex-max-v1": {
+   "revision": "005d4eb46cd2f2f56ae0e82c6444fba8363c9c17",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/nace-ai/drex-max-v1/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "535b0c068c156dd0c43c34bd3c2dfc80c65b1b1c0370094c1811dc4c30b7c59d"
+  },
+  "naklecha/caramel-1": {
+   "revision": "3b1fa6db2750654c22229be81e068ffd2dbaa13c",
+   "sources": [],
+   "sha256": "4b215640b89e1477c1f174a00fc161af2272655686a8281006b77805e8cf96df"
+  },
+  "nerkyor/Qwen3.8-27B-Coder390-EfficientThink-Opus5.5-GPT6Astra-Grok4.7-DSV4Pro-K3-SFT-RLOO-MTP-DFlash2": {
+   "revision": "44b13a82d39e63d1c039eece3826e90e2f28eefa",
+   "sources": [],
+   "sha256": "fe3401aec9919e425263625b97c123abe38404587f0ae22600d95794353ef4ac"
+  },
+  "netease-youdao/Confucius4-R2T2": {
+   "revision": "d07b4a593610c16074cfc941fba052a7a12eeda3",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/netease-youdao/Confucius4-R2T2/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "README.md"
+     ]
+    }
+   ],
+   "sha256": "1b5b53f6b2658c8d0a4acaf913d43452072ccc21ed0868dd4fa4a3a77e0971f3"
+  },
+  "nex-agi/Nex-N2.6": {
+   "revision": "987472298e7867721576ac49a253a6f5b526013e",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/nex-agi/Nex-N2.6/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "README.md",
+      "assets/community-feishu.jpeg.jpeg",
+      "assets/community-wechat.png.png"
+     ]
+    }
+   ],
+   "sha256": "b9d1a63bbf4585f85d43332be7602d8b0369994ed7d0462746186f2773efd2db"
+  },
+  "nvidia/Alpamayo2-Edge": {
+   "revision": "b92b6aa326bd3e2235db28f248ad5a30b5890e64",
+   "sources": [],
+   "sha256": "3a878f4667cd75c77493fe73a536ddb08ef2efee837a4d41e4445ab4bbd1ade8"
+  },
+  "nvidia/GLM-5.3-Flash-FP4-Local": {
+   "revision": "76348ddb2be2e35e39ecfc00e75dc07703f4f3d5",
+   "sources": [],
+   "sha256": "eaf7d6298286e599fc86ed8f9e14c4542ff1908cf3a2a3cd6b0737221d767e7c"
+  },
+  "nvidia/GLM-5.3-Flash-NVFP4": {
+   "revision": "1d00738646cbb0c6d0a9eb403dac5f366f1473a7",
+   "sources": [],
+   "sha256": "17ad074781a37ff7cf1ce96feb9ba284551f2189715cab39f10731b9eeee66e3"
+  },
+  "nvidia/Kimi-K3.1-Pro-NVFP4": {
+   "revision": "3af0462972c9cc07e5ba6e0867b44f961ce95e9b",
+   "sources": [],
+   "sha256": "c64389983a2de548d1c9217a3e5325eea4189599fb972448aef91393ba66314d"
+  },
+  "nvidia/Lyra-2.0": {
+   "revision": "c178c3fcf12b63cf98f6749999e6ecb63901669f",
+   "sources": [],
+   "sha256": "adf2244552086c496c8e1e0791a6f9e5de50a6128dfa616c9a4df62a1ce38a5d"
+  },
+  "nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB": {
+   "revision": "e0590ed2f3a564fd99725d9d891cb09deb7cc201",
+   "sources": [],
+   "sha256": "c066141a55cf8544d90eff1b6cfca23d5afb95e6bc77626544535293a42e3964"
+  },
+  "nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF": {
+   "revision": "e0fecb69cb3e5e4c5e8a056fa2aec98c78e91246",
+   "sources": [],
+   "sha256": "e4e990738c2209ce6cc9c63fcad81c3b411f82eab5235584cdaaa872088b77c7"
+  },
+  "nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-4GB": {
+   "revision": "1db54d5b12533ff1bcaa8e42cf4c667988a1f1be",
+   "sources": [],
+   "sha256": "7033d2cf9df62eb56911c5bbb5276235ded1f4b5b8d08a6a9211b6842fa722f8"
+  },
+  "nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4": {
+   "revision": "3acb09951cff50cda7be0200ebbad2c15a3e63ba",
+   "sources": [],
+   "sha256": "a1e1c07cb19180550db838658b0cf4ea98917042a94f6884cb604e5846a9fff8"
+  },
+  "nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B": {
+   "revision": "c17667641642c4265ff2b7037dd101b7d4567634",
+   "sources": [],
+   "sha256": "2691fe6f06a9591edeb017838b1d94be309a68466abe559a8b2779092924b57c"
+  },
+  "nvidia/NVIDIA-Nemotron-Labs-Dory1.0-4B-BF16": {
+   "revision": "ee517dd388a9b348890ae1e00dacc5eb4d0c750d",
+   "sources": [],
+   "sha256": "561cd8f16df948647e0b3ee2ff295e1385cf56981fb6620e10de3adbca2492c7"
+  },
+  "nvidia/NVIDIA-Nemotron-Labs-Dory1.0-4B-GGUF": {
+   "revision": "df53755cb8741843af8e019e088819fbef17e29b",
+   "sources": [],
+   "sha256": "121df5db23a39387d4a45c6a8f05bbc66b7cd07325ebc8850e7910fd0b0455e4"
+  },
+  "nvidia/Nemotron-3-Diarization": {
+   "revision": "52a432672732425e4c19765b9fec9b5810e6f4ba",
+   "sources": [],
+   "sha256": "2e9964c8e75f575de48314cb022467182898817f42b4f4d401dd6f2507b1bb2f"
+  },
+  "nvidia/Nemotron-3.5-Parse": {
+   "revision": "ea2e1fe486bea3e7d0d505df9bafa4ad562407a0",
+   "sources": [],
+   "sha256": "7f1186a2c45dea88493be4fabfffa99eb6366318c43ff380ec9439e0718598f7"
+  },
+  "nvidia/Qwen3.8-27B-NVFP4": {
+   "revision": "482ca0f3832238542f8f5295dde86b5f22711d80",
+   "sources": [],
+   "sha256": "7e5c8c98ef4e610863bab051df298f11b34bfc39e42e6dab9ad52a6e562b4e83"
+  },
+  "nvidia/Qwen3.8-Flash-Next-FP4-Local": {
+   "revision": "b9ce18a6887e18c089fdea8509a33e63429a3300",
+   "sources": [],
+   "sha256": "63455e84e88845699d79af1e00068547b82518de433d783f4009109ef7c17878"
+  },
+  "nvidia/Qwen3.8-Flash-Next-NVFP4": {
+   "revision": "fc694b54fb0174e0913e6adf86691ef85a4ead47",
+   "sources": [],
+   "sha256": "88e23a38833c3ca31206ec1f9723416dcc61ebbc72799f9bd482da086d8d1ed2"
+  },
+  "nvidia/nemotron-3.5-asr-streaming-0.6b": {
+   "revision": "ea30d66debe3740a08b573244286791d423d6b3e",
+   "sources": [],
+   "sha256": "c5b76c36d3a345ea10f2eefcfb5c1e9ba93f54159168afd09ec23439407c5be0"
+  },
+  "nvidia/parakeet-tdt-0.6b-v3": {
+   "revision": "541d1f99c6b0c3cd0b11a95167540bb8edefd82b",
+   "sources": [
+    {
+     "kind": "ipfs",
+     "resolve": "https://ipfs.filebase.io/ipfs/bafybeiaapqx64up5ekiuguurluqdxgznq2dlnepkggrub4lhfualyp4vwa/",
+     "missing": []
+    }
+   ],
+   "sha256": "699d4e403a948a8611435b66091fc7e171c8530032c6979538fe976d53e61671"
+  },
+  "nvidia/strata": {
+   "revision": "407ccb1e19a23303ebf114acd8a87655b7463f5a",
+   "sources": [],
+   "sha256": "640fa8fb514a2f8710bda0919061f8911db9277e7047ad7d7546f10d0f989e61"
+  },
+  "openai-community/gpt2": {
+   "revision": "607a30d783dfa663caf39e06633721c8d4cfcd7e",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/openai-community/gpt2/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    },
+    {
+     "kind": "ipfs",
+     "resolve": "https://ipfs.filebase.io/ipfs/bafybeifevktfoc4yh4jjauof47jlybesu2ndyzk5mff5mqif4mfzigwjmi/",
+     "missing": []
+    }
+   ],
+   "sha256": "9581059f784f961640ca0192506dfc03b83f9451167ed07d2500fd04242195f4"
+  },
+  "openai/gpt-oss-120b": {
+   "revision": "b5c939de8f754692c1647ca79fbf85e8c1e70f8a",
+   "sources": [],
+   "sha256": "7b7e4ab9a1015aa23af06bce2dc6c0d6d6a124b4a5b94378dc39f70f1615e7fe"
+  },
+  "openai/gpt-oss-20b": {
+   "revision": "6cee5e81ee83917806bbde320786a8fb61efebee",
+   "sources": [],
+   "sha256": "787c89c2f8aa112b97247df0c4dd494dca65412ae40962aefd28729f5b0b7db7"
+  },
+  "openai/whisper-large-v3": {
+   "revision": "06f233fe06e710322aca913c1bc4249a0d71fce1",
+   "sources": [],
+   "sha256": "7e2552e6338c82568ee41047eb7b8f442dc1f0f66ecd427b99fb4724f03e8486"
+  },
+  "openai/whisper-large-v3-turbo": {
+   "revision": "41f01f3fe87f28c78e2fbf8b568835947dd65ed9",
+   "sources": [
+    {
+     "kind": "ipfs",
+     "resolve": "https://ipfs.filebase.io/ipfs/bafybeihdq32xeja33bo5k3ue6mbz7kjvu7m72jsx42byjssdovik7vxdlu/",
+     "missing": []
+    }
+   ],
+   "sha256": "1fc7f0353d450f30a4a5cd059b1b7aa09eec97923db7fad51a21bacd30754893"
+  },
+  "openbmb/MiniCPM-o-4_5": {
+   "revision": "fb09628e98b1f55d8d5b863e0eccfcdd11bff499",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/openbmb/MiniCPM-o-4_5/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      ".gitignore"
+     ]
+    }
+   ],
+   "sha256": "384980b4eca27500089a7d09de97b7d7d924d37a2f0499e27179a529fce6636f"
+  },
+  "openbmb/MiniCPM5-2B": {
+   "revision": "42433e90dad95123ab87729fd7011e7110629556",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/openbmb/MiniCPM5-2B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "7a0114984a85107f9b3cccbcfa14e6d75437d26878b9b2adc1dfaca258fdd32d"
+  },
+  "openbmb/VoxCPM2": {
+   "revision": "7936080b41163874f38610f46f438e2c0757f9fd",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/openbmb/VoxCPM2/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "d692c024e18ed5e91794a52daf0e0c02b8a100db821087b2e6f75707555fd1da"
+  },
+  "opencerebral/Boris-2": {
+   "revision": "b4522c7cd3996cb23ba521f3385ba5d2d8182475",
+   "sources": [],
+   "sha256": "dbbfe9af5c2822662f60a709184ba3b980de715fccfc2148cd8f9b1125ae1dd3"
+  },
+  "openjev/openjev": {
+   "revision": "b4a89f5884f3482a5e894b2e7ff01db8ea033726",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/openjev/openjev/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "fe5de268a533051851ac44e69135d39fa11aaf79a967e29cddb05f115c155532"
+  },
+  "orcarouter/DeepSeek-V4.1-Flash-1017-abliterated-GGUF": {
+   "revision": "43fac7992b3d6e750b2e4a52569c1f097c67cd8f",
+   "sources": [],
+   "sha256": "ac3dcc0c6bb3249a5af6fd338b55528335b17f4bc80b293a891cee8f6818fc60"
+  },
+  "orcarouter/Qwen3.8-27B-Uncensored-MLX": {
+   "revision": "a92a9d3492320048ca96924262d158f75ab5ce8b",
+   "sources": [],
+   "sha256": "9ebf5bc0d8c20de7a3c429571554dfcc87634d37fb6bea0c2c4a349e9132fbe9"
+  },
+  "ornith-ai/Ornith-1.5-35B-A3B": {
+   "revision": "10fbf86fed7ecee4a061f8b499a618f46001cac1",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ornith-ai/Ornith-1.5-35B-A3B/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      ".model_only_pruned"
+     ]
+    }
+   ],
+   "sha256": "33592f5d654eb89121f03319da03b3581779875fe498dbb95a85cb1414a4f142"
+  },
+  "ornith-ai/Ornith-1.5-35B-A3B-GGUF": {
+   "revision": "12393612fd4f730ff5aadc23e9b8f9648aa49ceb",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ornith-ai/Ornith-1.5-35B-A3B-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "539913f7b78e6aad47050e4cd756059aa4d1c110bbe7d6a4b3b50c1f4f4439c5"
+  },
+  "ornith-ai/Ornith-1.5-9B": {
+   "revision": "489cb97981b8654bcfcf30ce1f94ed1b62e07b53",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ornith-ai/Ornith-1.5-9B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "53aee15ba0ab60d42aac79f49049fe6264daf9d4b90976860ba4fec19e744f8d"
+  },
+  "ornith-ai/Ornith-1.5-9B-GGUF": {
+   "revision": "abdd624b12ebf020b767fff532ff44fe552b28c3",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ornith-ai/Ornith-1.5-9B-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "7beff45f5304013476d1aecfde40338bcc030a820799b1f4f30594d2df16fbcf"
+  },
+  "owensong/Inflect-Mini-v3": {
+   "revision": "0490aee6a9c66f9375b48287a2c5e5788afd00cc",
+   "sources": [],
+   "sha256": "44cab4f075f1e5db92677d39af174d067bf7bc10ff65ba1f504ee94ba728ec21"
+  },
+  "peasantsmith/GLM-5.3-Flash-Maya-GGUF": {
+   "revision": "5ca1df1d2436bd1ab270b169c5ea6c47aad23641",
+   "sources": [],
+   "sha256": "daf8a435acf61f5aef745cdb031e9595bbdb4f1364f442966340a101534873e3"
+  },
+  "peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP": {
+   "revision": "b62212407346cb7aafcc8d2788a1844555002fd3",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "132c68455af1b7eb6c93748b90369974065d4b5f166e60055791ecbf7573a126"
+  },
+  "peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF": {
+   "revision": "dd9b8f8be29bd939afe0fb5c712f09ed1ff87bb6",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "c699e654b38d9ae5787b548ef3b3855b24e067654a8785486aa6897539d25295"
+  },
+  "peonist-ai/halogen-qwen3.8-flash-next": {
+   "revision": "f5a151cf3f5fac07c2da30cb9af08066231c9ef0",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/peonist-ai/halogen-qwen3.8-flash-next/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "324067e7aa67ac4380775260db3e687952b2091ff31ab60fd51b36a364553a1e"
+  },
+  "perplexity-ai/pplx-decider-flash-v1.3": {
+   "revision": "d06fb3f2d97e0a52325a0d463c450cf0338f44fe",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/perplexity-ai/pplx-decider-flash-v1.3/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE"
+     ]
+    }
+   ],
+   "sha256": "6c3491e9e3ef5788c0fb96781beaaf51e49bfb912e0604ddcffed3d7a859fe90"
+  },
+  "perplexity-ai/pplx-decider-v1.3": {
+   "revision": "9c2ebb27470d3dec2ad7ab727727e40d142c7213",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/perplexity-ai/pplx-decider-v1.3/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE"
+     ]
+    }
+   ],
+   "sha256": "4685b3e40882c2b4ac36e8646719d2881bd9c45634d2d4a4efcebfb85156edc7"
+  },
+  "pfnet/plamo-3-translate-0.8b": {
+   "revision": "8b4d42855622093e610ba9b90c2d2b59f8d5c15d",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/pfnet/plamo-3-translate-0.8b/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "1b87280e0d2e125faeb2c06c9c2da4a5d3cfc836fe2490d6bf9e0bb38bc9a00c"
+  },
+  "pfnet/plamo-3-translate-0.8b-GGUF": {
+   "revision": "1cf96ae02133958a20074bfdfab76517bb737d00",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/pfnet/plamo-3-translate-0.8b-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "d46867b9ffed85e8f955c3d164656ab0e5f272d46968504ae58ce15f01047e77"
+  },
+  "pixai-labs/pixai-tagger-v1.0": {
+   "revision": "9fe10addf9326e292da8a85a98ea74cd91b41771",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/pixai-labs/pixai-tagger-v1.0/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "figures/benchmark.csv",
+      "figures/release_comparison.csv"
+     ]
+    }
+   ],
+   "sha256": "5e31705dfd911e66b660d8a285b2e098987b800cec629c7b22543ca1d7e55466"
+  },
+  "prism-ml/Ternary-Bonsai-2-27B-gguf": {
+   "revision": "839bd57023c1558945afea70a74fa83c054f35f9",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/prism-ml/Ternary-Bonsai-2-27B-gguf/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "ea5c94ed52d0049620829447d71f46d85e15273542b0b8b80dc1cd56ac8435f1"
+  },
+  "prism-ml/Ternary-Bonsai-2-9B-gguf": {
+   "revision": "82265ccc78ddaac4700286a35e9badcc32376dd9",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/prism-ml/Ternary-Bonsai-2-9B-gguf/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "26161479e27822e36e6c77111e926589575cd983559584c76ab88c384f6d59a3"
+  },
+  "qvac/BotPsy-0.8B": {
+   "revision": "24561e9681643eaf807fc28b0875210cb17f89c1",
+   "sources": [],
+   "sha256": "2f83eeada30dd45b641ff321c2b288fd6a77883e97a9c3f9234c049e2e655ad1"
+  },
+  "qvac/BotPsy-0.8B-GGUFs": {
+   "revision": "17bb36aa29c58fcde8e321aaaad3f2f7372aa655",
+   "sources": [],
+   "sha256": "6c036104c9cf576e9cd0d6b4e5d6443e50b016433674a61588b26f73eeee885b"
+  },
+  "rayline-ai/ARC-1.0": {
+   "revision": "9e69b28174c07adc6ba76c1258e21526e2f3e7af",
+   "sources": [],
+   "sha256": "a51b8b1eb36ea4d8a30495ec9b6155bcd4042e09b397d0f38a17195a2075aa32"
+  },
+  "realrebelai/Minimax-H3-Image_GGUFs": {
+   "revision": "b5637fb98ce886f3b29f005893b4d58592ec967b",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/realrebelai/Minimax-H3-Image_GGUFs/resolve/master/",
+     "missing": []
+    }
+   ],
+   "sha256": "69cb2646097f28d199282440e87d67832930a1cdb8006a8626cf604b52e3856d"
+  },
+  "ricursiveAI/Ripple-65B-Preview": {
+   "revision": "b172323ffd63e62de9ce1ba3830dfffe493c7671",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ricursiveAI/Ripple-65B-Preview/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "a864626e62a48a43bdd76787ee57bc493aa2bccde29317e136261559b2216594"
+  },
+  "robbyant/lingbot-touch-tiny": {
+   "revision": "f23969ccd4b6bba2163e69cc05a577455a075fe9",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/robbyant/lingbot-touch-tiny/resolve/master/",
+     "missing": [
+      "README.md"
+     ]
+    }
+   ],
+   "sha256": "2589332b1b1716ffb157df60be87540603c216cc0a4e8c078d9063262b508172"
+  },
+  "sahilmahendrakar/Earlybird-29M": {
+   "revision": "b24d6bd6b92ab2a0ef31e438b775662d495c0860",
+   "sources": [],
+   "sha256": "a4a6c769d864ce32ce54918b88af9e8e7ab844c83bef32eeea30934665647783"
+  },
+  "salesforce-sovereign-intelligence/SOV-Transcribe-1": {
+   "revision": "505d8fae243924c0d8acdc622f7f0abab344eba3",
+   "sources": [],
+   "sha256": "33920ce71cd2f93b520a4b0c256c20ea1b6fa216eef4eec04dda91202007b995"
+  },
+  "sensenova/SenseNova-Loop-9B-Preview": {
+   "revision": "89d7970926e215f8da61726700cd026ccffbb6cb",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/sensenova/SenseNova-Loop-9B-Preview/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "528cb49b574330f8785ef9ba2269f7a1246f858203a8b391efb22465a9e48b2b"
+  },
+  "sentence-transformers/all-MiniLM-L6-v2": {
+   "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/sentence-transformers/all-MiniLM-L6-v2/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    },
+    {
+     "kind": "ipfs",
+     "resolve": "https://ipfs.filebase.io/ipfs/bafybeibob7gkhs3har6vmrigcb7efbqxhhna3p2qqadqukguoqdxwfeq4m/",
+     "missing": []
+    }
+   ],
+   "sha256": "5ccd3692f00a8c4912b8a7777cd4638ed40ab033c3d63055acebc8363d6ad742"
+  },
+  "slmonker/Open-H3-Regenerate-2K-IC-ComfyUI": {
+   "revision": "7d6e5e288e9ff9d6f6812abb6540e84327fa74bf",
+   "sources": [],
+   "sha256": "15e001ca528bbfcab5035c7ac88c8d036d3c32933e3e0efdd8be7f13609ecdda"
+  },
+  "speridlabs/idol": {
+   "revision": "2731c2291fc65a797c5cb627a5e5526fc1490902",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/speridlabs/idol/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "8bf89aabcf7fff600f9f6de0d826cba326936f9cc903f6ffc3c7a55786703023"
+  },
+  "speridlabs/iris-z": {
+   "revision": "5d35ec0d3ebd55b7438cdaed93457a7231d6711f",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/speridlabs/iris-z/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "3527788d28ac53ca5dd681869d95397af445250a6d627d146eadc2cd6086b590"
+  },
+  "stabilityai/stable-diffusion-xl-base-1.0": {
+   "revision": "462165984030d82259a11f4367a4eed129e94a7b",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/stabilityai/stable-diffusion-xl-base-1.0/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "8c08075d2d0966035ab2e86a16a0ba8b6c310a4234ceb1f301c3b34be73e17f1"
+  },
+  "taobao-mnn/MNN-Pocket-0.3B": {
+   "revision": "48fae9c0be6ec505e80f36f69b8ba21097f9f822",
+   "sources": [],
+   "sha256": "e5a114e0603ffe4bc47965d8502f916baf4970a56ddf70624805d143788c53ce"
+  },
+  "tazmannner/Frieren-H3-LoRA": {
+   "revision": "049b1d08bab9b1a87ce2904ee2a7de4679ad48a3",
+   "sources": [],
+   "sha256": "65614101ff8a49b209acb0978ae126de31188481334fdca50bf76b217a46505c"
+  },
+  "tencent/Hunyuan3D-2.1": {
+   "revision": "0b94677654c57bb9a6b6845cd7b704ccf551d327",
+   "sources": [],
+   "sha256": "615ecb5de2364852a74421503366b93fc4d8e75943d9f81d2feea3db9301e86d"
+  },
+  "tencent/Hy4-preview": {
+   "revision": "705d81ee51566a186d645b74c974d642ef2828fe",
+   "sources": [],
+   "sha256": "953ea3b21f29221b26636cb17a294c9ac996ca2b7523dfeb1119ede981098462"
+  },
+  "tencent/Qwen3.8-27B-DSpine-b16": {
+   "revision": "260a6c23070ca873ff1a5f33b7119ac3f6a245ee",
+   "sources": [],
+   "sha256": "4003eb65c8274243c2eba009db3a40bf2a0ef0c74617cea64bbb437ba763493d"
+  },
+  "tencent/WeVisOne-VL-4B": {
+   "revision": "6b44a45873b4bbc7dca383922504430dc60eca23",
+   "sources": [],
+   "sha256": "0e0182b217574d0f9b47d010f795a90f1110f3635aa1796e9ba51e1b5e3ff211"
+  },
+  "thinkingmachines/Inkling-2-Small": {
+   "revision": "2ad1157016e1aac77b6ff1b770e7c05229403134",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/thinkingmachines/Inkling-2-Small/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "README.md"
+     ]
+    }
+   ],
+   "sha256": "98c25257703aad4a7b9cf67b3f5b894665097a779d16f0e3dba7a5551773f097"
+  },
+  "thinkingmachines/Inkling-2-Small-MXFP8": {
+   "revision": "1ac1a60175441b6b5bdf68303478452055abdfb0",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/thinkingmachines/Inkling-2-Small-MXFP8/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "README.md"
+     ]
+    }
+   ],
+   "sha256": "c1d220a5f610340b35a61449b5f40b5f5e64352792ef94a26d823da428859407"
+  },
+  "ukisai/Swift-1.5-Qwen3.8-27B-GGUF": {
+   "revision": "14bfe4b42be4a925d98816db830155f476c605e7",
+   "sources": [],
+   "sha256": "96e7feaccdc55b572190bdfef7e0b8cd4ddc0ec327e996b31b46daf661630680"
+  },
+  "ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF": {
+   "revision": "d74895bbe5db4bec1e0024e7cc87d59c02d7631a",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE-APACHE-2.0",
+      "evaluation/heldout-kld.tsv"
+     ]
+    }
+   ],
+   "sha256": "bf820254cb20ba33f69dc2e92a6584daf13f11890112b2babe6b427aa4d55d09"
+  },
+  "ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF": {
+   "revision": "1641ba4f7d71ae3976e05f7c9f621f160bc47a13",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "LICENSE-QWEN"
+     ]
+    }
+   ],
+   "sha256": "b99f80ff6afe56f33683cf391c52c2bb1242e5639f9d6d30fcf795c10f426aeb"
+  },
+  "unsloth/DeepSeek-V4.1-Flash-1017-GGUF": {
+   "revision": "dfcee0ec8d6b874c6663eca0fc55d90ab32534c8",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes",
+      "engram/README.md"
+     ]
+    }
+   ],
+   "sha256": "3ccc4cde0debae6dd65969a48ab93286333ccfe2ee4eadf4d997ed17cd418c6b"
+  },
+  "unsloth/GLM-5.3-Flash-GGUF": {
+   "revision": "a38483c8cd5df544f53d70fb281afe97369d5ab6",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/GLM-5.3-Flash-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "9ed72b441a1917a6da416c4b1aae19ff0d3981d87231e8f09224b2a8119eb0aa"
+  },
+  "unsloth/Inkling-2-Small-GGUF": {
+   "revision": "5ddb81898b5c4910680417d3b3bd8f56a57918a5",
+   "sources": [],
+   "sha256": "609961a90f2fa99269f80f36eff10e6e68d7fec3390cb9621882f9b52421bc88"
+  },
+  "unsloth/LTX-2.5-GGUF": {
+   "revision": "ac3c540c6025903784336e99b2dc179385c4c3b7",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/LTX-2.5-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "076caffe7eaa2849eb7351da405b9fdeb50c0a788ab38783df0713820e0797e6"
+  },
+  "unsloth/MiniMax-H3-GGUF": {
+   "revision": "babc040eff0084465460ead58fdb8ec44296f8dd",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/MiniMax-H3-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "bb30bc47f9426f3f76aa4f500cc2a12fb31a29b1656ebe04ba1d9e17cb72ab27"
+  },
+  "unsloth/MiniMax-H3-Image-FP8": {
+   "revision": "629012976341fc8d100f1c1d32689b7304e5b49a",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/MiniMax-H3-Image-FP8/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "dd2f24fdabc55c96d685955b9e8cd2c2be684000ec9682a46dd0b80e1b6b6879"
+  },
+  "unsloth/MiniMax-H3-Image-GGUF": {
+   "revision": "2eda8f761a1625818e2933e7e726e337d197bc27",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/MiniMax-H3-Image-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "3b8910d4adac2b8cc16c80695e82de8cef8139656a833e272b2ca8945a25dd17"
+  },
+  "unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF": {
+   "revision": "b738967d6da3441a7d1c71fcec15e49e32e16ecd",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "61aa7e9434e2adcae9bd28ec9fb52131f7769a747416247a8cb2d46056d242f7"
+  },
+  "unsloth/Qwen-Image-2.1-GGUF": {
+   "revision": "2c31ccd392b367a6637841a143813320a02dff55",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/Qwen-Image-2.1-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "b7b339402309fe3d2986b437e2b5b5025464dea8d4fbd69d0f4ab3ae49f6c0ca"
+  },
+  "unsloth/Qwen-Image-2.1-Turbo-GGUF": {
+   "revision": "bd53e520a64472adaff780da0b2f2d7eb1605e30",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/Qwen-Image-2.1-Turbo-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "89c73a5c296d103c602a28bb1fd6c3380878714674ab2ab33f375d68da410430"
+  },
+  "unsloth/Qwen3.5-4B-GGUF": {
+   "revision": "e87f176479d0855a907a41277aca2f8ee7a09523",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/Qwen3.5-4B-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "6f244a7d93882f24deb80e35b8d5f619ebe427900364ad7f48cc635c3b206329"
+  },
+  "unsloth/Qwen3.5-9B-GGUF": {
+   "revision": "3885219b6810b007914f3a7950a8d1b469d598a5",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/Qwen3.5-9B-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "4ad708e860dc289f5e89d22c0a957bc504b5c3bd5722dea5bdb103ef9fcc6527"
+  },
+  "unsloth/Qwen3.6-35B-A3B-GGUF": {
+   "revision": "a483e9e6cbd595906af30beda3187c2663a1118c",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/Qwen3.6-35B-A3B-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "12896c4a1805f4e2495217f2b9f8a86377c6cbbbd4af37f3f4127bd78503bc35"
+  },
+  "unsloth/Qwen3.6-35B-A3B-MTP-GGUF": {
+   "revision": "5bc3e238d916f48a861bac2f8a1990a0e9b7e98d",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "312f990c7cb6ad52e1d33291cdd80604682d51440c5ae141449966d755a45d86"
+  },
+  "unsloth/Qwen3.8-27B-GGUF": {
+   "revision": "4af51b3542f775b0a8e4b310bfb3f17e01c306c9",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/Qwen3.8-27B-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "3f484c2bc73fabdfd831c9cb97c8c450700fafffb5f15e925b34c090776eb0d9"
+  },
+  "unsloth/Qwen3.8-Flash-Next-GGUF": {
+   "revision": "f5d175de2cf7f720d45d6064019a81fcf056e986",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "95deb2e67ce03f4c441c8a172d89287d2be48308d512b8c7bf696c9324da0c87"
+  },
+  "unsloth/flint-GGUF": {
+   "revision": "20468edfc38ab43d6914cc88b08cbecb05d0fc62",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/flint-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "47d655285dc9427aa6ffbfb7b1ae6d269b5950044e04ba9f4db881a3b2cd2a6b"
+  },
+  "unsloth/gemma-4-12B-it-qat-GGUF": {
+   "revision": "980b060c40a8539ac159e0501a3e0f66a6365af3",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/gemma-4-12B-it-qat-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "98784e4b9e86b2ee5220e88b5c1b1b0cf5b117854a6c817aa4d90a934223f413"
+  },
+  "unsloth/gemma-4-26B-A4B-it-GGUF": {
+   "revision": "c099eb48e663fd284577b04978a94ffccb261841",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "7faa8101739d740931d15b8b580242e2cab8d1c74ec26afb0e4eaed6b5168261"
+  },
+  "unsloth/gemma-4-26B-A4B-it-qat-GGUF": {
+   "revision": "7b92b5b28818151e8669af2e45e88d6086f490dd",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/gemma-4-26B-A4B-it-qat-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "cc49b8107c42f04f2c41e90ba44a6622c28e05a1b897b90d2cc12cfeda5e48d9"
+  },
+  "unsloth/gemma-4-E4B-it-GGUF": {
+   "revision": "bfc15c382204943c3a8fff0c750b94ae2364d7a3",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/unsloth/gemma-4-E4B-it-GGUF/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "cb227ff29ac128f4f70fb8f0f009d91e3370269082dc4f68777887fb9171bf55"
+  },
+  "vyrekai/minimax-h3-image-comfyui-workflows": {
+   "revision": "abfefe800003e3189b4b9d683c5192bd377c3499",
+   "sources": [],
+   "sha256": "d8c8cf05d466a10ec8f9e3980a86b0f0b02563f12f543a0f0b21a32fdb1a6eab"
+  },
+  "webAI-Official/Air-26B-A4B-gguf": {
+   "revision": "580f6ec8b0e1ab105749b5e62c34e625228be9e3",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/webAI-Official/Air-26B-A4B-gguf/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "ed57a95f08d8fcfdbf618aab8e8b09844e84d4a8f4af33fcd9015dd0a3464f16"
+  },
+  "webAI-Official/TwIL-8B": {
+   "revision": "9563ba7dfb70eeca4a26654b195011cbf818e7d9",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/webAI-Official/TwIL-8B/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "49884679ca71ae73e9fe8f5471fcc09ce5f921e7a0416302ac7d4e76f3eae416"
+  },
+  "witcherderivia/minimax-h3-image-restyle": {
+   "revision": "b506c0bbd4b1cb64e17e9cf897aa9abc2defa878",
+   "sources": [],
+   "sha256": "ba67c7b3cc8efaa236de437d6ff915b711522d05dae4220cd3da42c02fe89940"
+  },
+  "xiangjuntang/JoVox-64": {
+   "revision": "149d7e77a38278ddef363b354f9c94e01d0b63f4",
+   "sources": [],
+   "sha256": "48cee5a1280397e859232b9aa2300929fe1886e8c6a8a8825da904bfa53daf3f"
+  },
+  "xiaomi-research/Xiaomi-OCR-0": {
+   "revision": "bbd8cf8d21f256b3644b44cb860f3a7cecb93c30",
+   "sources": [
+    {
+     "kind": "modelscope.cn",
+     "resolve": "https://modelscope.cn/models/xiaomi-research/Xiaomi-OCR-0/resolve/master/",
+     "missing": [
+      ".gitattributes"
+     ]
+    }
+   ],
+   "sha256": "0e60f250b2d4887a91dae4a795a81d188b0f3dd58295526ca8374f1b01e79333"
+  },
+  "xtools-at/DeepSeek-V4-Pro-Qwen3.5-4B-UNCENSORED-heretic": {
+   "revision": "75f3680f191c436681a5b74cf65de3b6b8894768",
+   "sources": [],
+   "sha256": "9486d6965a78b8e7b6f21fd0fbaf805065742976ff69a2e098ab3b493c98d8f0"
+  },
+  "xtools-at/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic": {
+   "revision": "fbccdc6adf70a1981e8f40e91a8370e428e4f998",
+   "sources": [],
+   "sha256": "218a25595a7e316cc9badc1eaa256d437921dd8a08dc0cd8602e284dcd1292ae"
+  },
+  "xtools-at/Qwen3.5-9B-DeepThought-STEM": {
+   "revision": "e1f9066d91a207c1ae4f7a31fac604b2917d669c",
+   "sources": [],
+   "sha256": "d01aa9b7dbce93e65092876bc79bbc349384b74a2cf9839deff2249e545bc434"
+  },
+  "zai-org/GLM-5.3": {
+   "revision": "ba32f8c19c8738e2c57c71798c601d477a7bf844",
+   "sources": [],
+   "sha256": "1e6c779a042da872637c7dd599e643f8028fefe974fb4270a2c129c87a616bdd"
+  },
+  "zai-org/GLM-5.3-Flash": {
+   "revision": "46a050bec13002ad29ee795c16e61cf4fa3c4a9c",
+   "sources": [],
+   "sha256": "7dea3420c42e11bb33e74100a4b43c23373d2f736cb9c4e04142c382a0b68de3"
+  },
+  "zai-org/GLM-OCR": {
+   "revision": "2e85a62840ccac27daa451df36c736c4636b8628",
+   "sources": [
+    {
+     "kind": "ipfs",
+     "resolve": "https://ipfs.filebase.io/ipfs/bafybeifahlyl36vynj53kbworbsjrsyjmgmpd6hzk5xamr22jzuenzv5we/",
+     "missing": []
+    }
+   ],
+   "sha256": "5f37599e07c17f22954ed2b6ea0190fea1e9c03541ace2e7fcde24a6db51ad05"
+  }
+ }
+}

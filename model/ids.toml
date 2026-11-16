@@ -189,3 +189,9 @@ id = "HK-28"
 level = "build"
 suite = "buckets"
 statement = "The object store holds each object only under the SHA-256 of its bytes, every file a published Space is made of is in it, and the address the Buckets page offers as its example is one the store holds"
+
+[[id]]
+id = "HK-29"
+level = "build"
+suite = "index"
+statement = "The index learns which other sources hold a release only from the holders record this repository carries, and only for the revision that record names, so a build reads no other hub"
