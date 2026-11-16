@@ -24,7 +24,7 @@ jobs:
   runner:
     name: a Hugging Face client sees no difference, and every byte is checked
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - name: Check out the exact event revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -75,11 +75,49 @@ jobs:
           set -euo pipefail
           python3 -m venv "$RUNNER_TEMP/hf"
           "$RUNNER_TEMP/hf/bin/pip" install --quiet huggingface_hub==2.4.0 hf_xet==1.8.0
+      - name: Build this revision's kernel through the locked SDK
+        # The surface the edge routes by, and how each request is answered, are
+        # the kernel's (HK-31, HK-32), so the runner, which answers through the edge, is tested against the kernel
+        # this revision builds rather than the one Pages last published.
+        shell: bash
+        run: |
+          set -euo pipefail
+          image=$(sed -n 's/.*"sdk_image":"\([^"]*\)".*/\1/p' prismpm.lock)
+          if [[ ! $image =~ ^[a-z0-9.-]+(:[0-9]{1,5})?/[a-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]]; then
+            printf '%s\n' 'prismpm.lock does not select an immutable SDK image' >&2
+            exit 64
+          fi
+          docker_config=$(mktemp -d)
+          trap 'rm -rf "$docker_config"' EXIT
+          printf '{}\n' >"$docker_config/config.json"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --group-add "$(stat -c '%g' /var/run/docker.sock)" \
+            --tmpfs /tmp:rw,exec,nosuid,size=2g \
+            --volume "$PWD:$PWD" \
+            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume "$docker_config:/tmp/prismpm-home/.docker:ro" \
+            --workdir "$PWD" \
+            --env DOCKER_CONFIG=/tmp/prismpm-home/.docker \
+            --env BUILDX_CONFIG=/tmp/prismpm-buildx \
+            --env HOME=/tmp/prismpm-home \
+            --env PRISMPM_EPHEMERAL_HOME=1 \
+            "$image" just app
+          shopt -s nullglob
+          holos=(app/.prism/build/*/*.holo)
+          if [[ ${#holos[@]} -ne 1 ]]; then
+            printf 'expected one holo, found %d\n' "${#holos[@]}" >&2
+            exit 64
+          fi
+          mkdir -p "$RUNNER_TEMP/kernel"
+          cp "${holos[0]}" "$RUNNER_TEMP/kernel/app.holo"
+          (cd "$RUNNER_TEMP/kernel" && python3 -m http.server 8790 --bind 127.0.0.1 > /dev/null 2>&1 &)
+          for i in $(seq 1 30); do curl -sf -o /dev/null http://127.0.0.1:8790/app.holo && break; sleep 1; done
       - name: The client sees what huggingface.co would have shown it
         shell: bash
         run: |
           set -euo pipefail
-          CACHE_DIR="$RUNNER_TEMP/bytes" node runner/serve.mjs 8788 > "$RUNNER_TEMP/runner.log" 2>&1 &
+          HOLO_URL=http://127.0.0.1:8790/app.holo CACHE_DIR="$RUNNER_TEMP/bytes" node runner/serve.mjs 8788 > "$RUNNER_TEMP/runner.log" 2>&1 &
           for i in $(seq 1 90); do curl -sf http://127.0.0.1:8788/health > /dev/null && break; sleep 1; done
           cat "$RUNNER_TEMP/runner.log"
           py="$RUNNER_TEMP/hf/bin/python"
