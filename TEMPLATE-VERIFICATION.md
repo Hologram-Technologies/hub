@@ -2916,3 +2916,30 @@ from the published `/openapi.json`**, so that spec under-reports rather than
 over-promises. And `/api/whoami-v2` is a bare 404 on the apex where
 `edge/edge.mjs` gives a typed 401 `RepoNotFound`; both are refusals, but the
 Answers table's codes describe the edge's.
+
+### A warning that was always on
+
+The Models page carried a badge beside its title: "Signed listing" when the
+rows came from the addressed index, "Unsigned listing" - in the red this site
+uses for a failure - when they came from the roll.
+
+The roll is the catalogue every visitor lands on, and it can never be signed
+in that sense: a page of it is a ranged read of a few hundred bytes out of
+400 MB, so there is nothing to hash against a signed root. `checked` is false
+on that handle for exactly that reason. The badge was therefore permanent, and
+a warning that is always on is not a warning - it reads as something broken
+rather than as something said.
+
+The negative half is gone. "Signed listing" is still drawn when it is earned,
+so the badge is now a positive claim made only where it is true, and its
+absence is not a claim at all. What a row is worth is still said per row,
+which is where a reader needs it: every card carries Verified, Queued,
+Unverified or Listed only, and a model page says which witnesses named each
+address and whether the bytes were checked here.
+
+The comment in `web/browse.mjs` that named the old badge was corrected in the
+same change, because it is the one place that explains why `checked` is false
+and what the interface does about it. A comment describing a badge that no
+longer exists is how the next reader is misled.
+
+`just vv` passed: attestation `12ba2f0a62622ca063defe7cc5e4baa03323af8f5213be90c00b0a8421f02667`.

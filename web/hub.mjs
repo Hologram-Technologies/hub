@@ -1019,7 +1019,7 @@ async function drawModels(main) {
   const order = {};
   main.innerHTML = `
     <div class="lead"><h1>${esc(s.title)}</h1><span class="pill" id="count"></span>${copyLine(s.command)}
-      <span class="status listing ${listing.signed ? "" : "bad"}" title="${esc(fill(s.listing.detail, { n: listing.rows, shards: listing.shards, rules: listing.rules }))}">${esc(listing.signed ? s.listing.signed : s.listing.unsigned)}</span></div>
+      ${listing.signed ? `<span class="status listing" title="${esc(fill(s.listing.detail, { n: listing.rows, shards: listing.shards, rules: listing.rules }))}">${esc(s.listing.signed)}</span>` : ""}</div>
     <div class="browse">
       <aside class="panel filters" id="filters" aria-label="${esc(s.filters)}">
         <button type="button" class="control square close-filters" id="close-filters" aria-label="${esc(s.close)}">${ICON.close}</button>
