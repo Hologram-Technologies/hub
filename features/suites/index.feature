@@ -50,3 +50,11 @@ Feature: index
     Then it offers a facet the roll counts, or one of the hub's own that moves the page to the records that can answer
     And the list of the hub's own facets is the one list, read by both the deciding and the moving
     And the parameter range is applied to the roll rather than drawn over it
+
+  @HK-29 @build
+  Scenario: The index learns which other sources hold a release only from the holders record this repository carries, and only for the revision that record names, so a build reads no other hub
+    Given the index builder in tools/index.mjs, with its comments removed, and sources/holders.json
+    When the builder looks for the other sources that hold a release
+    Then it reads them from sources/holders.json, names no other hub, and takes an entry only when its revision is the release's
+    And every entry in the record names its revision, the hash of the file it was read from, and each source's kind, resolve base and missing files
+    And the index's signed predicate names that record as where its holders came from

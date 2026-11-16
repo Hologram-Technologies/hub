@@ -3028,3 +3028,38 @@ the Buckets screen to be its example, and the command to fetch it.
 
 Restored, `python app/tools/gen_kernel.py` reproduces the model byte for byte
 and `buckets_hk_28` passes.
+
+## HK-29: the index asks no other hub
+
+`tools/index.mjs` asked `gethologram.ai/data/files/<repo>.json` at every
+build which other sources hold a release, because only the old hub had hashed
+them. With hologram-live retired that read 404s, and every release would be
+indexed with no second source: `/via/ipfs` and `/via/modelscope` would refuse
+every model.
+
+The answer now lives here. `sources/holders.json` records what the old hub's
+last daily build wrote (2026-11-16, 10:00 UTC, 404 files):
+- for each release, its revision;
+- the hash of the file the entry was read from;
+- the sources a client can be sent to: 239 ModelScope bases and 13 IPFS pins.
+
+An entry counts only for the revision it names, as before, so a release that
+has moved since is indexed with no second source rather than a stale one. The
+signed index's predicate names `sources/holders.json`, and when it was read,
+as the place its holders came from.
+
+Registered first and failing:
+
+    panicked at crates/conformance/tests/index.rs:394:
+    HK-29 is registered and not built: assert what its scenario states
+
+Planted, each restored before the next:
+
+| Defect | Rejected with |
+| --- | --- |
+| the old read put back, falling back to the record | `tools/index.mjs must not ask another hub for holders (it names gethologram.ai)` |
+| the revision check dropped, `if (held)` | `tools/index.mjs must take a holder entry only for the revision it names` |
+
+A run of the builder with a fresh cache (`node tools/index.mjs <dir> 3`, 26
+records) gives gpt2 ModelScope and IPFS, all-MiniLM-L6-v2 ModelScope and IPFS,
+and Qwen3.8-27B ModelScope, all read from the record.

@@ -433,3 +433,92 @@ fn index_hk_26() {
         "Sources must be a facet the screen declares"
     );
 }
+/// `HK-29`: The index learns which other sources hold a release only from the holders record this repository carries, and only for the revision that record names, so a build reads no other hub
+#[test]
+fn index_hk_29() {
+    // The builder asks no other hub: it names none, and takes holders from the
+    // record this repository carries.
+    let source = builder();
+    for host in ["gethologram.ai", "/data/files", "hub.uor.foundation"] {
+        assert!(
+            !source.contains(host),
+            "tools/index.mjs must not ask another hub for holders (it names {host})"
+        );
+    }
+    assert!(
+        source.contains("readFile(new URL(\"../sources/holders.json\", import.meta.url)"),
+        "tools/index.mjs must read holders from sources/holders.json"
+    );
+    // An entry counts only for the revision it names.
+    assert!(
+        source.contains("held?.revision === row.sha"),
+        "tools/index.mjs must take a holder entry only for the revision it names"
+    );
+
+    // The record: where and when it was read, and per release the revision,
+    // the hash of the file it came from, and each source a client can be sent to.
+    let path = repo_model::repo_root().join("sources/holders.json");
+    let text = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("reading {}: {e}", path.display()));
+    let record: serde_json::Value =
+        serde_json::from_str(&text).expect("sources/holders.json is JSON");
+    assert_eq!(record["format"], "hologram.hub.holders/1");
+    for field in ["from", "written", "by"] {
+        assert!(
+            record["read"][field]
+                .as_str()
+                .is_some_and(|s| !s.is_empty()),
+            "the record must say {field} it was read"
+        );
+    }
+    let holders = record["holders"]
+        .as_object()
+        .expect("the record lists holders");
+    assert!(!holders.is_empty(), "an empty record proves nothing");
+    let hex = |s: &str, n: usize| s.len() == n && s.chars().all(|c| c.is_ascii_hexdigit());
+    for (repo, entry) in holders {
+        assert!(
+            entry["revision"].as_str().is_some_and(|r| hex(r, 40)),
+            "{repo}: an entry names the full revision it holds"
+        );
+        assert!(
+            entry["sha256"].as_str().is_some_and(|h| hex(h, 64)),
+            "{repo}: an entry names the hash of the file it was read from"
+        );
+        for held in entry["sources"]
+            .as_array()
+            .expect("an entry lists its sources")
+        {
+            assert!(
+                held["kind"].as_str().is_some_and(|k| !k.is_empty()),
+                "{repo}: a source has a kind"
+            );
+            assert!(
+                held["resolve"]
+                    .as_str()
+                    .is_some_and(|r| r.starts_with("https://")),
+                "{repo}: a source has an https resolve base"
+            );
+            assert!(
+                held["missing"].is_array(),
+                "{repo}: a source lists what it lacks"
+            );
+        }
+    }
+
+    // The signed index says where its holders came from.
+    let pages =
+        std::fs::read_to_string(repo_model::repo_root().join(".github/workflows/pages.yml"))
+            .expect("reading pages.yml");
+    let predicate = pages
+        .lines()
+        .find(|l| {
+            l.trim_start()
+                .starts_with("predicate: '{\"tool\":\"tools/index.mjs\"")
+        })
+        .expect("pages.yml signs the index with a predicate");
+    assert!(
+        predicate.contains("\"holders\":\"sources/holders.json"),
+        "the index's signed predicate must name sources/holders.json: {predicate}"
+    );
+}

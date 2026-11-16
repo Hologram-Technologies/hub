@@ -35,6 +35,7 @@ model does not sanction.
 | `HK-24` | `build` | Every row in the UOR address index carries a canonical address and the canonical-form version that minted it, taken here from bytes this build streamed rather than copied from any host, and is filed under the shard key the page resolves a model with |
 | `HK-25` | `build` | The page shows a tensor address as checked only when the kernel accepted bytes the page fetched itself, so an address the hub published is never drawn as proof of bytes nobody read |
 | `HK-26` | `build` | A filter the panel offers is one whatever is driving the list can act on, so a control is never drawn that cannot narrow anything |
+| `HK-29` | `build` | The index learns which other sources hold a release only from the holders record this repository carries, and only for the revision that record names, so a build reads no other hub |
 
 ## kernel
 

@@ -70,8 +70,8 @@ any failure.
    buckets, the object API, Spaces, the archive and the pins, and
    `SHA256SUMS` under `/via/`.
 5. The VPS configuration for every path the apex answers lives in `deploy/`.
-   This repository's index stops reading `gethologram.ai/data/files` at build
-   time.
+   This repository's index reads its holders from `sources/holders.json`, not
+   from gethologram.ai at build time (HK-29).
 6. `apps/model-hub` in hologram-live is retired once the conformance suite,
    run from here, passes every path with nothing answered by its code.
 

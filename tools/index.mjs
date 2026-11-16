@@ -19,10 +19,11 @@
 // each list contributed. `[limit]` caps the catalog only; the other two lists
 // are indexed entire, because a list a person wrote is not a ranking to cut.
 //
-// All three lists, and every fact in a record, come from Hugging Face. The one
-// thing still asked of gethologram.ai is which other sources hold a release's
-// bytes, because nobody else has hashed them; a release it does not answer for
-// is indexed with no second source.
+// All three lists, and every fact in a record, come from Hugging Face. Which
+// other sources hold a release's bytes comes from sources/holders.json, the
+// record this repository carries of what the old hub had hashed (read once,
+// 2026-11-16), and only for the revision it names; a build reads no other hub
+// (HK-29). A release it does not name is indexed with no second source.
 //
 //   node tools/index.mjs <out dir> [limit]
 //
@@ -75,7 +76,7 @@ const CATALOG = `${HF}/api/models?sort=trendingScore&direction=-1&limit=${limit}
 // about 133 rows arrive with no second source. What was weighed was 399
 // records nearly all with one, against about 500 of which roughly 73 per cent
 // can have one.
-const SOURCES = "https://gethologram.ai/data/files";
+const HOLDERS = JSON.parse(await readFile(new URL("../sources/holders.json", import.meta.url), "utf8")).holders;
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -202,10 +203,8 @@ for (const row of rows) {
       const about = await hf(`/api/models/${row.id}?blobs=false`);
       const tree = await hf(`/api/models/${row.id}/tree/${row.sha}?recursive=true`);
       let sources = [];
-      try {
-        const held = await json(`${SOURCES}/${row.id}.json`);
-        if (held.revision === row.sha) sources = held.sources.filter((s) => s.resolve).map((s) => ({ kind: s.kind, resolve: s.resolve, missing: s.missing ?? [] }));
-      } catch {}
+      const held = HOLDERS[row.id];
+      if (held?.revision === row.sha) sources = held.sources.map((s) => ({ kind: s.kind, resolve: s.resolve, missing: s.missing }));
       const files = tree.filter((f) => f.type === "file").map((f) => ({
         path: f.path, size: f.size, gitSha1: f.oid, ...(f.lfs ? { sha256: f.lfs.oid, pointerSize: f.lfs.pointerSize } : {}),
       }));
