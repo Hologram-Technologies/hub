@@ -36,3 +36,37 @@
 		uri path_regexp ^/via/modelscope/ /via/modelscope.cn/
 		reverse_proxy hub-edge:8787
 	}
+
+	# Next, once the site names the apex (API_HOST, #45) and Pages has published it: this repository's site for
+	# browsers. Place these two blocks after @server_other and before the final catch-all `handle`, which keeps
+	# serving the old site and its agent negotiation at / unchanged. Rehearsed 2026-11-16 in a throwaway Caddy
+	# against the live upstreams: the home page and a model page render with every request answered except
+	# data/swarm/catalog/root.json, which Pages does not publish either.
+	#
+	# Pages that this site draws, for a browser. /buckets/, /docs/, /registry/ and the Spaces apps under
+	# /spaces/<id>/ stay on the old site until each is decided (docs/cutover.md, step 4).
+	@hubpage {
+		header Accept *text/html*
+		path / /models /models/ /models/* /spaces /spaces/
+	}
+	handle @hubpage {
+		rewrite * /hub{uri}
+		reverse_proxy https://hologram-technologies.github.io {
+			header_up Host hologram-technologies.github.io
+		}
+	}
+	# Files this site asks for, recognised by the Referer: a page above, or one of this site's own stylesheets and
+	# modules. They come from Pages first, because the two sites share names with different bytes (/tokens.css;
+	# about 2,669 old pages load it by absolute path), and from the old site when Pages has no such file.
+	@fromhub header_regexp fromhub Referer ^https?://[^/]+/((models(/[^?]*)?|spaces/?)?|hub\.(css|mjs)|tokens\.css|(browse|browsekey|icons|swarmkey|sigstore)\.mjs|app/[^?]*)(\?.*)?$
+	handle @fromhub {
+		rewrite * /hub{uri}
+		reverse_proxy https://hologram-technologies.github.io {
+			header_up Host hologram-technologies.github.io
+			@missing status 404
+			handle_response @missing {
+				rewrite * {http.request.orig_uri}
+				reverse_proxy hub-site:8080
+			}
+		}
+	}
