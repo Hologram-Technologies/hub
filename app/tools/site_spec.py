@@ -53,6 +53,12 @@ NAV = [
 
 # Every link a screen can follow inside the hub, with the route it opens.
 LINKS = [
+    # The header's search panel: a suggestion opens a model, a Space opens
+    # the Spaces screen, and "View all results" hands the query to the full
+    # catalogue. HK-11 covers them the way it covers the nav.
+    ("chrome", "searchAll", "models"),
+    ("chrome", "searchModel", "model"),
+    ("chrome", "searchSpace", "spaces"),
     ("home", "cta", "models"),
     ("home", "family", "models"),
     ("models", "card", "model"),
@@ -182,6 +188,35 @@ SCREENS = {
             "label": "Photos",
         },
         "menu": "Menu",
+        # The search box, beside the lockup, where Hugging Face puts its own
+        # (read 2026-11-16: "Search models, datasets, users...", a Ctrl K chip,
+        # and a panel of sections under the header). This hub indexes models and
+        # ships Spaces and says only those two: a box offering to search datasets
+        # it does not hold would be the promise the Sign in button was.
+        #
+        # What makes it instant is `data/browse/search/quick/`: one fetch the
+        # first time two characters name a bucket, then every keystroke after it
+        # answered in the page without a request. `web/browsekey.mjs` holds the
+        # rule the builder files by and the page resolves by.
+        "search": {
+            "placeholder": "Search models and Spaces",
+            "label": "Search",
+            "hint": "Ctrl K",
+            "hintMac": "\u2318 K",
+            "models": "Models",
+            "spaces": "Spaces",
+            # Said while the head of the catalogue is being fetched, and again
+            # when a query is rare enough that the full index has to be read.
+            "looking": "Looking\u2026",
+            "deeper": "Searching the whole catalogue\u2026",
+            "empty": "Nothing matches that.",
+            "all": "View all results for \u201c{q}\u201d",
+            "allRoute": ROUTE["models"],
+            "spacesRoute": ROUTE["spaces"],
+            "navigate": "Navigate",
+            "select": "Select",
+            "close": "esc",
+        },
         "proof": "Proved by Lean",
         "proofDetail": "{passed} of {total} examples hold",
         "proofHref": "app/",

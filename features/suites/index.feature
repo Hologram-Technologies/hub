@@ -20,3 +20,11 @@ Feature: index
     When a reader searches for a model the catalog holds
     Then the shard the page reads is the shard web/swarmkey.mjs filed that row under
     And every row in it carries the state listed and names no source but the swarm
+
+  @HK-23 @build
+  Scenario: A suggestion the header offers is filed under the words the page resolves a query with, and a panel the head of the catalogue could not fill says so and is completed from the full index, so a short list is never mistaken for the whole answer
+    Given a quicksearch index built by tools/browse-index.mjs
+    When the header's box resolves what has been typed
+    Then the bucket it reads and the words it matches are web/browsekey.mjs, the rule the builder filed by
+    And a panel the head of the catalogue filled says it is complete, and one it could not does not
+    And an incomplete panel is completed from the full index rather than left short

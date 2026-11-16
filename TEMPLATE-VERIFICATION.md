@@ -2592,6 +2592,95 @@ nothing was re-proved locally, because the local Docker daemon was shared
 with another session's proof throughout and its `app` step was unreliable for
 that reason rather than any other.
 
+## A search box that answers before the request would have returned
+
+Hugging Face puts a search box beside its logo. Read 2026-11-16: it opens a
+panel of sections under the header, and one request answers it -
+`/api/quicksearch?q=qwen&type=model&...`, timed three times at **597 ms,
+492 ms and 464 ms** for 2,051 bytes, six models back. It has a server.
+
+This site is static, and its search was four round trips deep. Measured the
+same day against the published index, five rows drawn:
+
+| query | word list | postings | 5 positions | 5 rows | total |
+| --- | --- | --- | --- | --- | --- |
+| `qwen` | 224 ms (20 kB) | 405 ms | 222 ms | 251 ms | **1,102 ms** |
+| `llama` | 207 ms (31 kB) | 232 ms | 84 ms | 225 ms | **749 ms** |
+| `mistral` | 397 ms (142 kB) | 515 ms | 105 ms | 315 ms | **1,332 ms** |
+| `bert` | 258 ms (84 kB) | 465 ms | 101 ms | 316 ms | **1,140 ms** |
+
+A full 42-row page was 1,724 ms over 87 requests for `qwen`. Cutting it to
+five rows barely moved it, because the rows were never the cost: each stage
+waits on the one before it, so parallelism inside a stage buys nothing.
+
+### What was built instead
+
+`data/browse/search/quick/<bucket>.bin` is not an index of postings. It is the
+names themselves: the most trending models holding any word in that bucket,
+in that order, one per line. The page fetches one the first time two
+characters name a bucket and answers every keystroke after it in memory. The
+words to match are read back out of each name by the rule that filed it, so
+there is no second table to keep in step.
+
+Measured in the page, against a real index over HTTP, typing one character at
+a time: the first two characters cost **one request** of 19 to 96 kB; every
+keystroke after cost **no request and 0.0 to 13.8 ms**. `stable diffusion`,
+sixteen characters, cost one request in total.
+
+### The number that had to change, and why
+
+The first cap was 2,048 names a bucket. The published site is 863 MB of the
+1,024 MB GitHub allows (deploy of 2026-11-16) and the build refuses its own
+output over 950 MB, so there was about 87 MB of room. At 1,296 buckets and
+about 40 bytes a name, 2,048 would have come to roughly 106 MB and broken the
+deploy rather than slowed it. `QUICK_ROWS` is 512, which came to 8.8 MB over
+1,276 buckets on a 98,796-row slice of the real roll, with 327 buckets already
+at the cap - so the full catalogue lands near 32 to 42 MB. The builder now
+refuses over 64 MB and names `QUICK_ROWS` when it does, because the assembly
+step could only have said the site was too big.
+
+Long digit runs are left out of the suggestion index. Ids like
+`0xfaskety/Qwen-Qwen1.5-7B-1717558334` put a unix timestamp in the `17`
+bucket, 2.27 MB of the full index and the largest bucket on the site. The full
+search index keeps them, so nothing became unfindable; it stopped being
+suggested.
+
+### HK-23, and the two defects it was made to reject
+
+`web/browsekey.mjs` is now the one copy of the rule. It was two: the builder
+exported `words` and `bucketOf` and the page had its own copy of both, which
+is the drift HK-21 guards for the swarm's shards and nothing guarded here.
+
+`index_hk_23` reads the builder, the page and the rule, as `index_hk_21` does.
+Registered first and failing, as R3 requires:
+
+    panicked at crates/conformance/tests/index.rs:196:
+    HK-23 is registered and not built: assert what its scenario states
+
+Then planted, once per half of the scenario. The page given a bucket rule of
+its own, `terms[0].slice(0, 2)` in place of `bucketOf(terms[0])`:
+
+    panicked at crates/conformance/tests/index.rs:217:
+    the page spells out a bucket rule of its own; there must be only one
+
+And a panel that calls itself complete whether or not it was filled,
+`complete: true` in place of the condition:
+
+    a panel is complete only when it was filled, or the bucket held
+    everything there was
+
+Both restored, and `cargo test -p repo-conformance --test index` passes 4 of
+4. `tests/browse/quick.mjs` checks the other half - the artifact on disk, not
+the source - and runs in `pages.yml` and `roll.yml` beside the browse page
+test: every name filed under a word of its own, no bucket past the cap, and
+the page's own rule finding them where the builder put them. On the 98,796-row
+slice: 1,276 buckets, 200,480 names, 8.8 MB, largest 33 kB, every check ok.
+
+A suggestion list is the fast path and never the only one. Where the head of
+the catalogue cannot fill the panel the page says so and reads the full index,
+which is the whole catalogue at about a second - the honesty half of the
+scenario, and the second defect above is what happens without it.
+
 ## The surface Hugging Face publishes, and the map that claims against it
 
 Hugging Face publishes `/.well-known/openapi.json`: read on 2026-11-15, 379
