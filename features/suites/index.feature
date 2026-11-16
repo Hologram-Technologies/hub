@@ -42,3 +42,11 @@ Feature: index
     When a reader asks the page to check that address
     Then the page fetches that tensor's own byte range and asks the kernel's accept rule about the bytes it got
     And the row says it is unchecked until the kernel has answered
+
+  @HK-26 @build
+  Scenario: A filter the panel offers is one whatever is driving the list can act on, so a control is never drawn that cannot narrow anything
+    Given the browse panel drawn over the roll
+    When it decides which facets to offer
+    Then it offers a facet the roll counts, or one of the hub's own that moves the page to the records that can answer
+    And the list of the hub's own facets is the one list, read by both the deciding and the moving
+    And the parameter range is applied to the roll rather than drawn over it

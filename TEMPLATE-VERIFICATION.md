@@ -2767,3 +2767,152 @@ the old code fell back to.
 
 So the copy a reader gets is the best Unsplash will render for the display in
 front of them, rather than whichever one happened to ship.
+
+## Three controls that moved and did nothing
+
+The browse panel was read against Hugging Face's own, at
+`huggingface.co/models`, on 2026-11-16. Theirs: chips 28px tall with 8px of
+side padding, 14px text, an 8px radius, a 1px border; headings 14px at weight
+500; `+ 44` a chip in the row rather than a bar beneath it; the Main tab
+stacking six sections - Tasks, Parameters, Libraries, Apps, Inference
+Providers, Hardware.
+
+Ours: chips 32px with 12px of left padding and a filled pill around every
+count, which made the widest chip **199px against their 142px**. Two of ours
+are 380px in a 338px column, so one ever fit per row and a section showed
+three values where theirs showed eight. The Main tab showed **two** sections.
+
+### What was actually wrong, which was not the styling
+
+Three facets were drawn over the roll that nothing acted on.
+
+- **Parameters.** The slider rendered, moved under the mouse, and filtered
+  nothing. The roll has indexed `parameters` all along - it is in the same
+  postings `task` and `library` come from - but no line mapped it into the
+  counts the panel is built from, so `can()` dropped the section whenever the
+  roll was driving, and when it was drawn by hand it had no filter behind it.
+- **Status.** Offered on Main. Choosing `Verified` changed nothing, because
+  only the addressed index can answer it and nothing moved the page there.
+- **Sources.** The same, except that choosing a source *did* move the page -
+  that branch existed - while the chips were never drawn, so the one facet
+  with a working path behind it was the one a reader could not reach.
+
+A control that moves and does nothing is the Sign in button of this morning,
+further down the page. So the fix is one rule, named once and read twice:
+`HUB_FACETS` is the list of facets only this hub can answer, `can()` offers a
+facet when the roll counts it **or** it is one of those, and the branch that
+leaves the roll asks the same list. The parameter range is applied to the
+roll as the union of the buckets between its handles - the roll files each row
+in the bucket of the largest stop its count reaches, and those stops are the
+ones the screen draws, so no dictionary is needed.
+
+Measured in the page against a real index: the slider took the catalogue from
+**98.8k to 2.4k** at `?num_parameters=12B,> 500B`, and `?hub_status=Verified`
+returned **444 models**, every card badged. Both returned nothing at first,
+which was the preview's fault and worth recording: the kernel had been stubbed
+to serve screens from a file, and the addressed index is only accepted once
+the kernel answers. With the real holo loaded they both work. A preview that
+stubs the thing under test proves nothing.
+
+### HK-26
+
+Registered for the class, not the three instances: *a filter the panel offers
+is one whatever is driving the list can act on, so a control is never drawn
+that cannot narrow anything.* Failing first, as R3 asks:
+
+    panicked at crates/conformance/tests/index.rs:
+    HK-26 is registered and not built: assert what its scenario states
+
+Then planted once per half of the rule, and rejected by name each time:
+
+    the parameter range must be applied to the roll, not merely drawn over it
+    choosing one of this hub's own facets must move the page to the records
+      that answer it
+    a facet is offered only when the roll counts it or this hub can answer it
+
+The third plant is the interesting one: it spells the hub's own facets as a
+second list, `["sources", "status", "format"]`, which is exactly how a facet
+comes to be offered on a page that will not act on it. All three restored,
+`cargo test -p repo-conformance` passes 20 of 20.
+
+### What the gate caught that this change did not expect
+
+`just vv` failed the first time on `kernel_hk_16`:
+
+    the condition of breaksQuery in app/src/Proofs/Query.lex.tex changed
+
+Removing the Status facet renumbered the query-parameter mapping HK-16 pins.
+That is the pin working: the facet set may change, but not quietly. The new
+condition was taken out of the regenerated model rather than retyped, because
+a pin written by hand is a pin that can disagree with what Lean proves.
+
+### The panel now
+
+Tabs are this hub's own rather than Hugging Face's: Main, **Sources**, Tasks,
+Libraries, Languages, Licenses, Other. Main holds Sources, Tasks, Parameters,
+Libraries. Sources - which hosts can serve a model's bytes - is the one thing
+this catalogue can say that theirs cannot, so it is first and has a tab.
+
+The chips carry no counts, on the owner's decision. That is what buys the
+density: without the count the same chip is about 145px and two fit per row,
+which is how a section shows eight values instead of three. Hugging Face's
+carry none either. The number is not lost - the results header counts what the
+filters leave, which is the count a reader is asking about when they pick one.
+
+`Status` is gone from the panel on the owner's decision. `statuses` stays in
+the screen, because it still names what a card's Verified or Queued badge
+says; it is no longer offered as a filter.
+
+The background a visitor with no choice of their own sees is now named by the
+screen (`"wallpaper"`) rather than taken from the head of the wallpaper list,
+so the order the panel draws them in and the picture the site opens on are two
+decisions rather than one accident of position. Verified by clearing
+`localStorage` and reloading: the page opens on NASA's Earth at night, the
+panel marks that tile selected, and the credit reads Photo by NASA on
+Unsplash.
+
+### Two routes the Docs page claimed and the hub does not answer
+
+Found while checking the Hugging Face dialect on the apex, which is where
+`API_HOST` points since #45. The dialect is real - measured 2026-11-16 against
+`https://gethologram.ai`:
+
+- `GET /api/models?search=qwen&limit=3` answers 200 with Hugging Face's own
+  shape: `id`, `likes`, `trendingScore`, `downloads`, `tags`, `pipeline_tag`,
+  `library_name`.
+- `GET /api/models/openai-community/gpt2/tree/main` answers 200 with 17
+  entries carrying `oid` and `lfs`.
+- `GET /openai-community/gpt2/resolve/main/config.json` answers **302** to the
+  exact commit with `X-Repo-Commit`, `X-Linked-Etag`, `X-Linked-Size: 665` and
+  `X-Hub-Source: huggingface.co` - the headers a static host cannot set, which
+  is the whole reason this name mattered.
+- `/openapi.json` is 51 paths and 52 operations, OpenAPI 3.1.
+
+Then every route the Docs screen advertises was called. Two answered 404:
+
+    GET /api/models-tags-by-type    404
+    GET /api/quicksearch            404
+
+In every form, with and without Hugging Face's own parameters (`?q=`,
+`&type=model`, `&type=user`), and neither appears among the 51 paths of the
+published spec.
+
+They looked true because `edge/edge.mjs` does answer them - that is this
+repository's own edge runner, and the hub the apex serves is another
+implementation. The table says what a tool gets when it is pointed at
+`API_HOST`, so a route only the edge answers does not belong in it. Both rows
+are gone. That is the same rule that took the Sign in button off the header
+and the three dead controls out of the filter panel: a claim with nothing
+behind it is removed, not reworded.
+
+The nine rows that remain were each called afterwards, and each answers:
+resolve 302, `/api/models` 200, `/api/models/{repo}` 200, `revision` 200,
+`tree` 200, `paths-info` 200, `refs` 200, `commits` 200. `/api/whoami-v2`
+answers 404, which the row already describes as always refused.
+
+Two things found and not changed, recorded so the next reader does not have to
+measure them again. `paths-info` and `commits` answer 200 but are **absent
+from the published `/openapi.json`**, so that spec under-reports rather than
+over-promises. And `/api/whoami-v2` is a bare 404 on the apex where
+`edge/edge.mjs` gives a typed 401 `RepoNotFound`; both are refusals, but the
+Answers table's codes describe the edge's.

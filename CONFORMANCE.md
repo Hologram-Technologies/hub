@@ -28,6 +28,7 @@ model does not sanction.
 | `HK-23` | `build` | A suggestion the header offers is filed under the words the page resolves a query with, and a panel the head of the catalogue could not fill says so and is completed from the full index, so a short list is never mistaken for the whole answer |
 | `HK-24` | `build` | Every row in the UOR address index carries a canonical address and the canonical-form version that minted it, taken here from bytes this build streamed rather than copied from any host, and is filed under the shard key the page resolves a model with |
 | `HK-25` | `build` | The page shows a tensor address as checked only when the kernel accepted bytes the page fetched itself, so an address the hub published is never drawn as proof of bytes nobody read |
+| `HK-26` | `build` | A filter the panel offers is one whatever is driving the list can act on, so a control is never drawn that cannot narrow anything |
 
 ## kernel
 
