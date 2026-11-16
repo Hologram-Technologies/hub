@@ -1,0 +1,196 @@
+{
+  "read": "Every verdict here about what the hub does was read from edge/edge.mjs on 2026-11-15, not measured against a running edge. The routing it describes is one branch: any path under /api/models/ that is not a write route reaches fromIndex(), and what fromIndex() cannot answer is relayed to huggingface.co, because useHuggingFace defaults to true. A POST under that branch other than paths-info is refused 400 BadRequest. Anything the branch does not match is refused 400 BadRequest. Where an operation's path carries {repoType}, the verdict is what a client sees when repoType is models, the only kind this hub holds.",
+  "vocabulary": {
+    "answered": "Answered from the hub's own index, without asking huggingface.co.",
+    "partial": "Answered from the index, with the fields the record cannot supply named in an X-Hub-Partial header, so a client is never given an invented value.",
+    "passthrough": "Relayed to huggingface.co and returned. A client cannot tell the difference, so drop-in holds; nothing was served from the index, so decentralization does not.",
+    "refused": "Refused with a typed code from the kernel's closed set. Where that code is not the one Hugging Face sends for the same case, the row or a finding says so.",
+    "unreachable": "Cannot be reached through HF_ENDPOINT at all, whatever the hub builds, because the client hardcodes huggingface.co.",
+    "out-of-scope": "Deliberately not a hub concern."
+  },
+  "tags": {
+    "models": {
+      "verdict": "passthrough",
+      "reason": "The model surface is the hub's own. The six read routes it answers from the index are marked answered or partial; every other read under /api/models/ is relayed, and the write routes are refused."
+    },
+    "datasets": {
+      "verdict": "out-of-scope",
+      "reason": "The roll indexes models. A dataset repository has no record here, so no answer could be built from the index, and relaying every dataset read would make the hub a proxy for a surface it does not hold."
+    },
+    "spaces": {
+      "verdict": "out-of-scope",
+      "reason": "A Space is a hosted application. The hub has no server to run one, and a static host cannot."
+    },
+    "discussions": {
+      "verdict": "out-of-scope",
+      "reason": "Discussions, blog and paper comments, and posts need accounts, moderation and mutable state. The hub's identity is a signing key, not an account. The repository discussion routes still relay or refuse, and are marked so."
+    },
+    "collections": {
+      "verdict": "out-of-scope",
+      "reason": "A curated list owned by an account, on an editorial surface the hub does not reproduce."
+    },
+    "papers": {
+      "verdict": "out-of-scope",
+      "reason": "Editorial surface of huggingface.co."
+    },
+    "blogs": {
+      "verdict": "out-of-scope",
+      "reason": "Editorial surface of huggingface.co."
+    },
+    "docs": {
+      "verdict": "out-of-scope",
+      "reason": "Search over Hugging Face's own documentation."
+    },
+    "jobs": {
+      "verdict": "out-of-scope",
+      "reason": "Hosted compute. The hub moves bytes and decides about them; it runs nobody's job."
+    },
+    "containers": {
+      "verdict": "out-of-scope",
+      "reason": "Another repository kind. The hub's registry screen names images by digest but answers no container API."
+    },
+    "buckets": {
+      "verdict": "out-of-scope",
+      "reason": "Another repository kind, for arbitrary objects."
+    },
+    "kernels": {
+      "verdict": "out-of-scope",
+      "reason": "Another repository kind, for compiled compute kernels."
+    },
+    "users": {
+      "verdict": "out-of-scope",
+      "reason": "There is no account database here, so there is nobody to describe, follow or bill."
+    },
+    "orgs": {
+      "verdict": "out-of-scope",
+      "reason": "There is no account database here."
+    },
+    "scim": {
+      "verdict": "out-of-scope",
+      "reason": "Directory provisioning for an enterprise plan. There is no directory."
+    },
+    "resource-groups": {
+      "verdict": "out-of-scope",
+      "reason": "Access control over private repositories, which the hub does not serve."
+    },
+    "service-accounts": {
+      "verdict": "out-of-scope",
+      "reason": "There is no account database here."
+    },
+    "notifications": {
+      "verdict": "out-of-scope",
+      "reason": "Per-account inbox state."
+    },
+    "webhooks": {
+      "verdict": "out-of-scope",
+      "reason": "A push from a host that keeps state about who subscribed. The hub keeps none."
+    },
+    "oauth": {
+      "verdict": "out-of-scope",
+      "reason": "Sign-in with a Hugging Face account, which the hub cannot grant."
+    },
+    "tokens": {
+      "verdict": "out-of-scope",
+      "reason": "Revoking a Hugging Face credential, which the hub never holds."
+    },
+    "auth": {
+      "verdict": "refused",
+      "reason": "Who a token belongs to. The hub has no accounts, so every request is anonymous and the honest answer is the one Hugging Face gives an anonymous client."
+    },
+    "inference-providers": {
+      "verdict": "unreachable",
+      "reason": "The Inference Providers router hardcodes huggingface.co, so HF_ENDPOINT does not reach it whatever the hub builds. Recorded in docs/brief.md and unverified here. Inference is the Q engine's plane, in Hologram-Technologies/prism-hologram-ai, reached by pointing that engine's loader at this hub rather than by this API."
+    },
+    "inference-endpoints": {
+      "verdict": "unreachable",
+      "reason": "Dedicated hosted endpoints on Hugging Face's own infrastructure, named by a client that hardcodes it."
+    },
+    "sql-console": {
+      "verdict": "out-of-scope",
+      "reason": "The dataset viewer's query surface."
+    },
+    "repo-search": {
+      "verdict": "refused",
+      "reason": "The search box's quick route is answered from the browse index; the rest is refused."
+    },
+    "repos": {
+      "verdict": "refused",
+      "reason": "Creating, moving and duplicating a repository are writes, and no write is built. A capability that is not built has no row and no answer."
+    },
+    "agents": {
+      "verdict": "out-of-scope",
+      "reason": "Hugging Face's own list of agent harnesses."
+    }
+  },
+  "routes": [
+    { "hub": "HEAD /{repo}/resolve/{revision}/{path}", "spec": "not-in-spec", "verdict": "answered", "reason": "The hub answers HEAD, and every Hugging Face client sends HEAD first to read X-Repo-Commit, X-Linked-Etag and X-Linked-Size. Hugging Face documents only GET for this path.", "note": "HEAD on the resolve route is the single most important operation for huggingface_hub, which raises FileMetadataError without those three headers on the first response, and Hugging Face's own specification does not document it. Only a recorded transcript settles its shape." },
+    { "hub": "GET /{repo}/resolve/{revision}/{path}", "spec": "GET /{namespace}/{repo}/resolve/{rev}/{path}" },
+    { "hub": "GET /api/models", "spec": "not-in-spec", "verdict": "answered", "reason": "Search and list, answered from the browse index when the edge runs without Hugging Face, and relayed when it does not.", "note": "The listing every client and every page depends on is absent from Hugging Face's published specification, so its query names, row shape and Link-header cursor are known here only from reading clients and from HK-15 and HK-16." },
+    { "hub": "GET /api/models/{repo}", "spec": "not-in-spec", "verdict": "partial", "reason": "Model information, answered from the record, with the fields the record lacks named in X-Hub-Partial.", "note": "Model information is absent from the published specification. The hub's answer is shaped from recorded client reads, and HK-15 is what keeps it from inventing a field." },
+    { "hub": "GET /api/models/{repo}/revision/{revision}", "spec": "not-in-spec", "verdict": "partial", "reason": "The same answer at a named revision, refused when the index does not hold that revision.", "note": "Absent from the published specification for models, though the same route is documented for the kernels repository kind." },
+    { "hub": "GET /api/models/{repo}/tree/{revision}/{path}", "spec": "GET /api/models/{namespace}/{repo}/tree/{rev}/{path}" },
+    { "hub": "POST /api/models/{repo}/paths-info/{revision}", "spec": "POST /api/models/{namespace}/{repo}/paths-info/{rev}" },
+    { "hub": "GET /api/models/{repo}/refs", "spec": "GET /api/models/{namespace}/{repo}/refs" },
+    { "hub": "GET /api/models/{repo}/commits/{revision}", "spec": "GET /api/models/{namespace}/{repo}/commits/{rev}" },
+    { "hub": "GET /api/models-tags-by-type", "spec": "GET /api/models-tags-by-type" },
+    { "hub": "GET /api/quicksearch", "spec": "GET /api/quicksearch" },
+    { "hub": "GET /api/whoami-v2", "spec": "GET /api/whoami-v2" }
+  ],
+  "overrides": [
+    { "op": "GET /{namespace}/{repo}/resolve/{rev}/{path}", "verdict": "answered", "reason": "The one route that moves a model's bytes. The kernel chooses a source and the edge redirects to it; the local runner serves it after checking the address." },
+    { "op": "GET /api/models/{namespace}/{repo}/tree/{rev}/{path}", "verdict": "answered", "reason": "Built from the record's files, with sizes and LFS addresses." },
+    { "op": "POST /api/models/{namespace}/{repo}/paths-info/{rev}", "verdict": "answered", "reason": "The named paths, filtered out of the same tree the record holds." },
+    { "op": "GET /api/models/{namespace}/{repo}/refs", "verdict": "answered", "reason": "The one ref the release names.", "note": "The hub answers refs with branches naming main and empty tags, converts and pull requests, and unlike the commits route it sends no X-Hub-Partial header, so a client cannot tell the list is narrower than Hugging Face's rather than genuinely empty. Read from edge/edge.mjs; a candidate for the honesty rule HK-15 states." },
+    { "op": "GET /api/models/{namespace}/{repo}/commits/{rev}", "verdict": "partial", "reason": "The index holds a release, not a history, so the hub answers with the one commit it knows and says so in X-Hub-Partial: history." },
+    { "op": "GET /api/models-tags-by-type", "verdict": "answered", "reason": "Every tag the indexed models carry, counted from the browse index; relayed when that index is not loaded." },
+    { "op": "GET /api/quicksearch", "verdict": "answered", "reason": "Answered from the browse index; relayed when that index is not loaded." },
+    { "op": "POST /api/quicksearch", "verdict": "refused", "reason": "Only the GET form is answered." },
+    { "op": "GET /api/search/full-text", "verdict": "refused", "reason": "Full-text search across every repository kind, over fields the roll does not hold." },
+    { "op": "POST /api/models/{namespace}/{repo}/commit/{rev}", "verdict": "refused", "reason": "Publishing is not built. The route is excluded from the relay branch on purpose, so a commit is never forwarded to huggingface.co under a user's token." },
+    { "op": "POST /api/models/{namespace}/{repo}/preupload/{rev}", "verdict": "refused", "reason": "Publishing is not built, and the route is excluded from the relay branch on purpose." },
+    { "op": "GET /api/models/{namespace}/{repo}/xet-write-token/{rev}", "verdict": "refused", "reason": "Publishing is not built, and the route is excluded from the relay branch on purpose." },
+    { "op": "POST /api/models/{namespace}/{repo}/branch/{rev}", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/models/{namespace}/{repo}/tag/{rev}", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/models/{namespace}/{repo}/super-squash/{rev}", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/models/{namespace}/{repo}/lfs-files/batch", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/models/{namespace}/{repo}/lfs-files/duplicate", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/models/{namespace}/{repo}/resource-group", "verdict": "refused", "reason": "A write, over access control the hub does not keep." },
+    { "op": "POST /api/models/{namespace}/{repo}/user-access-request/batch", "verdict": "refused", "reason": "Gating is not built; a gated mirror is refused rather than opened." },
+    { "op": "POST /api/models/{namespace}/{repo}/user-access-request/cancel", "verdict": "refused", "reason": "Gating is not built." },
+    { "op": "POST /api/models/{namespace}/{repo}/user-access-request/grant", "verdict": "refused", "reason": "Gating is not built." },
+    { "op": "POST /api/models/{namespace}/{repo}/user-access-request/handle", "verdict": "refused", "reason": "Gating is not built." },
+    { "op": "POST /{namespace}/{repo}/ask-access", "verdict": "refused", "reason": "Gating is not built, and this path is outside the relay branch." },
+    { "op": "GET /{namespace}/{repo}/user-access-report", "verdict": "refused", "reason": "An export about who asked for access. There is nobody to report on, and this path is outside the relay branch." },
+    { "op": "GET /api/trending", "verdict": "refused", "reason": "Outside the relay branch. The browse index holds a trending order of its own, which the listing route serves as sort=trendingScore." },
+    { "op": "GET /api/resolve-cache/models/{namespace}/{repo}/{rev}/{path}", "verdict": "refused", "reason": "Hugging Face's own internal cache redirect target, outside the relay branch. The hub redirects to a source instead." },
+    { "op": "GET /api/whoami-v2", "verdict": "refused", "reason": "401 with WWW-Authenticate: Bearer, which is what Hugging Face answers an anonymous client. The hub has no accounts, so every request is anonymous and this answer is the true one rather than a gap.", "note": "The refusal is the right answer, because the hub has no accounts and every request is anonymous, which is what huggingface.co answers an anonymous client. The documentation screen used to describe this route as who the token belongs to, which promised more than the hub does; that was corrected in the generator on 2026-11-16 and the screen now says it is always refused." },
+    { "op": "GET /api/{repoType}/{namespace}/{repo}/discussions", "verdict": "passthrough", "reason": "A read under /api/models/ that the index cannot answer, so it is relayed." },
+    { "op": "GET /api/{repoType}/{namespace}/{repo}/discussions/{num}", "verdict": "passthrough", "reason": "Relayed." },
+    { "op": "GET /api/{repoType}/{namespace}/{repo}/discussions/{num}/storage", "verdict": "passthrough", "reason": "Relayed." },
+    { "op": "DELETE /api/{repoType}/{namespace}/{repo}/discussions/{num}", "verdict": "passthrough", "reason": "Relayed unauthenticated, where huggingface.co refuses it." },
+    { "op": "DELETE /api/{repoType}/{namespace}/{repo}/discussions/{num}/ref", "verdict": "passthrough", "reason": "Relayed unauthenticated, where huggingface.co refuses it." },
+    { "op": "POST /api/{repoType}/{namespace}/{repo}/discussions", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/{repoType}/{namespace}/{repo}/discussions/{num}/comment", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/{repoType}/{namespace}/{repo}/discussions/{num}/comment/{commentId}/edit", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/{repoType}/{namespace}/{repo}/discussions/{num}/comment/{commentId}/hide", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/{repoType}/{namespace}/{repo}/discussions/{num}/comment/{commentId}/reaction", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/{repoType}/{namespace}/{repo}/discussions/{num}/ignore", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/{repoType}/{namespace}/{repo}/discussions/{num}/merge", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/{repoType}/{namespace}/{repo}/discussions/{num}/pin", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/{repoType}/{namespace}/{repo}/discussions/{num}/status", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/{repoType}/{namespace}/{repo}/discussions/{num}/title", "verdict": "refused", "reason": "A write." },
+    { "op": "GET /api/{repoType}/{namespace}/{repo}/duplicate/status", "verdict": "passthrough", "reason": "A read under /api/models/ the index cannot answer, so it is relayed." },
+    { "op": "GET /api/{repoType}/{namespace}/{repo}/settings/trusted-publishers", "verdict": "passthrough", "reason": "Relayed." },
+    { "op": "DELETE /api/{repoType}/{namespace}/{repo}/settings/trusted-publishers/{publisherId}", "verdict": "passthrough", "reason": "Relayed unauthenticated, where huggingface.co refuses it." },
+    { "op": "DELETE /api/{repoType}/{namespace}/{repo}/sql-console/embed/{id}", "verdict": "passthrough", "reason": "Relayed unauthenticated, where huggingface.co refuses it." },
+    { "op": "PATCH /api/{repoType}/{namespace}/{repo}/sql-console/embed/{id}", "verdict": "passthrough", "reason": "Relayed unauthenticated, where huggingface.co refuses it." },
+    { "op": "POST /api/{repoType}/{namespace}/{repo}/sql-console/embed", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/{repoType}/{namespace}/{repo}/sql-console/embed/{id}/hide", "verdict": "refused", "reason": "A write." },
+    { "op": "POST /api/{repoType}/{namespace}/{repo}/duplicate", "verdict": "refused", "reason": "A write." }
+  ],
+  "findings": [
+    "Every write the hub refuses is refused 400 BadRequest, because the fallthrough answer is the kernel's any-other case. Hugging Face answers an unauthenticated write with 401 or 403, so huggingface_hub raises a different exception against the hub than against Hugging Face for the same call. The refusal is typed and modelled, and it is the wrong type for drop-in. Read from edge/edge.mjs and app/tools/site_spec.py on 2026-11-15.",
+    "Any method other than POST under /api/models/ that the index cannot answer is relayed to huggingface.co, DELETE, PUT and PATCH included, with no token attached. Nothing can be destroyed, because the hub holds no credential, but a client's DELETE receives Hugging Face's 401 rather than the hub's typed refusal, and the hub makes an outbound request it could have refused locally. Read from edge/edge.mjs on 2026-11-15.",
+    "The relay is the default: useHuggingFace is true unless the edge is configured otherwise, so a passthrough verdict describes the shipped configuration. An edge run with the relay off refuses all 25 of those operations instead and answers the listing from the browse index. So the decentralization claim rests on a configuration in which 25 of the 32 operations this map calls answered in some form become refusals, and only 7 survive. Counted from this map; not measured against a running edge."
+  ]
+}
