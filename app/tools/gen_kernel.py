@@ -156,6 +156,8 @@ def ref_dispatch(b):
         return bytes([ref_complete(list(b[1:11]), b[11])])
     if len(b) == 4 and b[0] == 7:
         return bytes([ref_concur(b[1], b[2], b[3])])
+    if len(b) == 4 and b[0] == 8:
+        return bytes([ref_route(b[1], b[2], b[3])])
     return bytes([0, 4, 0])
 
 
@@ -192,6 +194,59 @@ def ref_concur(first, second, agree):
     if first == 1 or second == 1:
         return 2
     return 0
+
+
+# Operation 8 (route), exactly 4 bytes: `08 method kind operation`. The
+# method is its number in `site_spec.METHODS` (1 GET, 2 HEAD, 3 POST, 0 any
+# other), the kind its repository type (1 models, 2 datasets, 3 spaces, 0 for a
+# row that names none), the operation the row's index in `site_spec.SURFACE`.
+# The answer is one byte, the disposition's number in `site_spec.DISPOSITIONS`:
+# 1 the file decision, 2 the index, 3 Hugging Face's own answer, 4 refused as
+# Hugging Face refuses a client with no token. Only a (method, kind, operation)
+# a row names is answered; everything else is refused (HK-32).
+KIND_NO = {k: i + 1 for i, k in enumerate(site_spec.KINDS)}
+OWNER = site_spec.DISPOSITIONS.index("owner")
+
+
+def route_rows():
+    for i, row in enumerate(site_spec.SURFACE):
+        for k in ([KIND_NO[x] for x in row[2]] or [0]):
+            d = site_spec.DISPOSITIONS.index(site_spec.disposition(row, site_spec.KINDS[k - 1] if k else None))
+            # Hugging Face answers a HEAD wherever it answers the GET, without the body.
+            methods = list(row[0]) + (["HEAD"] if "GET" in row[0] and "HEAD" not in row[0] else [])
+            for m in sorted(methods, key=site_spec.METHODS.index):
+                yield i, k, site_spec.METHODS.index(m), d
+
+
+ROUTE_ROWS = list(route_rows())
+PUBLIC_ROWS = [r for r in ROUTE_ROWS if r[3] != OWNER]
+
+
+ROUTE_PARAMS = "method : Nat, kind : Nat, op : Nat"
+
+
+def read_answer():
+    # The answer for each read Hugging Face answers a client with no token,
+    # and 0 for every other request, nested by operation, kind and method: one
+    # disjunction over every case is deeper than LexLean reads (measured:
+    # LLT4001, recursion limit), and a chain over conjunctions compiles to join
+    # points (measured: TooLarge).
+    def by_method(i, kk):
+        return chain([("(method =? %d)" % m, str(d)) for j, k2, m, d in PUBLIC_ROWS if (j, k2) == (i, kk)], "0")
+
+    def by_kind(i):
+        kinds = sorted({k2 for j, k2, _, _ in PUBLIC_ROWS if j == i})
+        return chain([("(kind =? %d)" % kk, by_method(i, kk)) for kk in kinds], "0")
+
+    ops = sorted({j for j, _, _, _ in PUBLIC_ROWS})
+    return defn("readAnswer", ROUTE_PARAMS, "Nat", chain([("(op =? %d)" % i, by_kind(i)) for i in ops], "0"))
+
+
+def ref_route(method, kind, op):
+    for i, k, m, d in ROUTE_ROWS:
+        if (i, k, m) == (op, kind, method):
+            return d
+    return OWNER
 
 
 # Operation 6 (complete), exactly 12 bytes: `06 f0..f9 passthrough`. One byte
@@ -324,6 +379,18 @@ VECTORS = [
     bytes([7, 0, 0, 0]),
     bytes([7, 1, 0, 1]),
     bytes([7, 1, 1]),
+    bytes([8, 2, 1, 0]),  # HEAD a model file: the file decision
+    bytes([8, 1, 2, 0]),  # GET a dataset file: the file decision
+    bytes([8, 1, 1, 3]),  # model information: the index
+    bytes([8, 1, 2, 3]),  # dataset information: Hugging Face's answer
+    bytes([8, 3, 3, 6]),  # paths-info on a Space: Hugging Face's answer
+    bytes([8, 1, 1, 16]),  # lfs-files: owner only, refused
+    bytes([8, 3, 1, 3]),  # a POST to model information: refused
+    bytes([8, 0, 1, 3]),  # a method the surface does not name: refused
+    bytes([8, 1, 0, 3]),  # no repository type where the row needs one: refused
+    bytes([8, 1, 0, 43]),  # whoami: refused
+    bytes([8, 1, 0, 200]),  # an operation no row names: refused
+    bytes([8, 1, 1]),
 ]
 assert len(set(VECTORS)) == len(VECTORS), "requests must be unique"
 assert max(len(v) for v in VECTORS) == 128, "one request is exactly guestAllocationMaximum bytes"
@@ -538,6 +605,20 @@ def kernel_module():
         ("((ours =? 1) && (theirs =? 1))", chain([("(same =? 1)", "1")], "3")),
         ("((ours =? 1) || (theirs =? 1))", "2"),
     ], "0")))
+    # How the hub answers a request, from the surface table alone: refused
+    # unless it is a read Hugging Face answers a client with no token, and
+    # then the row's answer. Built in that shape so each proof needs only one
+    # table: HK-32 follows from `route` itself, and HK-31 only from the
+    # answers never being a refusal. Nested `if`s by operation, kind and
+    # method, never a chain over conjunctions: each `&&` in a condition
+    # compiles to join points, and 92 of them made the kernel too large to
+    # export (measured: PrismPM refused it, TooLarge).
+    k.append(read_answer())
+    k.append(defn("route", "method : Nat, kind : Nat, op : Nat", "Nat",
+                  "(if ((readAnswer method kind op) =? 0) then %d else (if ((readAnswer method kind op) <? %d) "
+                  "then (readAnswer method kind op) else 3))" % (OWNER, OWNER)))
+    k.append(defn("encodeRoute", "code : Nat", "Bytes", chain(
+        [("(code =? %d)" % i, hx(bytes([i]))) for i in range(1, len(site_spec.DISPOSITIONS))], "0x00")))
     k.append(defn("encodeVerdict", "code : Nat", "Bytes", chain(
         [("(code =? %d)" % i, hx(bytes([i]))) for i in (1, 2, 3)], "0x00")))
     # A source and an ETag are named only when the file is delivered, so every
@@ -559,7 +640,9 @@ def kernel_module():
                   "(encodeVerdict (complete %s)) else "
                   "(if (((Foundation.Bytes::byteLength value) =? 4) && ((byteNat value 0) =? 7)) then "
                   "(encodeVerdict (concur (byteNat value 1) (byteNat value 2) (byteNat value 3))) "
-                  "else 0x000400)))))))"
+                  "else (if (((Foundation.Bytes::byteLength value) =? 4) && ((byteNat value 0) =? 8)) then "
+                  "(encodeRoute (route (byteNat value 1) (byteNat value 2) (byteNat value 3))) "
+                  "else 0x000400))))))))"
                   % (" ".join("(byteNat value %d)" % i for i in range(1, 11)),
                      " ".join("(byteNat value %d)" % i for i in range(1, 12))), AX))
     vec = "(nil %sAcceptanceVector)" % T
@@ -743,6 +826,23 @@ def proof_module(name, declarations, imports="Kernel"):
 # The axioms Lean observes for each proof (`#print axioms`, measured): `omega`
 # reaches `Classical.choice` when a split leaves an `if` over a disjunction.
 # LexLean refuses a proof whose declared set differs (LLV7005).
+INVARIANTS += [
+    # HK-31: every read Hugging Face answers a client with no token is answered,
+    # never refused.
+    ("Surface", "breaksSurface", "surfaceHolds", ROUTE_PARAMS, "method kind op",
+     "((not ((Kernel::readAnswer method kind op) =? 0)) && ((Kernel::route method kind op) =? %d))" % OWNER,
+     # The table is not opened: route answers a read with its answer, kept
+     # below a refusal, so the proof is arithmetic over one number.
+     [q("route")]),
+    # HK-32: anything else is refused, as Hugging Face refuses a client with no
+    # token.
+    ("Anonymous", "breaksAnonymous", "anonymousHolds", ROUTE_PARAMS, "method kind op",
+     "(((Kernel::readAnswer method kind op) =? 0) && (not ((Kernel::route method kind op) =? %d)))" % OWNER,
+     # Only route is unfolded: a request with no answer is a refusal.
+     [q("route")]),
+]
+ROUTE_MODULES = {"Surface", "Anonymous"}
+
 CLASSICAL = {"Complete", "Concur", "Delivery", "Etag", "Healthy", "Servable", "Sound", "Trust"}
 
 

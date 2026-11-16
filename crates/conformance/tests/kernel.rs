@@ -288,7 +288,7 @@ fn kernel_hk_11() {
     dispatch_decides_by("(Site::screen (byteNat value 1))");
 }
 
-/// `HK-12`: A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code
+/// `HK-12`: A Hugging Face tool sees no HTTP error exactly when the kernel delivers, and every refusal reaches it as a 4xx or 5xx status with a named error code, except the refusal of a client with no token, which carries exactly the headers Hugging Face sends it
 #[test]
 fn kernel_hk_12() {
     pinned(
@@ -302,7 +302,7 @@ fn kernel_hk_12() {
     pinned(
         "Errors",
         "breaksErrors",
-        "((not (((answer =? 1) || (answer =? 2)) || (answer =? 20))) && ((((Site::hfStatus answer) <? 400) || (599 <? (Site::hfStatus answer))) || ((Site::hfCode answer) =? 0)))",
+        "((not (((answer =? 1) || (answer =? 2)) || (answer =? 20))) && ((((Site::hfStatus answer) <? 400) || (599 <? (Site::hfStatus answer))) || (((Site::hfCode answer) =? 0) && (not (answer =? 18)))))",
         "errorsHold",
         "answer",
         "Quot.sound, propext",

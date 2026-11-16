@@ -74,7 +74,9 @@ fn apex_hk_30() {
     let routes = routes();
     // The Hugging Face dialect is the one a tool speaks to the apex, and the record sends it to this repository's edge.
     assert!(
-        routes.contains("path_regexp edge ^(/api/models(/|$)|/[^/]+/[^/]+/resolve/)")
+        routes.contains(
+            "path_regexp edge ^(/api/|/(datasets/|spaces/)?([^/]+/)?[^/]+/resolve/|/(datasets/)?[^/]+/[^/]+/user-access-report$)"
+        )
             && routes.contains("reverse_proxy hub-edge:8787"),
         "the route record must send the Hugging Face dialect to this repository's edge"
     );

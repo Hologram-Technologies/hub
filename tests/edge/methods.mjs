@@ -1,6 +1,6 @@
 // The edge is read-only, and must say so the same way on every route: a write
-// is refused with the kernel's invalid-request answer, never answered as if it
-// were a read. And a HEAD on a passed-through route answers what its GET does,
+// is refused as huggingface.co refuses a client with no token, 401 with a
+// Bearer challenge (HK-32), never answered as if it were a read. And a HEAD on a passed-through route answers what its GET does,
 // without a body.
 //
 //   node tests/edge/methods.mjs <holo url> <index url>
@@ -21,6 +21,10 @@ const check = (name, ok, saw) => (ok ? console.log(`ok   ${name}`) : failures.pu
 await start({ holo, index: indexUrl, huggingFace: true, drain: [] });
 const MODEL = "openai-community/gpt2";
 const routes = [
+  `/api/datasets/stanfordnlp/imdb`,
+  `/api/spaces/gradio/hello_world`,
+  `/datasets/stanfordnlp/imdb/resolve/main/README.md`,
+  `/api/repos/create`,
   `/api/models/${MODEL}`,
   `/api/models/${MODEL}/tree/main`,
   `/api/models/${MODEL}/refs`,
@@ -30,13 +34,14 @@ const routes = [
 for (const path of routes) {
   for (const method of ["PUT", "DELETE", "PATCH", "POST"]) {
     const r = await handle(new Request(`http://edge${path}`, { method, body: method === "DELETE" ? undefined : "{}" }));
-    check(`${method} ${path} is refused`, r.status === 400, `${r.status} ${r.headers.get("x-error-code") ?? ""}`);
+    check(`${method} ${path} is refused as Hugging Face refuses a client with no token`,
+      r.status === 401 && /^Bearer /.test(r.headers.get("www-authenticate") ?? ""), `${r.status} ${r.headers.get("www-authenticate") ?? ""}`);
   }
 }
 const post = await handle(new Request(`http://edge/api/models/${MODEL}/paths-info/main`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: "paths=config.json" }));
 check("POST paths-info, the one read Hugging Face sends as a POST, still answers", post.status === 200, `${post.status}`);
 
-for (const path of [`/api/models?search=gpt2&limit=1`, `/api/models/${MODEL}`]) {
+for (const path of [`/api/models?search=gpt2&limit=1`, `/api/models/${MODEL}`, `/api/datasets/stanfordnlp/imdb`]) {
   const get = await handle(new Request(`http://edge${path}`));
   const head = await handle(new Request(`http://edge${path}`, { method: "HEAD" }));
   const body = head.body ? await head.arrayBuffer() : new ArrayBuffer(0);

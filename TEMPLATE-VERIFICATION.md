@@ -3146,3 +3146,78 @@ box in the hero and the page against the window at 320, 360, 375, 390, 412,
 fails 15 of 24 (every width up to 412 in each engine, for example
 `land-copy 16..502` at 320); with this stylesheet routed in it passes 24 of 24,
 with the old long command and with `curl gethologram.ai`.
+Restored, `cargo test -p repo-conformance --test apex` passes.
+
+## HK-31 and HK-32: the surface Hugging Face publishes, answered as it answers
+
+Measured 2026-11-16 against gethologram.ai, before this change: model reads
+matched huggingface.co, and every dataset and Space call answered 404, so
+`datasets.load_dataset` and `hf.space_info` failed through the hub. Writes and
+`whoami` answered 400 BadRequest (or 404 from the site), where huggingface.co
+answers a client with no token 401 with a Bearer challenge, so
+`huggingface_hub` raised a different exception through the hub.
+
+The surface is now one table in `app/tools/site_spec.py`, in Hugging Face's
+own paths and names, for models, datasets and Spaces: 52 operations, generated
+into the site model and served by the kernel on the docs screen. The kernel's
+`route` decision (request `08 method kind operation`) says how each request is
+answered, from that table alone, and Lean proves two statements over every
+request: a read Hugging Face answers a client with no token is never refused
+(`surfaceHolds`, HK-31), and anything else is refused (`anonymousHolds`,
+HK-32). The edge routes by the table and asks the kernel; it decides nothing.
+
+### What the gate caught on the way
+
+- The independent reader, Hugging Face's own published surface pinned in
+  `tools/hf-surface/inventory.json`, found nine operations the table did not
+  name: discussions, a discussion, and a pull request's storage estimate, for
+  each repository type. Each is now a row.
+- PrismPM refused the first kernel, `TooLarge`: `route` was one chain over
+  `((op && kind) && method)`, and each `&&` in a condition compiled to join
+  points. Nested `if`s by operation, kind and method compile flat.
+- LexLean refused the first proofs, `LLT4001 recursion limit exceeded`: each
+  statement was one disjunction over 140 cases. Then Lean's `omega` would not
+  split a 52-operation table, and does not reason about a Bool it is not
+  shown. The final shape needs neither: `readAnswer` is the table (the answer
+  for each public read, 0 for anything else), and `route` refuses on 0 and
+  otherwise answers with `readAnswer` kept below a refusal. Both proofs unfold
+  `route` alone and are arithmetic over one unopened number.
+- Lean rejected `errorsHold` once the anonymous refusal was added to the
+  dialect: with 13 answers, each its own branch, `omega` gave up. `hfStatus`
+  and `hfCode` now have one branch per value, and both HK-12 proofs hold.
+
+### Planted defects, each rejected by name and restored
+
+    refs dropped from the surface:
+      Hugging Face publishes GET /api/datasets/{namespace}/{repo}/refs, and the hub's surface does not name it at that path
+    a public read refused as owner only:
+      GET /api/datasets/{namespace}/{repo}/likers is answered by Hugging Face to a client with no token, and the kernel routes it to Some(4)
+    an owner-only read relayed:
+      GET /api/spaces/{namespace}/{repo}/secrets is owner only on Hugging Face and must be refused as it refuses
+    the anonymous refusal names an error code:
+      with no X-Error-Code, as Hugging Face sends none (left: "RepoNotFound")
+    the edge challenges without Hugging Face's realm:
+      the edge must challenge as Hugging Face does
+    the edge answers what the kernel refuses:
+      the edge must ask the kernel's route decision and refuse what it refuses
+
+### A Hugging Face client, through the edge
+
+`huggingface_hub` 2.4.0, no token, against huggingface.co and against a local
+edge running this revision's kernel: 32 observations, all equal, covering
+models, datasets (info, files, README, a parquet file, tree, paths-info, refs,
+search, a missing dataset, a missing file, `imdb` by its old name), Spaces
+(info, files, `app.py`, search), `gpt2` by its old name, `whoami` and an
+anonymous `create_repo`. One observation records the answer rather than the
+exception class: `huggingface_hub` calls a 401 with no X-Error-Code
+`RepositoryNotFoundError` only for an `https://` endpoint, so against a local
+`http://` edge the class reflects the URL scheme, and the answer, `[401, null]`,
+is what the hub controls.
+
+### What is not equivalent, deliberately
+
+The hub holds no tokens. A request that needs one, a write, a gated or
+private repository, an owner-only read, is answered as huggingface.co answers
+a client with no token. Datasets and Spaces are answered from Hugging Face's
+own answer, as a model outside the signed index is; indexing them is a
+separate step.
