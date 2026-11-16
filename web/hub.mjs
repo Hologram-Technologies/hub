@@ -27,7 +27,7 @@ const decoder = new TextDecoder();
 async function boot() {
   kernel = await load(new URL("app/app.holo", root).href);
   if (!kernel.identities.verified) throw new Error("the kernel's holo failed its identity check");
-  const routes = ["chrome", "home", "models", "model", "docs", "registry", "apps", "buckets"];
+  const routes = ["chrome", "home", "models", "model", "docs", "spaces", "buckets"];
   for (const [i, name] of routes.entries()) screens[name] = JSON.parse(decoder.decode(await kernel.dispatch(new Uint8Array([3, i]))));
   chrome = screens.chrome;
   drawChrome();
@@ -368,8 +368,7 @@ async function route() {
     else if (section === "models" && parts.length === 1) await drawModels(main);
     else if (section === "models" && parts.length >= 3) await drawModel(main, `${parts[1]}/${parts[2]}`);
     else if (section === "docs") drawDocs(main);
-    else if (section === "registry") await drawRegistry(main);
-    else if (section === "apps") await drawApps(main);
+    else if (section === "spaces") await drawSpaces(main);
     else if (section === "buckets") drawBuckets(main);
     else { section = ""; html.dataset.page = "landing"; await drawHome(main); }
   } catch (error) {
@@ -382,7 +381,7 @@ async function route() {
 }
 
 // ---------------------------------------------------------------- chrome
-const ROUTE_PATH = { 1: "", 2: "models/", 3: "models/", 4: "docs/", 5: "registry/", 6: "apps/", 7: "buckets/" };
+const ROUTE_PATH = { 1: "", 2: "models/", 3: "models/", 4: "docs/", 5: "spaces/", 6: "buckets/" };
 // The switch carries all three marks and CSS draws the one in use.
 const forTheme = (icon, mode) => ICON[icon].replace('class="i"', `class="i" data-for="${mode}"`);
 function drawChrome() {
@@ -416,7 +415,6 @@ function drawChrome() {
               </div>
             </div>
           </div>
-          <div class="account"><a class="sign-in" id="sign-in-button" href="${esc(chrome.signInHref)}">${ICON.user}<span class="label">${esc(chrome.signIn)}</span></a></div>
         </div>
       </div>
       <button type="button" class="menu-button" id="menu-button" aria-expanded="false" aria-controls="top-menu" aria-label="${esc(chrome.menu)}" title="${esc(chrome.menu)}">${ICON.menu}${ICON.close}</button>
@@ -1256,104 +1254,24 @@ async function drawWitnesses(m, w) {
     ${(record.witnesses ?? []).map((x) => `<p><code>${esc(fill(w.read, { source: x.source, date: x.date }))}</code></p>`).join("")}`;
 }
 
-// ---------------------------------------------------------------- registry
-// The registry and apps lists are copies of the live hub's, taken when the
-// site was built (tools/web-data.mjs); each page says when, from where, and
-// the SHA-256 of what was copied.
+// ------------------------------------------------------------------ spaces
+// The list of Spaces is a copy of the live hub's, taken when the site was
+// built (tools/web-data.mjs); the page says when, from where, and the
+// SHA-256 of what was copied.
 const copied = (s, from) => `<p class="copied-from">${esc(fill(s.snapshot, { source: from.source, date: from.date, hash: from.hash.slice(0, 16) }))}...</p>`;
-let registryData, appsData;
-async function drawRegistry(main) {
-  const s = screens.registry;
-  registryData ??= fetch(new URL("data/registry.json", root)).then((r) => r.json());
-  const { from, images } = await registryData;
-  const q = new URLSearchParams(location.search);
-  const st = { q: q.get("q") ?? "", sort: q.get("sort") ?? "pulls", page: 1, picked: Object.fromEntries(s.facets.map(([k]) => [k, q.getAll(k)])) };
-  main.innerHTML = `
-    <div class="lead"><h1>${esc(s.title)}</h1><span class="pill" id="count"></span></div>
-    <p class="intro">${esc(s.lead)}</p>
-    <div class="browse">
-      <aside class="panel filters" id="filters"><div class="sections" id="filters-body"></div></aside>
-      <section class="results">
-        <div class="results-head"><div class="bar">
-          <label class="field search">${ICON.search}<input id="q" type="search" placeholder="${esc(s.search)}" autocomplete="off" aria-label="${esc(s.search)}" /></label>
-          ${sortControl(s.sorts, st.sort)}
-        </div></div>
-        <div class="grid" id="cards"></div>
-        <nav class="pager" id="pager" aria-label="Pages"></nav>
-        ${copied(s, from)}
-      </section>
-    </div>`;
-  $("#q").value = st.q;
-  const value = (row, key) => (row[key] == null ? [] : [String(row[key])]);
-  const match = (row, skip) => {
-    const hay = `${row.id} ${row.description ?? ""}`.toLowerCase();
-    if (st.q && !st.q.toLowerCase().split(/\s+/).every((w) => hay.includes(w))) return false;
-    return s.facets.every(([key]) => key === skip || !st.picked[key].length || st.picked[key].some((v) => value(row, key).includes(v)));
-  };
-  const order = { pulls: (r) => r.pulls ?? -1, stars: (r) => r.stars ?? -1 };
-  const draw = () => {
-    const shown = images.filter((r) => match(r));
-    if (st.sort === "name") shown.sort((a, b) => a.id.localeCompare(b.id));
-    else shown.sort((a, b) => order[st.sort](b) - order[st.sort](a));
-    $("#count").textContent = count(shown.length);
-    $("#filters-body").innerHTML = s.facets.map(([key, label]) => {
-      const counts = new Map();
-      for (const r of images) if (match(r, key)) for (const v of value(r, key)) counts.set(v, (counts.get(v) ?? 0) + 1);
-      const rows = [...counts].sort((a, b) => b[1] - a[1]);
-      const chips = rows.map(([v, n]) => `<button type="button" class="chip" data-facet="${esc(key)}" data-value="${esc(v)}" aria-pressed="${st.picked[key].includes(v)}"><span class="label">${esc(v)}</span><span class="n">${count(n)}</span></button>`).join("");
-      return rows.length ? `<section class="facet"><header><h2>${esc(label)}</h2><button type="button" class="control reset" data-reset="${esc(key)}"${st.picked[key].length ? "" : " disabled"}>${ICON.reset}${esc(s.reset)}</button></header><div class="chips clamped">${chips}</div><button type="button" class="control more" hidden></button></section>` : "";
-    }).join("");
-    clampChips();
-    const pages = Math.max(1, Math.ceil(shown.length / s.pageSize));
-    st.page = Math.min(st.page, pages);
-    const slice = shown.slice((st.page - 1) * s.pageSize, st.page * s.pageSize);
-    $("#cards").innerHTML = slice.length ? slice.map((r) => {
-      const commands = r.digest ? s.commands.filter(([reg]) => reg === "*" || reg === r.registry).map(([, t]) => fill(t, { ref: r.id, tag: r.tag ?? "latest", digest: r.digest })) : [];
-      const facts = [r.pulls != null ? `<span>${ICON.down}${count(r.pulls)} ${esc(s.pulls)}</span>` : "", r.stars != null ? `<span>${ICON.star}${count(r.stars)}</span>` : "", r.size ? `<span>${esc(bytes(r.size))}</span>` : ""].join("");
-      return `<article class="card entry">${art(r.digest || r.id)}
-        <span class="tags"><span class="tag">${esc(r.registry)}</span>${r.kind ? `<span class="tag">${esc(r.kind)}</span>` : ""}${r.official ? `<span class="tag state addressed">official</span>` : ""}</span>
-        <span class="title">${esc(r.org ? `${r.org}/` : "")}${esc(r.name)}${r.tag ? `:${esc(r.tag)}` : ""}</span>
-        ${r.description ? `<span class="desc">${esc(r.description)}</span>` : ""}
-        <span class="meta">${facts}</span>
-        <span class="entry-actions">${commands.map((c) => copyLine(c, "endpoint section-tag copy")).join("")}${r.home ? `<a class="control" href="${esc(r.home)}" rel="noopener">${esc(s.open)}${ICON.external}</a>` : ""}</span>
-      </article>`;
-    }).join("") : `<div class="empty"><p>${esc(s.empty)}</p><button type="button" class="link" data-clear>${esc(s.clear)}</button></div>`;
-    $("#pager").innerHTML = pagerHtml(st.page, pages, { previous: s.previous, next: s.next });
-    const url = new URLSearchParams();
-    if (st.q) url.set("q", st.q);
-    if (st.sort !== "pulls") url.set("sort", st.sort);
-    for (const [k, vs] of Object.entries(st.picked)) for (const v of vs) url.append(k, v);
-    history.replaceState(null, "", `${href("registry/")}${url.size ? `?${url}` : ""}`);
-  };
-  let timer;
-  $("#q").addEventListener("input", (e) => { clearTimeout(timer); timer = setTimeout(() => { st.q = e.target.value.trim(); st.page = 1; draw(); }, 144); });
-  wireSort(main, (key) => { st.sort = key; st.page = 1; draw(); });
-  main.querySelector(".browse").addEventListener("click", (e) => {
-    const t = e.target.closest("button, a[data-page]");
-    if (!t || t.dataset.copy !== undefined) return;
-    if (t.dataset.facet) { const vs = st.picked[t.dataset.facet]; const i = vs.indexOf(t.dataset.value); i < 0 ? vs.push(t.dataset.value) : vs.splice(i, 1); st.page = 1; }
-    else if (t.dataset.reset) st.picked[t.dataset.reset] = [];
-    else if (t.dataset.more) { const chips = t.previousElementSibling; const open = chips.classList.toggle("clamped"); t.textContent = open ? t.dataset.more : s.less; return; }
-    else if (t.dataset.page) { e.preventDefault(); st.page = +t.dataset.page; }
-    else if ("clear" in t.dataset) { for (const k in st.picked) st.picked[k] = []; st.q = ""; $("#q").value = ""; }
-    else return;
-    draw();
-  });
-  draw();
-}
+let spacesData;
 
-// ---------------------------------------------------------------- apps
-async function drawApps(main) {
-  const s = screens.apps;
-  appsData ??= fetch(new URL("data/apps.json", root)).then((r) => r.json());
-  const { from, apps } = await appsData;
+async function drawSpaces(main) {
+  const s = screens.spaces;
+  spacesData ??= fetch(new URL("data/spaces.json", root)).then((r) => r.json());
+  const { from, spaces } = await spacesData;
   main.innerHTML = `
-    <div class="lead"><h1>${esc(s.title)}</h1><span class="pill">${apps.length}</span><div class="lead-end">${sortControl(s.sorts, "featured")}</div></div>
+    <div class="lead"><h1>${esc(s.title)}</h1><span class="pill">${spaces.length}</span><div class="lead-end">${sortControl(s.sorts, "featured")}</div></div>
     <p class="intro">${esc(s.lead)}</p>
-    <div class="grid apps" id="cards"></div>
+    <div class="grid spaces" id="cards"></div>
     ${copied(s, from)}`;
   const draw = (sort) => {
-    const list = [...apps];
+    const list = [...spaces];
     if (sort === "name") list.sort((a, b) => a.name.localeCompare(b.name));
     if (sort === "smallest") list.sort((a, b) => (a.modelBytes ?? 0) - (b.modelBytes ?? 0));
     if (sort === "largest") list.sort((a, b) => (b.modelBytes ?? 0) - (a.modelBytes ?? 0));

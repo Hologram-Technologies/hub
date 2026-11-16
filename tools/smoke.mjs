@@ -25,8 +25,7 @@ const pages = [
   ["models/", ".card"],
   ["models/openai-community/gpt2/", ".model-head h1"],
   ["docs/", "#answers table"],
-  ["registry/", ".card.entry"],
-  ["apps/", ".grid.apps .card"],
+  ["spaces/", ".grid.spaces .card"],
   ["buckets/", "#check"],
   // A witnessed model: its signature, made by this deploy, must check out.
   ["models/BAAI/bge-small-en-v1.5/", "#signed.s1"],
