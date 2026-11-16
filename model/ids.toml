@@ -195,3 +195,9 @@ id = "HK-29"
 level = "build"
 suite = "index"
 statement = "The index learns which other sources hold a release only from the holders record this repository carries, and only for the revision that record names, so a build reads no other hub"
+
+[[id]]
+id = "HK-30"
+level = "build"
+suite = "apex"
+statement = "Every command the model page gives a tool is one whose requests the apex routes to this repository, so the site never offers a command that reaches nothing"

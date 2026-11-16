@@ -37,22 +37,24 @@ then only kept for whoever copied a command in between.
 
 ## Where each path is answered
 
-| Paths | Answered by | Since |
-| --- | --- | --- |
-| `/{repo}/resolve/…`, `/api/models…` | this repository's edge (`edge/`) | 2026-11-16 |
-| `/via/<source>/{repo}/resolve/…` and `/via/<source>/api/…` (all but `SHA256SUMS`) | the edge | 2026-11-16 |
-| the site to a browser: `/`, `/models/*`, `/spaces/`, and its own files | this repository's `web/`, from Pages through Caddy | 2026-11-16 |
-| the Spaces apps under `/spaces/<id>/`, and the style files they load | this repository's `spaces/`, assembled and checked by `deploy/spaces/` (HK-27) | next |
-| `/api/v1/objects/sha256:*`, the store the Buckets page reads | this repository's `tools/objects.mjs`, in the Spaces release (HK-28) | next |
-| `/registry/` | hologram-live | |
-| `/docs/*`, `/agent.md`, `/llms.txt`, `/openapi.json`, `/.well-known/*` | hologram-live; not yet here | |
-| `/v2/` (OCI, Ollama), `/mcp`, `/api/account/*`, `/api/v1/objects*`, `/healthz`, `/api/hub/health`, `/archive.json`, `/pins.json` | hologram-live and the services it runs | |
+Since the cutover of 2026-11-16, every path is answered by this repository.
+`deploy/caddy/gethologram.ai.caddy` is the site block exactly as it runs, and
+HK-30 checks that it proxies only to this repository's edge, Spaces and site,
+and that every command the site prints reaches one of them.
 
-The routes this repository answers are written in
-`deploy/caddy/gethologram.ai.caddy` and applied to the VPS by hand. The edge
-is deployed by `deploy/edge/deploy.sh <commit>`. It builds that commit,
-checks the new container through Caddy, and puts the previous image back on
-any failure.
+| Paths | Answered by |
+| --- | --- |
+| `/{repo}/resolve/…`, `/api/models…` | the edge (`edge/`, `deploy/edge/`) |
+| `/via/<source>/{repo}/resolve/…` and `/via/<source>/api/…` (all but `SHA256SUMS`) | the edge |
+| `/spaces/<id>/`, `/kit/…`, a Space's `/tokens.css` | the Spaces (`deploy/spaces/`, HK-27) |
+| `/api/v1/objects/sha256:<hex>` | the object store, in the Spaces release (HK-28) |
+| `/<owner>/<name>` from a browser | a redirect to `/models/<owner>/<name>/` |
+| everything else | this repository's site, from Pages through Caddy |
+
+Retired with hologram-live, and answered by nothing: `/v2/` (OCI, Ollama),
+`/mcp`, sign-in and `/api/account/*`, the registry screen, the old docs, the
+agent page, `llms.txt`, `/openapi.json`, blake3 object addresses, `/_*`,
+`/archive.json` and `/pins.json`.
 
 ## The order
 
@@ -77,6 +79,8 @@ any failure.
 
 ## Rollback
 
-Each step is one Caddy block, removed and reloaded. The services it replaced
-keep running until step 6, so removing a block puts the old answer back at
-once.
+The apply kept the previous Caddyfile beside it
+(`/root/twenty/Caddyfile.bak-<time>-cutover`). hologram-live's services were
+stopped, not removed, and their cron lines commented out. Restoring that file,
+`caddy reload`, `docker compose start` in `/root/hub` and uncommenting the cron
+lines puts the old answers back.

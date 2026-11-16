@@ -6,18 +6,18 @@ from any source, and every decision the hub makes about a request taken by a
 Prism application whose rules Lean proves. A user sets `HF_ENDPOINT` and
 `huggingface_hub`, transformers, vLLM and llama.cpp keep working unchanged.
 
-What exists today: the hub kernel, the hub's interface and the edge runner,
-below. No runner of this repository's is deployed yet, so nothing here answers
-`HF_ENDPOINT` for the public; the live hub is still the one in `hologram-live`,
-at gethologram.ai. What this repository builds itself from is Hugging Face:
-which models to index, and every fact in a release record, are Hugging Face's
-own answers, and the edge calls no hub but this repository's signed index. Two
-things are still read from the live hub at build time, because nothing here
-re-derives them: which other sources hold a release's bytes, and the registry
-and apps lists the two screens of that name show. The plan is in
+What exists today: the hub kernel, the hub's interface, the edge runner and
+the Spaces, below, and gethologram.ai answers every path from them: the edge
+answers `HF_ENDPOINT`, the Spaces and their object store run from
+`deploy/spaces/`, and everything else is this repository's site
+(`deploy/caddy/gethologram.ai.caddy`, HK-30). What this repository builds
+itself from is Hugging Face: which models to index, and every fact in a release
+record, are Hugging Face's own answers, and the edge calls no hub but this
+repository's signed index. Which other sources hold a release's bytes is read
+from `sources/holders.json`, carried here (HK-29). The plan is in
 [docs/brief.md](docs/brief.md); what was measured before building is in
-[docs/phase1-study.md](docs/phase1-study.md), and how the work here reaches the
-live site is in [docs/live-deployment.md](docs/live-deployment.md).
+[docs/phase1-study.md](docs/phase1-study.md), and how the site was moved here
+is in [docs/cutover.md](docs/cutover.md).
 
 This repository was created from the
 [UOR Prism template](https://github.com/UOR-Foundation/template), so its gate,

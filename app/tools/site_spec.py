@@ -17,8 +17,9 @@ run `python app/tools/gen_kernel.py`.
 # one name on the VPS, whose Caddy answers tools and serves this site to
 # browsers from the same host, so the name a reader sees in the address bar
 # is the name every command gives a tool, and the names already published
-# (`HF_ENDPOINT=https://gethologram.ai`, `ollama pull gethologram.ai/...`)
-# keep working. The plan this replaces put the site on Pages at the apex and
+# (`HF_ENDPOINT=https://gethologram.ai`) keep working. Since the cutover the
+# apex answers only from this repository, so OCI and Ollama, which speak
+# /v2/, are no longer offered (HK-30). The plan this replaces put the site on Pages at the apex and
 # the hub on `api.gethologram.ai`, a name that was never given a DNS record:
 # measured 2026-11-16, nslookup answers "Non-existent domain", so every
 # command this site printed was dead.
@@ -269,7 +270,8 @@ SCREENS = {
         "tail": "models, skills and artifacts.",
         "cta": "Browse {count} models",
         "ctaRoute": ROUTE["models"],
-        "command": f"curl {API_HOST}",
+        # What a tool gets at the apex is the Hugging Face API; the agent page that answered a bare `curl` is retired.
+        "command": f"curl {API}/api/models?limit=3",
         "families": [
             ["Llama", "meta-llama"], ["Qwen", "Qwen"], ["DeepSeek", "deepseek-ai"],
             ["Mistral AI", "mistralai"], ["Gemma", "google"], ["Phi", "microsoft"],
@@ -282,7 +284,7 @@ SCREENS = {
     },
     "models": {
         "title": "Models",
-        "command": f"curl {API_HOST}/models",
+        "command": f"curl {API}/api/models?search=gpt2",
         "search": "Search models",
         "filters": "Filters",
         "close": "Close filters",
@@ -403,8 +405,6 @@ SCREENS = {
         "copied": "Copied",
         "tools": [
             ["Hugging Face", "HF_ENDPOINT=https://{host} hf download {repo}"],
-            ["OCI", "oras pull {host}/{repo}"],
-            ["Ollama", "ollama run {host}/{repo}"],
         ],
         "facts": [["status", "Status"], ["revision", "Revision"], ["files", "Files"],
                   ["weights", "Weights"], ["params", "Parameters"], ["task", "Task"],
