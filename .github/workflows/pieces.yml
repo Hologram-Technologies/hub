@@ -1,0 +1,58 @@
+name: pieces
+
+# A model's bytes are fetched in 1 MiB pieces from any host and used only when
+# the kernel's piece rule says so (HK-39 to HK-42, HK-43). This checks that the
+# committed hasher is what its source builds, that the hasher folds to BLAKE3,
+# and that the fetcher keeps the rule against a host that lies, truncates and
+# fails.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/piece-hash/**"
+      - "web/piece*"
+      - "web/pieces.mjs"
+      - "tests/pieces/**"
+      - "tools/build-piece-hash.sh"
+      - "Cargo.lock"
+      - ".github/workflows/pieces.yml"
+  pull_request:
+    paths:
+      - "crates/piece-hash/**"
+      - "web/piece*"
+      - "web/pieces.mjs"
+      - "tests/pieces/**"
+      - "tools/build-piece-hash.sh"
+      - "Cargo.lock"
+      - ".github/workflows/pieces.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pieces:
+    name: every piece is checked against its address before it is used
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out the exact event revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22
+      - name: Install the toolchain the module is built with
+        shell: bash
+        run: rustup toolchain install 1.100.0 --profile minimal --target wasm32-unknown-unknown
+      - name: The committed module is what its source builds
+        shell: bash
+        run: tools/build-piece-hash.sh --check
+      - name: Pieces fold to the one-shot hash
+        shell: bash
+        run: cargo +1.100.0 test --locked -p piece-hash
+      - name: The fetcher keeps the kernel's piece rule
+        shell: bash
+        run: node tests/pieces/fetch.mjs

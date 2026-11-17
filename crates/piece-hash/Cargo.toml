@@ -1,0 +1,22 @@
+[package]
+name = "piece-hash"
+description = "The BLAKE3 a browser needs to verify a 1 MiB piece against a blake3: address, as a WebAssembly module."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# The official implementation, at the line with the supported `hazmat` API
+# (subtree chaining values and parent merges) and the `wasm32_simd` backend,
+# which hashes about twice as fast in the browser as the portable build:
+# 1.19 to 1.35 GB/s against 0.64 to 0.77 GB/s, measured in V8 on one thread.
+blake3 = { version = "=1.8.7", default-features = false, features = ["wasm32_simd"] }
+
+[lints]
+workspace = true
