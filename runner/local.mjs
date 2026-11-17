@@ -213,13 +213,18 @@ const json = (body, status = 200) => new Response(JSON.stringify(body, null, 1),
   status, headers: { ...CORS, "content-type": "application/json", "cache-control": "no-store" },
 });
 
-function refuse(answer, method) {
+// `mismatch`, when given, names the address the record expected and the one the
+// bytes actually had, so a client reading the refusal can tell bad bytes from
+// an outage and see which copy was wrong.
+function refuse(answer, method, mismatch = null) {
   const { dialect } = edge.loaded();
   const d = dialect.get(answer) ?? dialect.get("other");
-  const headers = { ...CORS, "content-type": "application/json", "cache-control": "no-store", "x-error-message": d.message };
+  const message = mismatch ? `${d.message}: expected ${mismatch.expected}, got ${mismatch.found}` : d.message;
+  const headers = { ...CORS, "content-type": "application/json", "cache-control": "no-store", "x-error-message": message };
   if (d.error) headers["x-error-code"] = d.error;
   if (answer === 10 || answer === 13) headers["www-authenticate"] = "Bearer";
-  return new Response(method === "HEAD" ? null : JSON.stringify({ error: d.message }), { status: d.status, headers });
+  const body = mismatch ? { error: d.message, expected: mismatch.expected, found: mismatch.found } : { error: d.message };
+  return new Response(method === "HEAD" ? null : JSON.stringify(body), { status: d.status, headers });
 }
 
 function served(method, file, head, range) {
@@ -310,6 +315,13 @@ async function serveFile(request, via, repo, revision, path, onNote) {
 
   const pin = via === null ? 0 : SOURCES.indexOf(via) >= 0 ? SOURCES.indexOf(via) + 1 : 5;
   const manifest = await witnessed(repo);
+  // The first time, in this request, that a source's bytes were compared with
+  // an address and differed. When sources only ever sent wrong bytes, the
+  // refusal says so (code 21) rather than calling it an outage (code 17); one
+  // source merely unreachable keeps it an outage, because then nobody knows
+  // what that source would have sent.
+  let mismatch = null;
+  const noneLeft = (answer) => (mismatch && !silent.size ? refuse(21, method, mismatch) : refuse(answer, method));
 
   // One attempt per source the kernel is willing to name. A source that sends
   // other bytes is quarantined for this address, which makes `failed` 1 for
@@ -323,7 +335,7 @@ async function serveFile(request, via, repo, revision, path, onNote) {
     });
     const [answer, slot, etagKind] = plan;
     // HK-03 proves a local runner is never told to redirect, for every input.
-    if (answer !== 2) return refuse(answer, method);
+    if (answer !== 2) return noneLeft(answer);
     const source = slots[slot].kind;
     const etag = etagKind === 2 ? lfs.sha256 : sibling.blobId;
 
@@ -343,6 +355,19 @@ async function serveFile(request, via, repo, revision, path, onNote) {
     const hit = pin === 0 ? await cached(key) : null;
     let file = hit?.path ?? null;
     let tensors = null;
+
+    // A cached copy is held to the same address as a fresh fetch, on every
+    // read: the cache is a disk, and a disk can be changed after it was
+    // written. A copy that fails is deleted and the next attempt fetches the
+    // file again. No source is blamed, because no source sent it.
+    if (hit) {
+      const verdict = await check(kernel, file, { address, size: sibling.size, blobId: sibling.blobId, entry });
+      if (!verdict.ok) {
+        onNote(`the cached copy of ${repo}/${path} is not the file (${verdict.why}); deleted, fetching it again`);
+        await unlink(file).catch(() => {});
+        continue;
+      }
+    }
 
     if (!file) {
       // One fetch per file at a time, and the fetch verifies before it
@@ -368,7 +393,7 @@ async function serveFile(request, via, repo, revision, path, onNote) {
           const verdict = await check(kernel, into, { address, size: sibling.size, blobId: sibling.blobId, entry });
           if (!verdict.ok) {
             await unlink(into).catch(() => {});
-            throw new Error(verdict.why);
+            throw Object.assign(new Error(verdict.why), { expected: verdict.expected, found: verdict.found });
           }
           // Verified, so it may be named by its address. Every consumer of
           // this job gets the same settled path.
@@ -390,6 +415,7 @@ async function serveFile(request, via, repo, revision, path, onNote) {
         } else {
           onNote(`${source} sent bytes that are not ${repo}/${path}: ${error.message}`);
           quarantined.add(`${source}:${key}`);
+          if (error.expected) mismatch ??= { expected: error.expected, found: error.found };
         }
         edge.report(source, false);
         continue;
@@ -403,8 +429,15 @@ async function serveFile(request, via, repo, revision, path, onNote) {
     if (manifest && path.endsWith(".safetensors")) {
       const seen = await checkTensorsOfFile(manifest, path, file);
       if (seen.witnessed && seen.mismatched.length) {
+        // The copy is deleted either way, so it can never be served or block
+        // the file later. Only a fresh copy blames the source it came from.
         onNote(`${repo}/${path}: ${seen.mismatched.length} tensors do not match the signed manifest`);
-        quarantined.add(`${source}:${key}`);
+        await unlink(file).catch(() => {});
+        if (!hit) {
+          quarantined.add(`${source}:${key}`);
+          const [first] = seen.mismatched;
+          mismatch ??= { expected: `${first.name} ${first.expected}`, found: `${first.name} ${first.found}` };
+        }
         continue;
       }
       if (seen.witnessed) tensors = `${seen.matched}/${seen.total}`;
@@ -419,7 +452,7 @@ async function serveFile(request, via, repo, revision, path, onNote) {
     }, wantedRange(request, size));
   }
   // Every source the kernel would name has now failed for this file.
-  return refuse(17, method);
+  return noneLeft(17);
 }
 
 // Every address the record has, not the first one it has.
@@ -465,7 +498,7 @@ export async function check(kernel, file, { address, size, blobId, entry }) {
 
   if (blob) {
     const found = blob.digest("hex");
-    if (found !== blobId) return { ok: false, why: `git blob ${found}, the record says ${blobId}` };
+    if (found !== blobId) return { ok: false, why: `git blob ${found}, the record says ${blobId}`, expected: `gitSha1:${blobId}`, found: `gitSha1:${found}` };
   }
 
   if (address) {
@@ -477,7 +510,7 @@ export async function check(kernel, file, { address, size, blobId, entry }) {
     new DataView(request.buffer).setBigUint64(65, BigInt(size));
     new DataView(request.buffer).setBigUint64(73, BigInt(info.size));
     if ((await kernel.dispatch(request))[0] !== 20) {
-      return { ok: false, why: `sha256 ${observed} and ${info.size} bytes, the record says ${address} and ${size}` };
+      return { ok: false, why: `sha256 ${observed} and ${info.size} bytes, the record says ${address} and ${size}`, expected: `sha256:${address}`, found: `sha256:${observed}` };
     }
   }
 

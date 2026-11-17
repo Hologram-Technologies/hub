@@ -12,10 +12,10 @@
 spec = "template/1"
 
 [[authority]]
-id = "UOR-ADDR-0-2-0"
-name = "UOR-ADDR, the gguf realization, canonical form 2"
-citation = "https://crates.io/crates/uor-addr/0.2.0"
+id = "UOR-ADDR-0-4-0"
+name = "UOR-ADDR, the gguf realization (canonical form 3) and the safetensors realization (canonical form 2)"
+citation = "https://crates.io/crates/uor-addr/0.4.0"
 checksum = "none"
 checksum_reason = "The crate is a pinned registry dependency, not an artifact committed here: `Cargo.lock` records its digest and `cargo deny` refuses an unknown registry, so the bytes are held to by the lock rather than by a second copy of the hash."
-statement = "A canonical form for GGUF v3, hashed to a 71-byte kappa-label `sha256:<64hex>`, in which every variable-length leaf is represented by the streamed SHA-256 of its own bytes, and under which two files that decode to the same logical content -- modulo metadata-key order, tensor order and tensor-data layout -- canonicalize to byte-identical skeletons and so to the same label."
-realized_by = ["HK-24", "HK-25"]
+statement = "Canonical forms for GGUF v3 and for safetensors, each hashed to a 71-byte kappa-label `blake3:<64hex>`, in which every tensor's data is represented by the BLAKE3 of that tensor's own bytes, and under which two files that decode to the same logical content -- modulo metadata-key order, tensor order and tensor-data layout, and for safetensors JSON whitespace, escapes and header padding -- canonicalize to byte-identical skeletons and so to the same label."
+realized_by = ["HK-24", "HK-25", "HK-35", "HK-38"]

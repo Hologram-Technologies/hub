@@ -44,6 +44,7 @@ model does not sanction.
 | `HK-25` | `build` | The page shows a tensor address as checked only when the kernel accepted bytes the page fetched itself, so an address the hub published is never drawn as proof of bytes nobody read |
 | `HK-26` | `build` | A filter the panel offers is one whatever is driving the list can act on, so a control is never drawn that cannot narrow anything |
 | `HK-29` | `build` | The index learns which other sources hold a release only from the holders record this repository carries, and only for the revision that record names, so a build reads no other hub |
+| `HK-35` | `build` | Every safetensors file in the UOR address index is addressed by uor-addr's safetensors realization, and each of its tensors carries the BLAKE3 leaf the file's label binds, which is its address, and the byte range that leaf was taken over, so a reader checks one tensor from a ranged read |
 
 ## kernel
 
@@ -73,6 +74,13 @@ model does not sanction.
 | `HK-41` | `build` | A stored piece that matches a piece table of the requested address is always reused and never fetched again |
 | `HK-42` | `build` | A piece is refused only when no source is left, and retried only while a source remains |
 
+## runner
+
+| ID | Level | Statement |
+| --- | --- | --- |
+| `HK-36` | `build` | The runner checks a file it serves from its cache against the file's address and every tensor's address on every read, as it checks a fresh fetch, and a cached file that fails is deleted and fetched again rather than served |
+| `HK-37` | `build` | When every source sends bytes that do not match the address, the runner refuses with Quarantined, naming the address it expected and the one it got, so a client can tell bad bytes from an outage |
+
 ## spaces
 
 | ID | Level | Statement |
@@ -86,13 +94,19 @@ model does not sanction.
 | `HK-31` | `build` | Every read operation Hugging Face answers a client with no token, for models, datasets and Spaces, is one the hub answers at Hugging Face's own path and in its terms, and none of them is refused |
 | `HK-32` | `build` | Every request the hub does not answer as a read is refused as Hugging Face refuses a client with no token: 401 with a Bearer challenge |
 
+## verify
+
+| ID | Level | Statement |
+| --- | --- | --- |
+| `HK-38` | `build` | A downloaded model file is checked against the UOR address index by a verifier that uses only the Python standard library: it recomputes the file's canonical label and every tensor's leaf, and refuses the file naming each tensor that does not match |
+
 ## Cited authorities
 
 Never re-derived, vendored, or gated on.
 
 | Authority | Citation | Evidence here |
 | --- | --- | --- |
-| `UOR-ADDR-0-2-0` | https://crates.io/crates/uor-addr/0.2.0 | `HK-24`, `HK-25` |
+| `UOR-ADDR-0-4-0` | https://crates.io/crates/uor-addr/0.4.0 | `HK-24`, `HK-25`, `HK-35`, `HK-38` |
 
 ## Claims that are not conformance IDs
 

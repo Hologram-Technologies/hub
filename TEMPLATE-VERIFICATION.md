@@ -1650,23 +1650,40 @@ carry: format, family, architecture, modality, source and status are derived by
 `tools/facets.mjs` from tags and a model's files, and the roll keeps neither.
 They remain available for the addressed catalogue and absent for the rest,
 which is the honest state rather than a silently narrower panel.
-
-### The trending order is Hugging Face's, not a near miss of it
-
-Until 2026-11-14 the browse index derived a trending score from likes and
-downloads against a model's age, because the listing the roll read did not
-carry one. It does: `trendingScore` is one of the twenty-six `expand[]`
-options, and naming it returns the real number. Measured that day, the top of
-the trending order reads 4,428 for `xtools-at/DeepSeek-V4-Pro-...`, 997 for
-`MiniMaxAI/MiniMax-H3-Image`, 426 for `Lightricks/LTX-2.5`.
-
-So the roll carries it as given, beside the downloads and the likes, and under
-the same rule: it is a measurement of somebody else's traffic, named as such,
-not a fact this hub re-derives. The sort is now their order rather than a
-plausible-looking approximation of it, which is the difference between a
-catalogue a reader can compare with Hugging Face and one they cannot.
-
-The postings header also gained a count per value, which is what the filter
+
+
+### The trending order is Hugging Face's, not a near miss of it
+
+
+
+Until 2026-11-14 the browse index derived a trending score from likes and
+
+downloads against a model's age, because the listing the roll read did not
+
+carry one. It does: `trendingScore` is one of the twenty-six `expand[]`
+
+options, and naming it returns the real number. Measured that day, the top of
+
+the trending order reads 4,428 for `xtools-at/DeepSeek-V4-Pro-...`, 997 for
+
+`MiniMaxAI/MiniMax-H3-Image`, 426 for `Lightricks/LTX-2.5`.
+
+
+
+So the roll carries it as given, beside the downloads and the likes, and under
+
+the same rule: it is a measurement of somebody else's traffic, named as such,
+
+not a fact this hub re-derives. The sort is now their order rather than a
+
+plausible-looking approximation of it, which is the difference between a
+
+catalogue a reader can compare with Hugging Face and one they cannot.
+
+
+
+The postings header also gained a count per value, which is what the filter
+
 panel puts beside a chip: a reader takes it without touching a single posting.
 
 ## Pirate Face's models, drawn as models
@@ -1757,48 +1774,90 @@ An earlier run of the same tree verified `6e0cc8d6f8593efc3a4a2457d4dc34b023e79e
 before the site model was reworked. It is recorded here only so that the two
 hashes in this session's history are not mistaken for an unexplained drift:
 the model between them changed, and the second is the one this change ships.
-
-## The reader, and what it costs to draw a page
-
-`web/browse.mjs` is what the interface uses to read the browse index: a slice
-of an order, a slice of a postings file, a row apiece by offset, all ranged
-reads. `tests/browse/reader.mjs` drives it over real HTTP against a server
-answering exactly what GitHub Pages answers - a 206 with `Content-Range` for a
-Range request and a 200 otherwise - because a test that bypassed the ranges
-would be testing something else.
-
-Measured 2026-11-14 against a month of the Hub, 96,629 rows: sixteen checks,
-and **659 requests serving 152 kB in all, out of a 13 MB catalogue**. That is
-the whole point of the index in one number.
-
-The checks worth naming: an unfiltered page is the page sorting the lot would
-give, by id, in order; a filtered page's total is both the count the header
-gave and the count by hand; two chips in one group are a union and two groups
-intersect; the second page follows the first and repeats none of it; a page
-past the end is clamped rather than empty; and a value nothing holds gives
-nothing.
-
-**The planted defect.** Make two facet groups union where they should
-intersect - one character of difference at the call site, and the kind of
-mistake that looks like a widened filter rather than a wrong one.
-
-Failing command: `node tests/browse/reader.mjs <index>`. Diagnostic:
-
-    FAIL two groups intersect: a row did not hold both
-    FAIL and give no more than either alone: 34219 against 14569
-
-Exit 1 with it, exit 0 restored. Fourteen of the sixteen checks passed either
-way: pages still arrived, still sorted, still paged, still clamped, and single
-filters still gave exactly the right totals. Only a check that asked what two
-filters together mean could see it.
-
-### What the reader does not do
-
-Check the bytes. Everywhere else the hub's rule is that a reader hashes what
-it is given and compares with a signed root, and that needs the whole file. A
-ranged read is a few hundred bytes out of 400 MB. So `checked` on the handle
-is false, the interface says so rather than implying otherwise, and the
-checkable artefact remains the roll itself - small shards, named by its root,
+
+
+## The reader, and what it costs to draw a page
+
+
+
+`web/browse.mjs` is what the interface uses to read the browse index: a slice
+
+of an order, a slice of a postings file, a row apiece by offset, all ranged
+
+reads. `tests/browse/reader.mjs` drives it over real HTTP against a server
+
+answering exactly what GitHub Pages answers - a 206 with `Content-Range` for a
+
+Range request and a 200 otherwise - because a test that bypassed the ranges
+
+would be testing something else.
+
+
+
+Measured 2026-11-14 against a month of the Hub, 96,629 rows: sixteen checks,
+
+and **659 requests serving 152 kB in all, out of a 13 MB catalogue**. That is
+
+the whole point of the index in one number.
+
+
+
+The checks worth naming: an unfiltered page is the page sorting the lot would
+
+give, by id, in order; a filtered page's total is both the count the header
+
+gave and the count by hand; two chips in one group are a union and two groups
+
+intersect; the second page follows the first and repeats none of it; a page
+
+past the end is clamped rather than empty; and a value nothing holds gives
+
+nothing.
+
+
+
+**The planted defect.** Make two facet groups union where they should
+
+intersect - one character of difference at the call site, and the kind of
+
+mistake that looks like a widened filter rather than a wrong one.
+
+
+
+Failing command: `node tests/browse/reader.mjs <index>`. Diagnostic:
+
+
+
+    FAIL two groups intersect: a row did not hold both
+
+    FAIL and give no more than either alone: 34219 against 14569
+
+
+
+Exit 1 with it, exit 0 restored. Fourteen of the sixteen checks passed either
+
+way: pages still arrived, still sorted, still paged, still clamped, and single
+
+filters still gave exactly the right totals. Only a check that asked what two
+
+filters together mean could see it.
+
+
+
+### What the reader does not do
+
+
+
+Check the bytes. Everywhere else the hub's rule is that a reader hashes what
+
+it is given and compares with a signed root, and that needs the whole file. A
+
+ranged read is a few hundred bytes out of 400 MB. So `checked` on the handle
+
+is false, the interface says so rather than implying otherwise, and the
+
+checkable artefact remains the roll itself - small shards, named by its root,
+
 which `tests/roll/published.mjs` refuses to publish unnamed.
 
 ## HK-22: what the ETag says and what the sources may serve are different facts
@@ -2125,49 +2184,92 @@ claim that adds a theorem moves everything, the attestation included. And a
 claim that adds no theorem moves nothing either, where the attestation
 standing still is the confirmation rather than a surprise - recorded under
 HK-20 above.
-
-## Searching three million names
-
-A model is found by the words in its name: owner and repository, cut at
-anything that is not a letter or a digit, lowercased. `Qwen/Qwen3.8-27B` is
-found by qwen, 27b and 8. Measured 2026-11-14 over 103,000 models: 5.5 words
-each, 79,561 distinct, 60 per cent of them held by one model only; at three
-million that is about 17.6 million postings over 2.48 million words.
-
-Each word's rows are stored as positions in a sort's order, the same shape a
-facet uses, in a file named by the word's first two characters. So a term is
-one fetch of the bucket's word list and one ranged read of its postings, and
-two terms intersect.
-
-The words are written once and the postings once per sort. Writing both five
-times costs 128 MB at three million models - measured, 309 MB against 181 -
-which is the difference between a site that fits and one that does not. The
-whole published site comes to about 885 MB of the 1,024 MB GitHub allows, and
-`pages.yml` refuses at 950.
-
-### What the gate checks
-
-`tests/browse/reader.mjs` compares every search with the same search done the
-slow way over the rows: that a term finds exactly the rows whose name holds
-it, in the order sorting the lot would give; that two terms both have to
-match and give no more than either; that a word nothing holds finds nothing;
-and that a search and a filter intersect.
-
-**The planted defect.** Skip a word the index has never seen instead of
-letting it match nothing - one `continue`, and the kind of mistake that reads
-as leniency. Diagnostic:
-
-    FAIL a word nothing holds finds nothing: 96629
-
-Exit 1 with it, exit 0 restored. It is the one check that could see it: every
-other search check passed either way, because a search for words that do
-exist is unaffected. A typo would have quietly returned the whole catalogue.
-
-### Measured in a browser
-
-Against a month of the Hub, 96,629 models: `qwen` narrows 96.6k to 1.6k,
-`qwen gguf` to 108, and the cards are Qwen GGUF repositories. A search costs
-three requests and 4 kB; the page in total, including the catalogue load, is
+
+
+## Searching three million names
+
+
+
+A model is found by the words in its name: owner and repository, cut at
+
+anything that is not a letter or a digit, lowercased. `Qwen/Qwen3.8-27B` is
+
+found by qwen, 27b and 8. Measured 2026-11-14 over 103,000 models: 5.5 words
+
+each, 79,561 distinct, 60 per cent of them held by one model only; at three
+
+million that is about 17.6 million postings over 2.48 million words.
+
+
+
+Each word's rows are stored as positions in a sort's order, the same shape a
+
+facet uses, in a file named by the word's first two characters. So a term is
+
+one fetch of the bucket's word list and one ranged read of its postings, and
+
+two terms intersect.
+
+
+
+The words are written once and the postings once per sort. Writing both five
+
+times costs 128 MB at three million models - measured, 309 MB against 181 -
+
+which is the difference between a site that fits and one that does not. The
+
+whole published site comes to about 885 MB of the 1,024 MB GitHub allows, and
+
+`pages.yml` refuses at 950.
+
+
+
+### What the gate checks
+
+
+
+`tests/browse/reader.mjs` compares every search with the same search done the
+
+slow way over the rows: that a term finds exactly the rows whose name holds
+
+it, in the order sorting the lot would give; that two terms both have to
+
+match and give no more than either; that a word nothing holds finds nothing;
+
+and that a search and a filter intersect.
+
+
+
+**The planted defect.** Skip a word the index has never seen instead of
+
+letting it match nothing - one `continue`, and the kind of mistake that reads
+
+as leniency. Diagnostic:
+
+
+
+    FAIL a word nothing holds finds nothing: 96629
+
+
+
+Exit 1 with it, exit 0 restored. It is the one check that could see it: every
+
+other search check passed either way, because a search for words that do
+
+exist is unaffected. A typo would have quietly returned the whole catalogue.
+
+
+
+### Measured in a browser
+
+
+
+Against a month of the Hub, 96,629 models: `qwen` narrows 96.6k to 1.6k,
+
+`qwen gguf` to 108, and the cards are Qwen GGUF repositories. A search costs
+
+three requests and 4 kB; the page in total, including the catalogue load, is
+
 221 requests and 164 kB with nothing larger than 65 kB.
 
 ## What a torrent's checksums prove, measured against what an address proves
@@ -2713,15 +2815,24 @@ diagnostic is the measurement:
     FAIL http://localhost:8099/ at 1440x900: clipped: Immersive (66 into 45)
     FAIL http://localhost:8099/ at 390x844: clipped: Immersive (66 into 63)
 
-Restored, both pass: `every theme label fits`, at both widths.
-
-Where it runs is narrower than it looks, and saying so is part of the
-record. `tools/smoke.mjs` is invoked only by `pages.yml`, which triggers on
-push to `main`, and its `smoke` job `needs: deploy`. The check therefore does
-not run on a pull request at all, and on `main` it runs after the site is
-published: it turns the run red, it does not hold the page back. That is
-where every other interface check in this repository already sits, so it is
-consistent - but it detects rather than prevents, and the two are not the
+Restored, both pass: `every theme label fits`, at both widths.
+
+
+
+Where it runs is narrower than it looks, and saying so is part of the
+
+record. `tools/smoke.mjs` is invoked only by `pages.yml`, which triggers on
+
+push to `main`, and its `smoke` job `needs: deploy`. The check therefore does
+
+not run on a pull request at all, and on `main` it runs after the site is
+
+published: it turns the run red, it does not hold the page back. That is
+
+where every other interface check in this repository already sits, so it is
+
+consistent - but it detects rather than prevents, and the two are not the
+
 same claim.
 
 The gate itself was wrong twice before it was right, which is the reason to
@@ -3221,3 +3332,66 @@ private repository, an owner-only read, is answered as huggingface.co answers
 a client with no token. Datasets and Spaces are answered from Hugging Face's
 own answer, as a model outside the signed index is; indexing them is a
 separate step.
+
+## HK-35 to HK-38: every safetensors tensor carries a UOR address, and every reader checks it
+
+Audited 2026-11-17 (`verification/hub-trustless-pull.md`, kept outside this
+change): tensor addresses existed for three models, all on this hub's BLAKE3
+axis and none minted by `uor-addr`, because `uor-addr 0.2.0` had no
+safetensors realization. The runner served its cache without re-hashing it,
+so a cached copy with one byte changed reached the client, and a mismatch was
+answered 503 NoSource, the same as an outage.
+
+`uor-addr 0.4.0` (crates.io, 2026-11-17) addresses safetensors (canonical form
+2) and GGUF (canonical form 3) with one leaf rule: each tensor is represented
+by the BLAKE3 of its own bytes, and the label is the BLAKE3 of the skeleton. A
+tensor's leaf is therefore its address, the number the runner's manifest and
+hologram's `substrate.rs` already use, and a row carries one number per tensor,
+`address`, where under 0.3.0 it carried a SHA-256 `uorLeaf` beside it.
+`uor-label` re-derives the label from the skeleton and every leaf from its byte
+range before it prints either.
+
+- `HK-35`: `uor-label` chooses the realization from the file's first bytes and
+  mints safetensors files through `uor_addr::safetensors`. The index builder
+  addresses them, and the root names one canonical form per realization
+  (`{"gguf":3,"safetensors":2}`). `manifests/uor.txt` adds gpt2, all-MiniLM,
+  bge-small and Qwen3-0.6B (BF16). Measured locally on all-MiniLM and
+  phonon-31m (two safetensors files beside two GGUF files): 5 files, 660
+  tensors. All 104 of all-MiniLM's tensor addresses equal the runner's signed
+  manifest's.
+- `HK-36`: a cache hit is checked against the file's address and every
+  witnessed tensor, as a fresh fetch is. A copy that fails is deleted and
+  fetched again, and no source is blamed.
+- `HK-37`: when sources sent only wrong bytes and none was merely
+  unreachable, the refusal is 502 Quarantined (code 21), naming both
+  addresses. A file with no address to compare against stays 503 NoSource.
+- `HK-38`: `web/uor-verify.py`, published at the site root, uses only the
+  Python standard library. It recomputes each file's label under uor-addr's
+  own executable specification (vendored from tag v0.4.0, with BLAKE3's
+  reference implementation in pure Python) and every tensor's address, and
+  names each tensor that differs. The pure-Python BLAKE3 runs at about
+  0.74 MB/s, so `--fast` uses the official `blake3` package instead and says
+  so; the default stays standard-library only.
+
+### Planted defects, each rejected by name and restored
+
+    the builder reads GGUF only (HK-35):
+      the builder must address safetensors files, not only GGUF
+    cache hits not checked (HK-36, tests/runner/serve.mjs):
+      a corrupted cached copy must never reach the client
+    a mismatch refused as an outage (HK-37, tests/runner/serve.mjs):
+      503 !== 502
+    the verifier skips the label (HK-38, tests/uor/verify.py):
+      the flipped-tensor case fails: the refusal no longer says the label differs
+
+Restored, `cargo test -p repo-conformance`, `node tests/runner/serve.mjs`,
+`node tests/uor/index.mjs` and `python3 -I tests/uor/verify.py` pass.
+
+### Not covered
+
+Tensor-level checks in the runner compare against the BLAKE3 manifest
+`tools/manifest.mjs` builds from Hugging Face's bytes. Under 0.4.0 those are
+the same numbers as the UOR rows' tensor addresses, but the runner does not yet
+read the UOR rows. `node tests/uor/index.mjs` needs an index built from the
+live catalogue, which the Pages workflow builds; it was not run locally for the
+0.4.0 change. ONNX files remain unaddressed.

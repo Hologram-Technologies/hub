@@ -280,28 +280,33 @@ fn index_hk_24() {
         );
     }
 
-    // The model label is upstream's, from upstream's own entry point, on the
-    // axis this family addresses on.
+    // The model label is upstream's, from upstream's own default entry point,
+    // which since uor-addr 0.4.0 is the blake3 axis; and the minter re-derives
+    // it from the skeleton before printing it.
     assert!(
-        minter.contains("uor_addr::gguf::address_blake3"),
-        "the model label must come from uor-addr's blake3 axis rather than be assembled here"
-    );
-    // A tensor's address is this hub's own, taken over the tensor's raw bytes
-    // by the builder. It is not uor-addr's leaf and must not be read out of
-    // one: the canonical form fixes its leaves to SHA-256 whatever the axis,
-    // so a row that called the leaf its address would name the wrong number.
-    assert!(
-        builder.contains("blake3OfRange"),
-        "the builder must take each tensor's address over the bytes itself"
+        minter.contains("uor_addr::gguf::address(")
+            && !minter.contains("address_blake3")
+            && !minter.contains("address_sha256"),
+        "the model label must come from uor-addr's default (blake3) entry point rather than be assembled here"
     );
     assert!(
-        builder.contains("tensor.address = await blake3OfRange"),
-        "a tensor's address must be the blake3 the builder computed"
+        minter.contains("format!(\"blake3:{}\", hex(&b3(&skeleton)))"),
+        "the minter must re-derive the label by hashing the skeleton it read the leaves from"
     );
+    // A tensor's address is uor-addr's canonical-form leaf: since 0.4.0 the
+    // BLAKE3 of the tensor's raw bytes, the same number runner/uor.mjs emits.
+    // The minter publishes it only after hashing the range it names, so the
+    // builder carries it as it is and computes no second number beside it.
     assert!(
-        !builder.contains("address: minted") && !builder.contains("address = minted"),
-        "a tensor's address must not be read out of the minter's leaf"
+        minter.contains("\\\"address\\\":\\\"blake3:{}\\\""),
+        "the minter must publish each tensor's leaf as its blake3 address"
     );
+    for second in ["blake3OfRange", "uorLeaf", "sha256Label"] {
+        assert!(
+            !builder.contains(second),
+            "a tensor has one address; the builder must not carry `{second}` beside it"
+        );
+    }
     // A label and the canonical form that minted it travel together: a label
     // whose form is unknown is ambiguous the moment upstream bumps one.
     assert!(
@@ -520,5 +525,63 @@ fn index_hk_29() {
     assert!(
         predicate.contains("\"holders\":\"sources/holders.json"),
         "the index's signed predicate must name sources/holders.json: {predicate}"
+    );
+}
+
+/// `HK-35`: Every safetensors file in the UOR address index is addressed by uor-addr's safetensors realization, and each of its tensors carries the BLAKE3 leaf the file's label binds, which is its address, and the byte range that leaf was taken over, so a reader checks one tensor from a ranged read
+#[test]
+fn index_hk_35() {
+    let builder = without_comments("tools/uor-index.mjs");
+    let minter = without_comments("crates/uor-label/src/main.rs");
+    let check = without_comments("tests/uor/index.mjs");
+
+    // The safetensors label is upstream's, from upstream's own entry points,
+    // and the skeleton it is checked against is the one upstream canonicalized.
+    for call in [
+        "uor_addr::safetensors::address(",
+        "uor_addr::safetensors::canonicalize",
+    ] {
+        assert!(
+            minter.contains(call),
+            "a safetensors label must come from uor-addr's `{call}`, not be assembled here"
+        );
+    }
+    // The realization is chosen by the file's own bytes, not its name.
+    assert!(
+        minter.contains("GGUF_MAGIC.to_le_bytes()"),
+        "the minter must choose the realization from the file's first bytes"
+    );
+    // Every leaf published is the digest of exactly the range published beside
+    // it, for safetensors as for GGUF: the check appears once per realization.
+    assert!(
+        minter
+            .matches("over_range.as_slice() != entry.leaf")
+            .count()
+            >= 2,
+        "both realizations must refuse a leaf that is not the digest of the range they publish"
+    );
+    assert!(
+        minter.contains("\\\"realization\\\":\\\"safetensors\\\""),
+        "a safetensors row must say which realization minted it"
+    );
+
+    // The builder fetches safetensors files and does not set them aside.
+    assert!(
+        builder.contains(r"/\.(gguf|safetensors)$/i"),
+        "the builder must address safetensors files, not only GGUF"
+    );
+    assert!(
+        builder.contains(r"const other = record.files.filter((f) => /\.onnx$/i"),
+        "only ONNX may be reported as having no canonical form read here"
+    );
+    // Two realizations number their forms apart, so the root names one per
+    // realization and a row is held to its own realization's.
+    assert!(
+        builder.contains("canonicalForms:"),
+        "the root must name the canonical form of each realization"
+    );
+    assert!(
+        check.contains("root.canonicalForms[row.realization]"),
+        "the artifact check must hold each row to its own realization's form"
     );
 }

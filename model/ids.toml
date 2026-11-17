@@ -227,6 +227,30 @@ suite = "surface"
 statement = "Every request the hub does not answer as a read is refused as Hugging Face refuses a client with no token: 401 with a Bearer challenge"
 
 [[id]]
+id = "HK-35"
+level = "build"
+suite = "index"
+statement = "Every safetensors file in the UOR address index is addressed by uor-addr's safetensors realization, and each of its tensors carries the BLAKE3 leaf the file's label binds, which is its address, and the byte range that leaf was taken over, so a reader checks one tensor from a ranged read"
+
+[[id]]
+id = "HK-36"
+level = "build"
+suite = "runner"
+statement = "The runner checks a file it serves from its cache against the file's address and every tensor's address on every read, as it checks a fresh fetch, and a cached file that fails is deleted and fetched again rather than served"
+
+[[id]]
+id = "HK-37"
+level = "build"
+suite = "runner"
+statement = "When every source sends bytes that do not match the address, the runner refuses with Quarantined, naming the address it expected and the one it got, so a client can tell bad bytes from an outage"
+
+[[id]]
+id = "HK-38"
+level = "build"
+suite = "verify"
+statement = "A downloaded model file is checked against the UOR address index by a verifier that uses only the Python standard library: it recomputes the file's canonical label and every tensor's leaf, and refuses the file naming each tensor that does not match"
+
+[[id]]
 id = "HK-39"
 level = "build"
 suite = "kernel"

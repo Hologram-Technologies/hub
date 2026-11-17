@@ -58,3 +58,10 @@ Feature: index
     Then it reads them from sources/holders.json, names no other hub, and takes an entry only when its revision is the release's
     And every entry in the record names its revision, the hash of the file it was read from, and each source's kind, resolve base and missing files
     And the index's signed predicate names that record as where its holders came from
+
+  @HK-35 @build
+  Scenario: Every safetensors file in the UOR address index is addressed by uor-addr's safetensors realization, and each of its tensors carries the BLAKE3 leaf the file's label binds, which is its address, and the byte range that leaf was taken over, so a reader checks one tensor from a ranged read
+    Given a UOR address index built by tools/uor-index.mjs from a model with safetensors files
+    When uor-label mints a safetensors file through uor-addr's safetensors entry points
+    Then the row says it is the safetensors realization and the root names that realization's canonical form
+    And every tensor carries its uor-addr leaf and the byte range of the file that leaf is the SHA-256 of

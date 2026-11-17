@@ -1559,7 +1559,8 @@ async function drawModel(main, id) {
     if (!files.length) return `<p class="note">${esc(s.uor.none)}</p>`;
     drawn = files;
     const addresser = `${manifest.addresser.crate} ${manifest.addresser.version}`;
-    return `<p class="note">${esc(fill(s.uor.note, { n: files.length, addresser, form: manifest.canonicalForm }))}</p>
+    const form = [...new Set(files.map((f) => `${f.realization} ${f.canonicalForm}`))].join(", ");
+    return `<p class="note">${esc(fill(s.uor.note, { n: files.length, addresser, form }))}</p>
       ${files.map((f, fi) => `<section class="uor">
         <h3>${esc(f.path)}</h3>
         <dl class="facts"><div><dt>${esc(s.uor.fileLabel)}</dt><dd class="addr">${esc(f.label)}</dd></div></dl>
