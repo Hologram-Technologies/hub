@@ -1,0 +1,38 @@
+\begin{lexlean}{Proofs.PieceVerified}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\importmodule{Pieces}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksPieceVerified,
+  parameters: [piece : Pieces::Piece],
+  result: Bool,
+  body: (((Pieces::pieceDecision piece) =? (Pieces::answerDeliver)) && (not ((Pieces::tableHolds piece) && (Pieces::bytesHold piece))))
+}
+
+theorem{
+  name: pieceVerifiedHolds,
+  parameters: [piece : Pieces::Piece],
+  statement: ((breaksPieceVerified piece) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Kernel::sameDigest,
+      Pieces::answerDeliver,
+      Pieces::answerRefuse,
+      Pieces::answerRetry,
+      Pieces::answerReuse,
+      Pieces::bytesHold,
+      Pieces::cacheHolds,
+      Pieces::fallback,
+      Pieces::pieceDecision,
+      Pieces::tableHolds,
+      breaksPieceVerified
+    ]
+  },
+  axioms: [Classical.choice, Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}
