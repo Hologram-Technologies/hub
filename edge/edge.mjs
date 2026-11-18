@@ -31,6 +31,14 @@ let dialect = null;
 let recordFields = [];
 let partialHeader = "X-Hub-Partial";
 let index = null;
+// How the index is opened again. Pages replaces the index on every deploy, so
+// a root read once at start goes stale and every record a deploy changed stops
+// matching it (2026-11-18: four models answered 502 until the edge restarted).
+// The root is read again when a record does not match it, and in the
+// background once it is REOPEN old; a failed reopen keeps the index it had.
+let reopenIndex = null;
+let reopening = null;
+const REOPEN = 10 * 60_000;
 // The browse rows the listing answers from, and the query the kernel says it
 // takes.
 let browse = [];
@@ -76,7 +84,8 @@ export async function start({ holo, index: indexUrl, huggingFace = true, drain =
   let state = "none";
   if (indexUrl && policy?.indexPredicateType) {
     try {
-      index = await openIndex(indexUrl, policy);
+      reopenIndex = () => openIndex(indexUrl, policy);
+      index = await reopenIndex();
       browse = await openBrowse(indexUrl, index.root);
       state = `${index.records.size} models`;
     } catch (error) {
@@ -136,7 +145,24 @@ async function openIndex(base, policy) {
   const failed = ["chain", "time", "log", "signature", "identity", "subject", "predicate"].filter((k) => !facts[k]);
   if (failed.length) throw new Error(`signature check failed: ${failed.join(", ")}`);
   const root = JSON.parse(new TextDecoder().decode(rootBytes));
-  return { base, root, records: new Map(root.records.map((r) => [r.repo.toLowerCase(), r])), loaded: new Map() };
+  return { base, root, records: new Map(root.records.map((r) => [r.repo.toLowerCase(), r])), loaded: new Map(), opened: Date.now() };
+}
+
+// Reads the root again, checks it as at start, and only then replaces the
+// index and the browse rows together. One reopen at a time.
+function reopen() {
+  if (!reopenIndex) return Promise.resolve();
+  reopening ??= (async () => {
+    try {
+      const next = await reopenIndex();
+      const rows = await openBrowse(next.base, next.root);
+      index = next;
+      browse = rows;
+    } finally {
+      reopening = null;
+    }
+  })();
+  return reopening;
 }
 
 // The browse rows: the same shards the page draws, read the same way. A shard
@@ -155,23 +181,44 @@ async function openBrowse(base, root) {
 // For tests of the index logic before a signature exists (the signature is
 // made in CI). serve.mjs never calls it: the server opens only a signed index.
 export async function adoptUnsignedIndexForTests(base) {
-  const root = await (await fetch(new URL("root.json", base))).json();
-  index = { base, root, records: new Map(root.records.map((r) => [r.repo.toLowerCase(), r])), loaded: new Map() };
-  browse = await openBrowse(base, root);
+  reopenIndex = async () => {
+    const root = await (await fetch(new URL("root.json", base))).json();
+    return { base, root, records: new Map(root.records.map((r) => [r.repo.toLowerCase(), r])), loaded: new Map(), opened: Date.now() };
+  };
+  index = await reopenIndex();
+  browse = await openBrowse(base, index.root);
 }
 
-async function record(repo) {
-  const entry = index?.records.get(repo.toLowerCase());
-  if (!entry) return null;
-  if (!index.loaded.has(entry.repo)) {
-    index.loaded.set(entry.repo, (async () => {
-      const bytes = new Uint8Array(await (await fetch(new URL(`models/${entry.repo}.json`, index.base))).arrayBuffer());
+function loadRecord(at, entry) {
+  if (!at.loaded.has(entry.repo)) {
+    const loading = (async () => {
+      const bytes = new Uint8Array(await (await fetch(new URL(`models/${entry.repo}.json`, at.base))).arrayBuffer());
       // A record counts only if the signed root names exactly these bytes.
       if (sha256(bytes) !== entry.sha256) throw new Error(`index record for ${entry.repo} does not match the signed root`);
       return JSON.parse(new TextDecoder().decode(bytes));
-    })());
+    })();
+    // A failed load is not remembered: the next request tries again.
+    loading.catch(() => { if (at.loaded.get(entry.repo) === loading) at.loaded.delete(entry.repo); });
+    at.loaded.set(entry.repo, loading);
   }
-  return index.loaded.get(entry.repo);
+  return at.loaded.get(entry.repo);
+}
+
+async function record(repo) {
+  if (index && Date.now() - index.opened > REOPEN) reopen().catch(() => {});
+  const at = index;
+  const entry = at?.records.get(repo.toLowerCase());
+  if (!entry) return null;
+  try {
+    return await loadRecord(at, entry);
+  } catch (error) {
+    // A record that does not match the root may be from a deploy newer than
+    // the root: read the root again, check it, and ask once more.
+    if (!reopenIndex) throw error;
+    await reopen();
+    const again = index.records.get(repo.toLowerCase());
+    return again ? loadRecord(index, again) : null;
+  }
 }
 
 async function cached(key, make) {

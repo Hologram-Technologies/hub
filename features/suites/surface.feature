@@ -14,3 +14,10 @@ Feature: surface
     When a request is a write, an owner-only read, whoami, or a path the table does not hold
     Then the kernel refuses it, and Lean proves that every method the table does not list for an operation is refused
     And the dialect answers that refusal 401 with a Bearer challenge and Hugging Face's own message, as huggingface.co answers a client with no token
+
+  @HK-53 @build
+  Scenario: The edge reads the signed index root again when a record does not match the root it holds, so a deploy never leaves a model refused, and bytes no signed root names are still refused
+    Given an edge that opened the signed index before a deploy replaced it
+    When a client asks for a model whose record the deploy changed
+    Then the edge reads the root again, checks it as it did at start, and answers from the new record
+    And a record whose bytes no root names is still refused, and the refusal is not remembered

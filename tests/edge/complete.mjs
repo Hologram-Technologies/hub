@@ -31,7 +31,22 @@ if (root.records.length < 2) {
   console.error("the index needs at least two records");
   process.exit(64);
 }
-const [whole, broken] = root.records;
+// The complete record is chosen by the ten fields the kernel names, read
+// from the record itself, not by its place in the root: the first record of
+// the live index lacked `library_name` on 2026-11-18, and taking it as whole
+// failed this check on every deploy. The edge is then asked whether it agrees.
+const tenFields = (r) => Boolean(r.revision && r.files?.length && r.info?.tags && r.info?.pipeline_tag
+  && r.info?.library_name && r.config && r.cardData && r.safetensors && r.info?.lastModified
+  && r.info?.gated !== undefined);
+let whole = null;
+for (const entry of root.records) {
+  if (tenFields(JSON.parse(await readFile(join(work, "models", `${entry.repo}.json`), "utf8")))) { whole = entry; break; }
+}
+if (!whole) {
+  console.error(`none of the ${root.records.length} records holds all ten fields`);
+  process.exit(64);
+}
+const broken = root.records.find((r) => r !== whole);
 const path = join(work, "models", `${broken.repo}.json`);
 const record = JSON.parse(await readFile(path, "utf8"));
 delete record.config;
