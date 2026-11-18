@@ -81,6 +81,9 @@ jobs:
           cp "${holos[0]}" "$RUNNER_TEMP/kernel/app.holo"
           (cd "$RUNNER_TEMP/kernel" && python3 -m http.server 8790 --bind 127.0.0.1 > /dev/null 2>&1 &)
           for i in $(seq 1 30); do curl -sf -o /dev/null http://127.0.0.1:8790/app.holo && break; sleep 1; done
+      - name: A page with no server checks the signed root, a record and a file by BLAKE3, and refuses each defect by its code
+        shell: bash
+        run: node tests/index/client.mjs http://127.0.0.1:8790/app.holo https://hologram-technologies.github.io/hub/data/index/
       - name: The edge is read-only on every route, and HEAD answers as GET does
         shell: bash
         run: node tests/edge/methods.mjs http://127.0.0.1:8790/app.holo https://hologram-technologies.github.io/hub/data/index/

@@ -333,3 +333,9 @@ id = "HK-52"
 level = "build"
 suite = "index"
 statement = "Every initializer of an ONNX graph manifests/onnx.txt lists is in the UOR address index with its name, data type and dims, the file its bytes lie in, their offset and length there, and an address that is the BLAKE3 of exactly those bytes, so a reader checks one tensor from a ranged read"
+
+[[id]]
+id = "HK-54"
+level = "build"
+suite = "index"
+statement = "A page with no server checks the index root against its Sigstore signature and the trust roots the model pins, a record against the root by BLAKE3, and a file against its record by BLAKE3, with web/hub-client.mjs, and every refusal carries a stable code"

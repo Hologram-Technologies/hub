@@ -48,6 +48,7 @@ model does not sanction.
 | `HK-44` | `build` | Every tensor longer than 1 MiB in the UOR address index has a piece table, published under the tensor's address, that folds to that address, so a reader checks each piece of the tensor as it arrives |
 | `HK-51` | `build` | Every file manifests/onnx.txt lists carries, in its release record, the BLAKE3 of the whole file's bytes, and the index root names every record and browse shard by BLAKE3 beside SHA-256, so a reader checks a record and a file without SHA-256 |
 | `HK-52` | `build` | Every initializer of an ONNX graph manifests/onnx.txt lists is in the UOR address index with its name, data type and dims, the file its bytes lie in, their offset and length there, and an address that is the BLAKE3 of exactly those bytes, so a reader checks one tensor from a ranged read |
+| `HK-54` | `build` | A page with no server checks the index root against its Sigstore signature and the trust roots the model pins, a record against the root by BLAKE3, and a file against its record by BLAKE3, with web/hub-client.mjs, and every refusal carries a stable code |
 
 ## kernel
 

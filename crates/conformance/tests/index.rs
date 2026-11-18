@@ -881,3 +881,63 @@ fn index_hk_52() {
         );
     }
 }
+
+/// `HK-54`: A page with no server checks the index root against its Sigstore signature and the trust roots the model pins, a record against the root by BLAKE3, and a file against its record by BLAKE3, with web/hub-client.mjs, and every refusal carries a stable code
+#[test]
+fn index_hk_54() {
+    let client = without_comments("web/hub-client.mjs");
+    let check = without_comments("tests/index/client.mjs");
+    let workflow =
+        std::fs::read_to_string(repo_model::repo_root().join(".github/workflows/edge.yml"))
+            .expect("reading edge.yml");
+
+    // Self-contained for vendoring: the only static import is sigstore.mjs,
+    // and it names the version it was tested against.
+    let imports: Vec<&str> = client
+        .lines()
+        .filter(|l| l.trim_start().starts_with("import "))
+        .collect();
+    assert_eq!(
+        imports,
+        vec![r#"import { verifyBundle } from "./sigstore.mjs";"#],
+        "web/hub-client.mjs must import sigstore.mjs and nothing else statically"
+    );
+    // All seven signature checks, the root's BLAKE3 for a record, the
+    // record's BLAKE3 and length for a file.
+    for needle in [
+        r#"const FACTS = ["chain", "time", "log", "signature", "identity", "subject", "predicate"];"#,
+        "if (failed.length) throw new HubClientError(CODES.RootUnverified,",
+        "if (found !== entry.blake3) {",
+        "if (found !== expected || seen.length !== file.size) {",
+        "export const SIGSTORE_BLAKE3 = \"",
+    ] {
+        assert!(
+            client.contains(needle),
+            "web/hub-client.mjs must contain `{needle}`"
+        );
+    }
+    // Every code is planted against, and the policy comes from the kernel.
+    for code in [
+        "RootUnverified",
+        "RootUnreachable",
+        "RecordUnknown",
+        "RecordMismatch",
+        "RecordUnaddressed",
+        "FileMismatch",
+        "FileUnaddressed",
+    ] {
+        assert!(
+            check.contains(&format!("CODES.{code}")),
+            "tests/index/client.mjs must plant a defect refused as {code}"
+        );
+    }
+    assert!(
+        check.contains("const policy = loaded().trust;")
+            && check.contains("SIGSTORE_BLAKE3, \"web/sigstore.mjs is not the version"),
+        "the check must use the model's pinned policy and hold SIGSTORE_BLAKE3 to sigstore.mjs"
+    );
+    assert!(
+        workflow.contains("node tests/index/client.mjs"),
+        "edge.yml must run tests/index/client.mjs"
+    );
+}
