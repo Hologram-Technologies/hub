@@ -182,6 +182,19 @@ for (const row of onnxRows) {
 }
 if (onnxRows.length) ok(`${onnxRows.length} ONNX graphs: in every file, one tensor read by range hashes to its address`);
 
+// Every graph manifests/onnx.txt lists is a row, or is unaddressed with the
+// reader's own refusal: none is dropped, and none is left to the old "no
+// canonical form" reason.
+const listedGraphs = (await readFile(fileURLToPath(new URL("../../manifests/onnx.txt", import.meta.url)), "utf8"))
+  .split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#") && /\.onnx$/i.test(l));
+for (const line of listedGraphs) {
+  const [repo, path] = line.split(/\s+/);
+  const row = onnxRows.some((r) => r.repo === repo && r.path === path);
+  const refused = root.unaddressed.find((u) => u.repo === repo && u.path === path);
+  assert.ok(row || refused?.why?.startsWith("onnx:"), `${repo}/${path} is listed in manifests/onnx.txt and is neither addressed nor refused by the reader`);
+}
+if (listedGraphs.length) ok(`${listedGraphs.length} listed ONNX graphs are each addressed or refused by name`);
+
 // What was not addressed is named, file by file, with a reason. A coverage
 // figure without this is a claim about the part nobody listed.
 for (const entry of root.unaddressed) {

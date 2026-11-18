@@ -238,7 +238,7 @@ async function deriveTensor(row, tensor, onProgress) {
     await verifiedFetch({
       kappa: tensor.address,
       length: tensor.length,
-      // An ONNX tensor names the file it lies in and its offset there (HK-46).
+      // An ONNX tensor names the file it lies in and its offset there (HK-52).
       sources: [{ url: `${row.resolve}${tensor.file ?? row.path}`, offset: tensor.offset ?? tensor.begin }],
       tables,
       pool,

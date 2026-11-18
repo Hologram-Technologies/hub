@@ -114,6 +114,13 @@ const rows = [];
 // address and any host may serve it.
 const tables = new Map();
 const unaddressed = [];
+// The ONNX files tools/onnx.mjs reads below, by repository.
+const onnxListed = new Map();
+for (const line of await named("onnx.txt")) {
+  const [repo, path] = line.split(/\s+/);
+  if (!onnxListed.has(repo)) onnxListed.set(repo, []);
+  onnxListed.get(repo).push(path);
+}
 const wanted = listed.filter((repo) => held.has(repo.toLowerCase()));
 for (const repo of listed.filter((r) => !held.has(r.toLowerCase()))) {
   unaddressed.push({ repo, path: null, size: null, why: "named in manifests/uor.txt, but the signed index no longer holds it" });
@@ -148,7 +155,9 @@ for (const repo of wanted) {
   // The extension only chooses which files to fetch. `uor-label` decides the
   // realization from the bytes, so a misnamed file is refused, not misread.
   const weights = record.files.filter((f) => /\.(gguf|safetensors)$/i.test(f.path));
-  const other = record.files.filter((f) => /\.onnx$/i.test(f.path));
+  // A graph manifests/onnx.txt lists is addressed below; any other is said to
+  // be left unaddressed.
+  const other = record.files.filter((f) => /\.onnx$/i.test(f.path) && !(onnxListed.get(record.repo) ?? []).includes(f.path));
   for (const file of other) {
     unaddressed.push({ repo: record.repo, path: file.path, size: file.size, why: "no canonical form is read here for this format" });
   }
@@ -247,12 +256,6 @@ async function keptTables(row) {
   return found;
 }
 
-const onnxListed = new Map();
-for (const line of await named("onnx.txt")) {
-  const [repo, path] = line.split(/\s+/);
-  if (!onnxListed.has(repo)) onnxListed.set(repo, []);
-  onnxListed.get(repo).push(path);
-}
 const stream = async (record, path) => {
   const response = await fetch(`${HF}/${record.repo}/resolve/${record.revision}/${path}`, { signal: AbortSignal.timeout(60 * 60000) });
   if (!response.ok) throw new Error(`${record.repo}/${path}: ${response.status}`);
@@ -295,18 +298,33 @@ for (const [repo, paths] of onnxListed) {
       }
     }
     const started = Date.now();
-    const whole = blake3Stream();
-    const { initializers } = await readGraph(await stream(record, path), path, (c) => whole.update(c), tables);
-    const files = [sameFile(path, whole.finish())];
-    // External data, one pass per file, each range hashed as it passes.
-    const external = new Map();
-    for (const t of initializers.filter((x) => x.file !== path)) external.set(t.file, [...(external.get(t.file) ?? []), t]);
-    for (const [file, ranges] of external) {
-      if (!paths.includes(file)) throw new Error(`${repo}/${path} keeps weights in ${file}, which manifests/onnx.txt does not list`);
-      const data = blake3Stream();
-      await addressRanges(await stream(record, file), ranges, (c) => data.update(c), tables);
-      files.push(sameFile(file, data.finish()));
+    // A piece table is kept only once its whole graph is addressed.
+    const graphTables = new Map();
+    let initializers;
+    const files = [];
+    try {
+      const whole = blake3Stream();
+      ({ initializers } = await readGraph(await stream(record, path), path, (c) => whole.update(c), graphTables));
+      files.push(sameFile(path, whole.finish()));
+      // External data, one pass per file, each range hashed as it passes.
+      const external = new Map();
+      for (const t of initializers.filter((x) => x.file !== path)) external.set(t.file, [...(external.get(t.file) ?? []), t]);
+      for (const [file, ranges] of external) {
+        if (!paths.includes(file)) throw new Error(`${repo}/${path} keeps weights in ${file}, which manifests/onnx.txt does not list`);
+        const data = blake3Stream();
+        await addressRanges(await stream(record, file), ranges, (c) => data.update(c), graphTables);
+        files.push(sameFile(file, data.finish()));
+      }
+    } catch (error) {
+      // What the reader refuses rather than guess is a fact about the graph,
+      // recorded as the GGUF refusals above are; bytes that are not the BLAKE3
+      // the signed record names, or a failed fetch, stop the build.
+      if (!String(error?.message).startsWith("onnx:")) throw error;
+      unaddressed.push({ repo: record.repo, path, size: graph.size, why: error.message });
+      console.log(`  ${record.repo}/${path}: left unaddressed (${error.message})`);
+      continue;
     }
+    for (const [hex, table] of graphTables) tables.set(hex, table);
     rows.push({
       repo: record.repo,
       revision: record.revision,

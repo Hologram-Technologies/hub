@@ -804,6 +804,10 @@ fn index_hk_52() {
         "realization: \"onnx\",",
         "readGraph(await stream(record, path), path,",
         "await addressRanges(await stream(record, file), ranges,",
+        // A graph the reader refuses is named with the refusal; anything else
+        // read wrong stops the build.
+        "if (!String(error?.message).startsWith(\"onnx:\")) throw error;",
+        "!(onnxListed.get(record.repo) ?? []).includes(f.path)",
     ] {
         assert!(
             builder.contains(needle),
@@ -826,6 +830,7 @@ fn index_hk_52() {
         "which the row does not name",
         "read by range, is not its address",
         "is not the bytes the root names by BLAKE3",
+        "is neither addressed nor refused by the reader",
     ] {
         assert!(
             check.contains(needle),

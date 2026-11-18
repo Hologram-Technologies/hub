@@ -3,9 +3,9 @@
 # Each is the file Hologram AI's milestone 2 loads: the q4 and q4f16 graphs of
 # five exports, the external data a graph keeps its weights in, and the four
 # JSON files beside them. `tools/index.mjs` streams every one and puts the
-# BLAKE3 of its whole bytes in the release record (HK-45), and
+# BLAKE3 of its whole bytes in the release record (HK-51), and
 # `tools/uor-index.mjs` streams the graphs and their data again and publishes
-# every initializer's byte range and BLAKE3 (HK-46). The second pass also
+# every initializer's byte range and BLAKE3 (HK-52). The second pass also
 # hashes each whole file and refuses it unless it is the BLAKE3 the record
 # names, so the two passes check each other.
 #
@@ -49,3 +49,21 @@ onnx-community/Qwen3-0.6B-ONNX onnx/model_q4.onnx
 onnx-community/Qwen3-0.6B-ONNX onnx/model_q4f16.onnx
 onnx-community/Qwen3-0.6B-ONNX tokenizer_config.json
 onnx-community/Qwen3-0.6B-ONNX tokenizer.json
+
+# Every ONNX graph of a model manifests/uor.txt names, so the address index
+# leaves no ONNX tensor of those models unaddressed: 2.7 GB more, all graphs
+# that keep their weights inline, measured 2026-11-18.
+BAAI/bge-small-en-v1.5 onnx/model.onnx
+n4ze3m/tiny-voca onnx/model.onnx
+openai-community/gpt2 onnx/decoder_model.onnx
+openai-community/gpt2 onnx/decoder_model_merged.onnx
+openai-community/gpt2 onnx/decoder_with_past_model.onnx
+sentence-transformers/all-MiniLM-L6-v2 onnx/model.onnx
+sentence-transformers/all-MiniLM-L6-v2 onnx/model_O1.onnx
+sentence-transformers/all-MiniLM-L6-v2 onnx/model_O2.onnx
+sentence-transformers/all-MiniLM-L6-v2 onnx/model_O3.onnx
+sentence-transformers/all-MiniLM-L6-v2 onnx/model_O4.onnx
+sentence-transformers/all-MiniLM-L6-v2 onnx/model_qint8_arm64.onnx
+sentence-transformers/all-MiniLM-L6-v2 onnx/model_qint8_avx512.onnx
+sentence-transformers/all-MiniLM-L6-v2 onnx/model_qint8_avx512_vnni.onnx
+sentence-transformers/all-MiniLM-L6-v2 onnx/model_quint8_avx2.onnx
