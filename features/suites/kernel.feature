@@ -148,3 +148,33 @@ Feature: kernel
     Given the piece model in app/src/Pieces.lex.tex
     When the Lean kernel checks piecePersistsHolds in app/src/Proofs/PiecePersists.lex.tex during prismpm verify
     Then no input meets breaksPiecePersists
+
+  @HK-45 @build
+  Scenario: A file is served only when its bytes match its BLAKE3 address, or, for a file never addressed before, the name Hugging Face gives it (the LFS SHA-256, or a small file's git blob), at the size and with every tensor matching
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks identityVerifiedHolds in app/src/Proofs/IdentityVerified.lex.tex during prismpm verify
+    Then no input meets breaksIdentityVerified
+
+  @HK-46 @build
+  Scenario: Once a file has a BLAKE3 address, bytes that do not match it are refused whatever Hugging Face's own name for the file says
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks identityDecidesHolds in app/src/Proofs/IdentityDecides.lex.tex during prismpm verify
+    Then no input meets breaksIdentityDecides
+
+  @HK-47 @build
+  Scenario: A BLAKE3 address is minted only for a file that has none, never over an existing one
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks identityMintOnceHolds in app/src/Proofs/IdentityMintOnce.lex.tex during prismpm verify
+    Then no input meets breaksIdentityMintOnce
+
+  @HK-48 @build
+  Scenario: A file with an address is served only on the BLAKE3 axis
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks identityAxisHolds in app/src/Proofs/IdentityAxis.lex.tex during prismpm verify
+    Then no input meets breaksIdentityAxis
+
+  @HK-49 @build
+  Scenario: A file is served or minted only when every tensor it declares matches its address
+    Given the kernel model in app/src/Kernel.lex.tex
+    When the Lean kernel checks identityTensorsHolds in app/src/Proofs/IdentityTensors.lex.tex during prismpm verify
+    Then no input meets breaksIdentityTensors

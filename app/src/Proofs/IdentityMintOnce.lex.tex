@@ -1,0 +1,35 @@
+\begin{lexlean}{Proofs.IdentityMintOnce}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksIdentityMintOnce,
+  parameters: [pull : Kernel::Pull],
+  result: Bool,
+  body: (((Kernel::identityDecision pull) =? (Kernel::identityMint)) && ((project pull minted) =? 1))
+}
+
+theorem{
+  name: identityMintOnceHolds,
+  parameters: [pull : Kernel::Pull],
+  statement: ((breaksIdentityMintOnce pull) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Kernel::identityDecision,
+      Kernel::identityMint,
+      Kernel::identityRefuse,
+      Kernel::identityServe,
+      Kernel::pullBlake3Holds,
+      Kernel::pullNameHolds,
+      Kernel::pullSizeHolds,
+      Kernel::sameDigest,
+      breaksIdentityMintOnce
+    ]
+  },
+  axioms: [Classical.choice, Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

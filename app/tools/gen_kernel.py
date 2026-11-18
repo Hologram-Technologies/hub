@@ -36,6 +36,19 @@ PREFIX = "HologramHubKernel"
 # Request layout, operation 2 (accept), exactly 81 bytes:
 #   0 op=2 | 1..32 expected digest | 33..64 observed digest
 #   65..72 expected size (u64 BE) | 73..80 observed size (u64 BE)
+# Request layout, operation 9 (identity), exactly 149 bytes:
+#   0 op=9 | 1 minted (1 when the file has a BLAKE3 address) | 2 axis (1 when
+#   that address is on the BLAKE3 axis, as uor-addr derives it)
+#   3..34 the BLAKE3 address | 35..66 the BLAKE3 of the bytes received
+#   67 named (1 when Hugging Face names the file: the LFS SHA-256, or a small
+#   file's git blob SHA-1 zero-padded to 32 bytes)
+#   68..99 that name | 100..131 the same digest of the bytes received
+#   132..139 expected size (u64 BE) | 140..147 observed size (u64 BE)
+#   148 tensorsHold (1 when every tensor the file declares matched its address)
+# The answer is 40 serve (the bytes match the BLAKE3 address), 41 mint (the
+# file had no BLAKE3 address and the bytes match Hugging Face's name, so
+# their BLAKE3 becomes the file's address), or 42 refuse. Hugging Face's name
+# vouches once, for the first mint; from then on BLAKE3 alone decides.
 # Response, always 3 bytes: answer code | source slot (4 = none) | etag kind.
 
 ANSWERS = [
@@ -158,7 +171,19 @@ def ref_dispatch(b):
         return bytes([ref_concur(b[1], b[2], b[3])])
     if len(b) == 4 and b[0] == 8:
         return bytes([ref_route(b[1], b[2], b[3])])
+    if len(b) == 149 and b[0] == 9:
+        return bytes([ref_identity(b), 4, 0])
     return bytes([0, 4, 0])
+
+
+def ref_identity(b):
+    sizes = b[132:140] == b[140:148]
+    tensors = b[148] == 1
+    if b[1] == 1:
+        blake3 = b[2] == 1 and b[3:35] == b[35:67]
+        return 40 if blake3 and sizes and tensors else 42
+    name = b[67] == 1 and b[68:100] == b[100:132]
+    return 41 if name and sizes and tensors else 42
 
 
 # Operation 5 (trust), exactly 11 bytes: `05 present chain time log signature
@@ -306,7 +331,26 @@ def accept(e, o, es, os_):
     return bytes([2]) + e + o + es.to_bytes(8, "big") + os_.to_bytes(8, "big")
 
 
+def pull(minted=1, axis=1, address=D1, observed=D1, named=1, name=D2, observed_name=D2, es=7, os_=7, tensors=1):
+    return (bytes([9, minted, axis]) + address + observed + bytes([named]) + name + observed_name
+            + es.to_bytes(8, "big") + os_.to_bytes(8, "big") + bytes([tensors]))
+
+
 VECTORS = [
+    # Identity (operation 9): served on its BLAKE3 address; refused when the
+    # bytes differ from it, whatever Hugging Face's name says; refused off
+    # the BLAKE3 axis, at the wrong size, or with a tensor that does not
+    # match; minted from bytes Hugging Face's SHA-256 vouches for when the
+    # file has no BLAKE3 address yet, and refused when it does not vouch.
+    pull(),
+    pull(observed=D2),
+    pull(axis=0),
+    pull(os_=8),
+    pull(tensors=0),
+    pull(minted=0),
+    pull(minted=0, observed_name=D1),
+    pull(minted=0, named=0),
+    pull(minted=0, tensors=0),
     resolve(entry=1),
     resolve(entry=2),
     resolve(runner=1, src=((1, 1, 0, 0), NONE, NONE, NONE)),
@@ -349,7 +393,7 @@ VECTORS = [
     b"",
     bytes([3]) + resolve()[1:],
     bytes([1]) + accept(D1, D1, 1, 1)[1:],
-    bytes(128),
+    bytes(256),
     bytes([4, 20, 20, 20, 0]),
     bytes([4, 20, 0, 0, 0]),
     bytes([4, 20, 21, 20, 0]),
@@ -393,7 +437,7 @@ VECTORS = [
     bytes([8, 1, 1]),
 ]
 assert len(set(VECTORS)) == len(VECTORS), "requests must be unique"
-assert max(len(v) for v in VECTORS) == 128, "one request is exactly guestAllocationMaximum bytes"
+assert max(len(v) for v in VECTORS) == 256, "one request is exactly guestAllocationMaximum bytes"
 VECTORS += [r for r, _ in gen_site.site_vectors()]
 assert len(set(VECTORS)) == len(VECTORS), "requests must be unique"
 EXPECTED = [ref_dispatch(v) for v in VECTORS]
@@ -454,6 +498,14 @@ def defn(name, params, result, body, axioms=None, rec=None):
 def structure(name, fields):
     rows = ",\n".join("    {name: %s, type: %s}" % f for f in fields)
     return "structure{\n  name: %s,\n  type_parameters: [],\n  parameters: [],\n  fields: [\n%s\n  ]\n}\n" % (name, rows)
+
+
+IDENTITY_ANSWERS = [("identityServe", 40), ("identityMint", 41), ("identityRefuse", 42)]
+IDENTITY_DECISION = (
+    "(if ((project pull minted) =? 1) then (if ((pullBlake3Holds pull) && ((pullSizeHolds pull) && "
+    "((project pull tensorsHold) =? 1))) then (identityServe) else (identityRefuse)) else "
+    "(if ((pullNameHolds pull) && ((pullSizeHolds pull) && ((project pull tensorsHold) =? 1))) "
+    "then (identityMint) else (identityRefuse)))")
 
 
 def kernel_module():
@@ -525,6 +577,23 @@ def kernel_module():
     k.append(defn("Accepts", "check : Check", "Prop",
                   "((SameDigest (project check expected) (project check observed)) /\\ "
                   "((project check expectedSize) = (project check observedSize)))"))
+    # Identity: whether the bytes of one pulled file may be used. A file with
+    # a BLAKE3 address is held to it alone; a file with none is minted only
+    # from bytes that match the SHA-256 Hugging Face names it by. Hugging
+    # Face's name vouches once, for the first mint (HK-45 to HK-49).
+    for n, v in IDENTITY_ANSWERS:
+        k.append("definition{name: %s, parameters: [], result: Nat, body: %d}\n" % (n, v))
+    k.append(structure("Pull", [("minted", "Nat"), ("axis", "Nat"), ("address", "Digest"),
+                                ("observed", "Digest"), ("named", "Nat"), ("name", "Digest"),
+                                ("observedName", "Digest"), ("expectedSize", "Nat"),
+                                ("observedSize", "Nat"), ("tensorsHold", "Nat")]))
+    k.append(defn("pullSizeHolds", "pull : Pull", "Bool",
+                  "((project pull expectedSize) =? (project pull observedSize))"))
+    k.append(defn("pullBlake3Holds", "pull : Pull", "Bool",
+                  "(((project pull axis) =? 1) && (sameDigest (project pull observed) (project pull address)))"))
+    k.append(defn("pullNameHolds", "pull : Pull", "Bool",
+                  "(((project pull named) =? 1) && (sameDigest (project pull observedName) (project pull name)))"))
+    k.append(defn("identityDecision", "pull : Pull", "Nat", IDENTITY_DECISION))
     k.append(defn("byteNat", "value : Bytes, offset : Nat", "Nat",
                   "(match (Foundation.Bytes::byteAt value offset)\n    | Option.none => 255\n"
                   "    | Option.some byte => (prim to_nat byte : Nat))", AX))
@@ -541,6 +610,14 @@ def kernel_module():
                   "(record Digest {%s})" % ", ".join(
                       "w%d := (natFrom value %s 8 0)" % (i, "offset" if i == 0 else "(offset + %d)" % (8 * i))
                       for i in range(4)), AX))
+    k.append(defn("observePull", "value : Bytes", "Pull",
+                  "(record Pull {minted := (byteNat value 1), axis := (byteNat value 2), "
+                  "address := (digestAt value 3), observed := (digestAt value 35), named := (byteNat value 67), "
+                  "name := (digestAt value 68), observedName := (digestAt value 100), "
+                  "expectedSize := (natFrom value 132 8 0), observedSize := (natFrom value 140 8 0), "
+                  "tensorsHold := (byteNat value 148)})", AX))
+    k.append(defn("encodeIdentity", "code : Nat", "Bytes", chain(
+        [("(code =? %d)" % v, hx(bytes([v, 4, 0]))) for _, v in IDENTITY_ANSWERS], "0x000400")))
     k.append(defn("observeCheck", "value : Bytes", "Check",
                   "(record Check {expected := (digestAt value 1), observed := (digestAt value 33), "
                   "expectedSize := (natFrom value 65 8 0), observedSize := (natFrom value 73 8 0)})", AX))
@@ -642,7 +719,9 @@ def kernel_module():
                   "(encodeVerdict (concur (byteNat value 1) (byteNat value 2) (byteNat value 3))) "
                   "else (if (((Foundation.Bytes::byteLength value) =? 4) && ((byteNat value 0) =? 8)) then "
                   "(encodeRoute (route (byteNat value 1) (byteNat value 2) (byteNat value 3))) "
-                  "else 0x000400))))))))"
+                  "else (if (((Foundation.Bytes::byteLength value) =? 149) && ((byteNat value 0) =? 9)) then "
+                  "(encodeIdentity (identityDecision (observePull value))) "
+                  "else 0x000400)))))))))"
                   % (" ".join("(byteNat value %d)" % i for i in range(1, 11)),
                      " ".join("(byteNat value %d)" % i for i in range(1, 12))), AX))
     vec = "(nil %sAcceptanceVector)" % T
@@ -656,7 +735,7 @@ def kernel_module():
         'cargoHomepage := "https://github.com/Hologram-Technologies/hub", '
         'libraryRoots := (cons "%s.Kernel.dispatch" (nil String)), acceptanceVectors := %s, '
         'entryRoot := "%s.Kernel.dispatch", coreContract := "hologram:guest/core-wasm@1", '
-        'requestMaximum := (105 : UInt32), responseMaximum := (%d : UInt32), guestAllocationMaximum := (128 : UInt32), '
+        'requestMaximum := (149 : UInt32), responseMaximum := (%d : UInt32), guestAllocationMaximum := (256 : UInt32), '
         'capabilitiesEmpty := true, fatArchive := true, primaryLayer := (0 : UInt8), viewLayer := (1 : UInt8), '
         'view := (record %sTextView {title := "Hub kernel", heading := "Hub kernel", inputLabel := "Request facts", '
         'submitLabel := "Decide", outputLabel := "Plan", inputError := "Invalid request", '
@@ -843,7 +922,43 @@ INVARIANTS += [
 ]
 ROUTE_MODULES = {"Surface", "Anonymous"}
 
-CLASSICAL = {"Complete", "Concur", "Delivery", "Etag", "Healthy", "Servable", "Sound", "Trust"}
+# HK-45 to HK-49: the identity of a pulled file. `identityDecision` is unfolded
+# with the three facts it reads and `sameDigest`, and nothing else.
+PULL = "pull : Kernel::Pull"
+IDENTITY_DEFS = [q(n) for n, _ in IDENTITY_ANSWERS] + [
+    q("identityDecision"), q("pullBlake3Holds"), q("pullNameHolds"), q("pullSizeHolds"), q("sameDigest")]
+ID = "(Kernel::identityDecision pull)"
+SERVES_OR_MINTS = "((%s =? (Kernel::identityServe)) || (%s =? (Kernel::identityMint)))" % (ID, ID)
+INVARIANTS += [
+    # HK-45: bytes are used only when they match the file's BLAKE3 address,
+    # or, for a file with none, the SHA-256 Hugging Face names it by.
+    ("IdentityVerified", "breaksIdentityVerified", "identityVerifiedHolds", PULL, "pull",
+     "(%s && (not ((Kernel::pullSizeHolds pull) && (((project pull tensorsHold) =? 1) && "
+     "((((project pull minted) =? 1) && (Kernel::pullBlake3Holds pull)) || "
+     "((not ((project pull minted) =? 1)) && (Kernel::pullNameHolds pull)))))))" % SERVES_OR_MINTS, IDENTITY_DEFS),
+    # HK-46: once a file has a BLAKE3 address, bytes that differ from it are
+    # refused, whatever Hugging Face's SHA-256 says.
+    ("IdentityDecides", "breaksIdentityDecides", "identityDecidesHolds", PULL, "pull",
+     "((((project pull minted) =? 1) && (not (Kernel::pullBlake3Holds pull))) && "
+     "(not (%s =? (Kernel::identityRefuse))))" % ID, IDENTITY_DEFS),
+    # HK-47: an address is minted only for a file that has none.
+    ("IdentityMintOnce", "breaksIdentityMintOnce", "identityMintOnceHolds", PULL, "pull",
+     "((%s =? (Kernel::identityMint)) && ((project pull minted) =? 1))" % ID, IDENTITY_DEFS),
+    # HK-48: a file with an address is served only on the BLAKE3 axis.
+    ("IdentityAxis", "breaksIdentityAxis", "identityAxisHolds", PULL, "pull",
+     "((%s =? (Kernel::identityServe)) && (not ((project pull axis) =? 1)))" % ID, IDENTITY_DEFS),
+    # HK-49: a file is used only when every tensor it declares matched.
+    ("IdentityTensors", "breaksIdentityTensors", "identityTensorsHolds", PULL, "pull",
+     "(%s && (not ((project pull tensorsHold) =? 1)))" % SERVES_OR_MINTS, IDENTITY_DEFS),
+]
+
+# Proof modules written by hand rather than by this generator: the piece rule
+# (app/src/Pieces.lex.tex, HK-39 to HK-42). They are entrypoints all the same,
+# so the list printed below names them, and pasting it never drops them.
+HAND_WRITTEN = ["PieceCached", "PiecePersists", "PieceReused", "PieceVerified"]
+
+CLASSICAL = {"Complete", "Concur", "Delivery", "Etag", "Healthy", "Servable", "Sound", "Trust",
+             "IdentityVerified", "IdentityDecides", "IdentityMintOnce", "IdentityAxis", "IdentityTensors"}
 
 
 def proof_modules():
@@ -886,7 +1001,8 @@ def main():
             f.write(text)
     # LexLean requires the entrypoints unique and sorted (LLC0101).
     print("entrypoints = [%s]" % ", ".join(sorted(
-        ['"src/Kernel.lex.tex"', '"src/Site.lex.tex"'] + ['"src/Proofs/%s.lex.tex"' % n for n in modules])))
+        ['"src/Kernel.lex.tex"', '"src/Site.lex.tex"']
+        + ['"src/Proofs/%s.lex.tex"' % n for n in list(modules) + HAND_WRITTEN])))
     with open(os.path.join(HERE, "vectors.json"), "w", newline="\n") as f:
         json.dump([{"request": r.hex(), "response": e.hex()} for r, e in zip(VECTORS, EXPECTED)], f, indent=1)
         f.write("\n")
