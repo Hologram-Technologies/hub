@@ -14,3 +14,9 @@ Feature: runner
     Then it refuses with 502 Quarantined rather than 503 NoSource
     And the refusal names the address it expected and the one the bytes had
     And a file with no address to compare against is still refused as NoSource
+
+  @HK-50 @build
+  Scenario: Every file the local runner serves or caches is decided by the kernel's identity rule: its bytes are held to its BLAKE3 address once it has one, and a file without one is minted once, from bytes matching the name Hugging Face gives it
+    Given the local runner in runner/local.mjs and the kernel the hub publishes
+    When tests/runner/check.mjs and tests/runner/serve.mjs run in the runner workflow
+    Then every file served was decided by operation 9: on its BLAKE3 address once minted, and minted once from bytes Hugging Face's name vouched for

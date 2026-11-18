@@ -27,12 +27,15 @@
 // check afterwards - both proved, neither enforced by this file.
 import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, open, rename, stat, unlink } from "node:fs/promises";
+import { mkdir, open, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import * as edge from "../edge/edge.mjs";
+import { instantiate } from "../web/piece-hash.mjs";
+import { streamHasher } from "../web/pieces.mjs";
 import { holdings, search } from "./discover.mjs";
 import * as snapshot from "./snapshot.mjs";
 import { lookup, fetchTorrent } from "./pirateface.mjs";
@@ -65,6 +68,15 @@ const torrents = new Map();
 const inflight = new Map();
 const quarantined = new Set();
 const id = peerId();
+// BLAKE3, at the piece hasher's speed (about 1 GB/s on one core), for every
+// file the runner checks: the identity the kernel's rule decides on.
+const hasher = await instantiate(await readFile(fileURLToPath(new URL("../web/piece-hash.wasm", import.meta.url))));
+// The BLAKE3 address of each file this runner minted, by repository, release
+// and path. A file is minted once (HK-47), from bytes Hugging Face's own name
+// vouched for, and from then on only its BLAKE3 address decides (HK-46). Kept
+// beside the cache, so a restart does not make Hugging Face vouch again.
+let mints = new Map();
+const mintKey = (repo, commit, path) => `${repo}@${commit}/${path}`;
 
 export async function start({ holo, index, manifests = null, huggingFace = true, drain = [], cacheDir, piratefaceHost, swarmIndex = null, swarmSigned = true } = {}) {
   const ready = await edge.start({ holo, index, huggingFace, drain });
@@ -89,6 +101,11 @@ export async function start({ holo, index, manifests = null, huggingFace = true,
     piratefaceHost,
   };
   await mkdir(settings.cacheDir, { recursive: true });
+  try {
+    mints = new Map(Object.entries(JSON.parse(await readFile(join(settings.cacheDir, "mints.json"), "utf8"))));
+  } catch {
+    mints = new Map();
+  }
   return {
     ...ready, runner: "local", sources: SOURCES, cache: settings.cacheDir,
     addressed: snapshot.count(addresses),
@@ -296,6 +313,12 @@ async function serveFile(request, via, repo, revision, path, onNote) {
   // answered 404 has simply not got it now. The second is `holds`, for this
   // request only.
   const silent = new Set();
+  // A source that sent bytes that are not this file is quarantined for it,
+  // under every name the file has: Hugging Face's, and its BLAKE3 address once
+  // it has one. A quarantine recorded before the file was minted still holds
+  // after, and the other way round.
+  let knownAddress = null;
+  const names = () => [address ?? sibling?.blobId, knownAddress?.slice(7)].filter(Boolean);
   const build = () => SOURCES.map((kind) => {
     let holds = 0;
     if (silent.has(kind)) return { kind, holds: 0, healthy: 0, vetted: UNVETTED.has(kind) ? 0 : 1, failed: 0 };
@@ -309,7 +332,7 @@ async function serveFile(request, via, repo, revision, path, onNote) {
     const fresh = kind === "pirateface"
       ? (!settings.drain.has(kind) && (swarm?.seeders ?? 0) > 0 ? 1 : 0)
       : (edge.healthy(kind) ? 1 : 0);
-    const failed = quarantined.has(`${kind}:${address ?? sibling?.blobId}`) ? 1 : 0;
+    const failed = names().some((n) => quarantined.has(`${kind}:${n}`)) ? 1 : 0;
     return { kind, holds, healthy: fresh, vetted, failed };
   });
 
@@ -348,10 +371,13 @@ async function serveFile(request, via, repo, revision, path, onNote) {
       return served(method, null, { etag, size: sibling.size, commit: info.sha, source, tensors: null }, null);
     }
 
-    // The cache is addressed by whatever address the record names, so a hit
-    // needs no source at all. A pinned request skips it, because asking for
+    // The cache is addressed by the file's BLAKE3 address once it has one,
+    // and until then by the name the record gives it, so a hit needs no
+    // source at all. A pinned request skips it, because asking for
     // `/via/<source>` is asking to exercise that source.
-    const key = address ?? sibling.blobId;
+    const known = blake3Of(repo, info.sha, path, manifest, address ?? sibling.blobId);
+    knownAddress = known;
+    const key = known ? known.slice(7) : address ?? sibling.blobId;
     const hit = pin === 0 ? await cached(key) : null;
     let file = hit?.path ?? null;
     let tensors = null;
@@ -361,7 +387,7 @@ async function serveFile(request, via, repo, revision, path, onNote) {
     // written. A copy that fails is deleted and the next attempt fetches the
     // file again. No source is blamed, because no source sent it.
     if (hit) {
-      const verdict = await check(kernel, file, { address, size: sibling.size, blobId: sibling.blobId, entry });
+      const verdict = await check(kernel, file, { address, size: sibling.size, blobId: sibling.blobId, entry, blake3: known });
       if (!verdict.ok) {
         onNote(`the cached copy of ${repo}/${path} is not the file (${verdict.why}); deleted, fetching it again`);
         await unlink(file).catch(() => {});
@@ -390,17 +416,30 @@ async function serveFile(request, via, repo, revision, path, onNote) {
             await unlink(into).catch(() => {});
             throw Object.assign(error, { unreachable: true });
           }
-          const verdict = await check(kernel, into, { address, size: sibling.size, blobId: sibling.blobId, entry });
+          // Every tensor the signed manifest names is checked before the
+          // identity rule is asked, because a file is used only when every
+          // tensor it declares matches (HK-49).
+          let tensorsHold = 1;
+          if (manifest && path.endsWith(".safetensors")) {
+            const seen = await checkTensorsOfFile(manifest, path, into);
+            if (seen.witnessed && seen.mismatched.length) tensorsHold = 0;
+          }
+          const verdict = await check(kernel, into, { address, size: sibling.size, blobId: sibling.blobId, entry, blake3: known, tensorsHold });
           if (!verdict.ok) {
             await unlink(into).catch(() => {});
             throw Object.assign(new Error(verdict.why), { expected: verdict.expected, found: verdict.found });
           }
-          // Verified, so it may be named by its address. Every consumer of
-          // this job gets the same settled path.
-          const destination = cachePath(key);
+          if (verdict.minted) {
+            await remember(repo, info.sha, path, verdict.minted, address ?? sibling.blobId);
+            onNote(`${repo}/${path}: minted ${verdict.minted}`);
+          }
+          // Verified, so it may be named by its BLAKE3 address. Every consumer
+          // of this job gets the same settled path.
+          const settled = verdict.blake3 ? verdict.blake3.slice(7) : key;
+          const destination = cachePath(settled);
           await mkdir(dirname(destination), { recursive: true });
           await rename(into, destination).catch(() => {});
-          return (await cached(key))?.path ?? into;
+          return (await cached(settled))?.path ?? into;
         })();
         inflight.set(key, made);
         made.catch(() => {}).then(() => inflight.delete(key));
@@ -414,7 +453,7 @@ async function serveFile(request, via, repo, revision, path, onNote) {
           silent.add(source);
         } else {
           onNote(`${source} sent bytes that are not ${repo}/${path}: ${error.message}`);
-          quarantined.add(`${source}:${key}`);
+          for (const n of names()) quarantined.add(`${source}:${n}`);
           if (error.expected) mismatch ??= { expected: error.expected, found: error.found };
         }
         edge.report(source, false);
@@ -434,7 +473,7 @@ async function serveFile(request, via, repo, revision, path, onNote) {
         onNote(`${repo}/${path}: ${seen.mismatched.length} tensors do not match the signed manifest`);
         await unlink(file).catch(() => {});
         if (!hit) {
-          quarantined.add(`${source}:${key}`);
+          for (const n of names()) quarantined.add(`${source}:${n}`);
           const [first] = seen.mismatched;
           mismatch ??= { expected: `${first.name} ${first.expected}`, found: `${first.name} ${first.found}` };
         }
@@ -474,12 +513,13 @@ async function serveFile(request, via, repo, revision, path, onNote) {
 //
 // A file with neither is refused. Nothing passes for want of something to
 // check it against.
-export async function check(kernel, file, { address, size, blobId, entry }) {
+export async function check(kernel, file, { address, size, blobId, entry, blake3 = null, tensorsHold = 1 }) {
   const info = await stat(file);
-  if (!address && !blobId) return { ok: false, why: "the record names no address for this file at all" };
-  if (entry === 2 && !address) return { ok: false, why: "the record names no digest for a file it calls large" };
+  const minted = typeof blake3 === "string" && /^blake3:[0-9a-f]{64}$/.test(blake3);
+  if (!minted && !address && !blobId) return { ok: false, why: "the record names no address for this file at all" };
+  if (!minted && entry === 2 && !address) return { ok: false, why: "the record names no digest for a file it calls large" };
 
-  // One pass over the bytes for both digests. The git blob prefix carries the
+  // One pass over the bytes for every digest. The git blob prefix carries the
   // length actually read, so a file of the wrong size fails it without a
   // separate comparison.
   // `gitSha1` is the git blob of whatever git holds for the file, and for an
@@ -488,33 +528,106 @@ export async function check(kernel, file, { address, size, blobId, entry }) {
   // `gitSha1` hashes the pointer. So it checks the content only where the file
   // is not LFS - which is exactly where Hugging Face publishes no SHA-256 and
   // the git blob is the only address there is.
-  const whole = entry !== 2 && Boolean(blobId);
-  const sha = createHash("sha256");
+  const whole = !minted && entry !== 2 && Boolean(blobId);
+  const sha = !minted && address ? createHash("sha256") : null;
   const blob = whole ? createHash("sha1").update(`blob ${info.size}\0`) : null;
+  const b3 = streamHasher(hasher);
   for await (const chunk of createReadStream(file)) {
-    sha.update(chunk);
+    sha?.update(chunk);
     blob?.update(chunk);
+    b3.update(chunk);
   }
+  const observed = Buffer.from(b3.digest()).toString("hex");
+  const foundBlob = blob?.digest("hex") ?? null;
+  const foundSha = sha?.digest("hex") ?? null;
 
-  if (blob) {
-    const found = blob.digest("hex");
-    if (found !== blobId) return { ok: false, why: `git blob ${found}, the record says ${blobId}`, expected: `gitSha1:${blobId}`, found: `gitSha1:${found}` };
-  }
-
-  if (address) {
-    const observed = sha.digest("hex");
-    const request = new Uint8Array(81);
-    request[0] = 2;
-    request.set(Buffer.from(address, "hex"), 1);
-    request.set(Buffer.from(observed, "hex"), 33);
-    new DataView(request.buffer).setBigUint64(65, BigInt(size));
-    new DataView(request.buffer).setBigUint64(73, BigInt(info.size));
-    if ((await kernel.dispatch(request))[0] !== 20) {
-      return { ok: false, why: `sha256 ${observed} and ${info.size} bytes, the record says ${address} and ${size}`, expected: `sha256:${address}`, found: `sha256:${observed}` };
+  // A file with no BLAKE3 address yet is minted only from bytes that match
+  // the name Hugging Face gives it: the LFS SHA-256 of a large file, the git
+  // blob of a small one. A SHA-256 a second witness supplied is held to the
+  // bytes too, as before - tested, not proved - but it is not the bridge,
+  // because a witness can also be the source.
+  if (!minted) {
+    if (blob && foundBlob !== blobId) {
+      return { ok: false, why: `git blob ${foundBlob}, the record says ${blobId}`, expected: `gitSha1:${blobId}`, found: `gitSha1:${foundBlob}` };
+    }
+    if (sha && foundSha !== address) {
+      return { ok: false, why: `sha256 ${foundSha} and ${info.size} bytes, the record says ${address} and ${size}`, expected: `sha256:${address}`, found: `sha256:${foundSha}` };
     }
   }
+  const zero = "0".repeat(64);
+  const [named, name, observedName] = minted ? [0, zero, zero]
+    : entry === 2 && address ? [1, address, foundSha]
+      : blob ? [1, blobId.padEnd(64, "0"), foundBlob.padEnd(64, "0")]
+        : address ? [1, address, foundSha] : [0, zero, zero];
 
-  return { ok: true, by: blob && address ? "git blob and sha256" : blob ? "git blob" : "sha256" };
+  // The kernel decides (operation 9, HK-45 to HK-49): serve on the BLAKE3
+  // address, mint from bytes Hugging Face's name vouches for, or refuse.
+  const request = new Uint8Array(149);
+  request[0] = 9;
+  request[1] = minted ? 1 : 0;
+  request[2] = minted ? 1 : 0;
+  request.set(Buffer.from(minted ? blake3.slice(7) : zero, "hex"), 3);
+  request.set(Buffer.from(observed, "hex"), 35);
+  request[67] = named;
+  request.set(Buffer.from(name, "hex"), 68);
+  request.set(Buffer.from(observedName, "hex"), 100);
+  new DataView(request.buffer).setBigUint64(132, BigInt(size));
+  new DataView(request.buffer).setBigUint64(140, BigInt(info.size));
+  request[148] = tensorsHold ? 1 : 0;
+  let answer;
+  try {
+    answer = (await kernel.dispatch(request))[0];
+  } catch {
+    // A kernel from before the identity rule cannot take the request at all:
+    // its guest allocates at most 128 bytes, and this one is 149.
+    answer = 0;
+  }
+
+  // A kernel from before the identity rule answers an unknown operation with
+  // 0, or cannot take it at all. Its accept rule compares any two digests and sizes, so the same
+  // decision is asked of it: the BLAKE3 address if the file has one, Hugging
+  // Face's name if it does not.
+  if (answer === 0) {
+    const [expected, got] = minted ? [blake3.slice(7), observed] : [name, observedName];
+    const accept = new Uint8Array(81);
+    accept[0] = 2;
+    accept.set(Buffer.from(expected, "hex"), 1);
+    accept.set(Buffer.from(got, "hex"), 33);
+    new DataView(accept.buffer).setBigUint64(65, BigInt(size));
+    new DataView(accept.buffer).setBigUint64(73, BigInt(info.size));
+    const ok = named || minted ? (await kernel.dispatch(accept))[0] === 20 && tensorsHold : false;
+    answer = ok ? (minted ? 40 : 41) : 42;
+  }
+
+  const address3 = `blake3:${observed}`;
+  if (answer === 40) return { ok: true, by: "blake3", blake3: address3 };
+  if (answer === 41) {
+    return { ok: true, by: blob && sha ? "git blob and sha256" : blob ? "git blob" : "sha256", minted: address3, blake3: address3 };
+  }
+  if (!tensorsHold) return { ok: false, why: "a tensor does not match the address the signed manifest gives it" };
+  if (minted) {
+    return { ok: false, why: `${address3} and ${info.size} bytes, the address is ${blake3} and ${size}`, expected: blake3, found: address3 };
+  }
+  return { ok: false, why: `${info.size} bytes, the record says ${size}` };
+}
+
+// The BLAKE3 address a file has, if it has one: from the signed witness
+// manifest of this release, from this runner's own mint of it, or from a
+// mint of the same bytes under another release. A mint is the bridge: it
+// found that the bytes Hugging Face names `name` have this BLAKE3 address, so
+// any release naming them has it too, and from then on BLAKE3 decides there.
+function blake3Of(repo, commit, path, manifest, name) {
+  if (manifest?.revision === commit) {
+    const file = (manifest.files ?? []).find((f) => f.path === path);
+    if (/^blake3:[0-9a-f]{64}$/.test(file?.address ?? "")) return file.address;
+  }
+  return mints.get(mintKey(repo, commit, path)) ?? (name ? mints.get(`name:${name}`) : null) ?? null;
+}
+
+async function remember(repo, commit, path, address, name) {
+  mints.set(mintKey(repo, commit, path), address);
+  if (name) mints.set(`name:${name}`, address);
+  await writeFile(join(settings.cacheDir, "mints.json"), JSON.stringify(Object.fromEntries(mints))).catch(() => {});
 }
 
 async function witnessed(repo) {

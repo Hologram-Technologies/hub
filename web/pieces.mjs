@@ -96,6 +96,53 @@ export function foldTable(cvs, parent) {
   return fold(0, cvs.length, true);
 }
 
+// BLAKE3 of a stream, at the piece hasher's speed: bytes are gathered into
+// 1 MiB pieces, each hashed as the subtree it is, and the pieces' chaining
+// values fold into the one-shot hash. `table()` is the stream's piece table,
+// so hashing a file once also yields what a reader checks its ranges with.
+// `hasher` is an instance from piece-hash.mjs.
+export function streamHasher(hasher) {
+  const piece = new Uint8Array(PIECE_LEN);
+  let held = 0;
+  let length = 0;
+  const cvs = [];
+  let done = null;
+  const flush = (last) => {
+    if (!held && !last) return;
+    const root = last && cvs.length === 0;
+    cvs.push(hasher.piece(piece.subarray(0, held), cvs.length, root));
+    held = 0;
+  };
+  return {
+    update(bytes) {
+      if (done) throw new Error("the stream is already finished");
+      let at = 0;
+      while (at < bytes.length) {
+        if (held === PIECE_LEN) flush(false);
+        const take = Math.min(PIECE_LEN - held, bytes.length - at);
+        piece.set(bytes.subarray(at, at + take), held);
+        held += take;
+        at += take;
+      }
+      length += bytes.length;
+      return this;
+    },
+    // The 32-byte BLAKE3 of everything given; the stream ends here.
+    digest() {
+      if (!done) {
+        flush(true);
+        done = cvs.length === 1 ? cvs[0] : foldTable(cvs, hasher.parent);
+      }
+      return done;
+    },
+    // The piece table of the stream, after digest().
+    table() {
+      this.digest();
+      return { length, cvs: cvs.slice() };
+    },
+  };
+}
+
 // Workers that hash pieces, each with its own hasher. `makeWorker` returns
 // something with postMessage and onmessage (a Web Worker, or an adapter).
 // With no workers the hashing runs here, on `local`.

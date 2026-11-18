@@ -92,6 +92,7 @@ model does not sanction.
 | --- | --- | --- |
 | `HK-36` | `build` | The runner checks a file it serves from its cache against the file's address and every tensor's address on every read, as it checks a fresh fetch, and a cached file that fails is deleted and fetched again rather than served |
 | `HK-37` | `build` | When every source sends bytes that do not match the address, the runner refuses with Quarantined, naming the address it expected and the one it got, so a client can tell bad bytes from an outage |
+| `HK-50` | `build` | Every file the local runner serves or caches is decided by the kernel's identity rule: its bytes are held to its BLAKE3 address once it has one, and a file without one is minted once, from bytes matching the name Hugging Face gives it |
 
 ## spaces
 

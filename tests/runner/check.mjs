@@ -92,12 +92,50 @@ assert.equal((await run({ entry: 1 })).ok, false);
 assert.equal((await run({ entry: 2, blobId: gitBlob(POINTER) })).ok, false);
 ok("a file with no address, and a large file with no digest, are refused");
 
+// BLAKE3, the identity the kernel's rule decides on (HK-45 to HK-49). The
+// reference is the hub's vendored implementation, independent of the piece
+// hasher the runner uses.
+const { Blake3 } = await import("../../try/vendor/prism-code/src/blake3.mjs");
+const blake3 = (b) => { const h = new Blake3(); h.update(b); return `blake3:${Buffer.from(h.digest()).toString("hex")}`; };
+const WRONG_B3 = `blake3:${"e".repeat(64)}`;
+
+// A file with no BLAKE3 address yet is minted from bytes Hugging Face's name
+// vouches for, and the address minted is the BLAKE3 of those bytes.
+seen = await run({ entry: 1, blobId: gitBlob(BYTES) });
+assert.equal(seen.ok, true);
+assert.equal(seen.minted, blake3(BYTES));
+seen = await run({ entry: 2, address: sha256(BYTES) });
+assert.equal(seen.minted, blake3(BYTES));
+ok("a file with no BLAKE3 address is minted from bytes Hugging Face's name vouches for (HK-45, HK-47)");
+
+// Once it has one, BLAKE3 alone decides: Hugging Face's name is not asked,
+// and a wrong one does not refuse bytes that match.
+seen = await run({ entry: 2, address: WRONG_SHA, blake3: blake3(BYTES) });
+assert.equal(seen.ok, true);
+assert.equal(seen.by, "blake3");
+assert.equal(seen.minted, undefined);
+ok("a file with a BLAKE3 address is served on it, whatever Hugging Face's name says, and is not minted again");
+
+// And bytes that differ from it are refused even though Hugging Face's name
+// matches them.
+seen = await run({ entry: 2, address: sha256(BYTES), blake3: WRONG_B3 });
+assert.equal(seen.ok, false);
+assert.equal(seen.expected, WRONG_B3);
+assert.equal(seen.found, blake3(BYTES));
+ok("bytes that differ from the BLAKE3 address are refused although Hugging Face's name matches them (HK-46)");
+
+// A file whose tensors do not match is neither served nor minted.
+assert.equal((await run({ entry: 2, address: sha256(BYTES), tensorsHold: 0 })).ok, false);
+assert.equal((await run({ entry: 2, blake3: blake3(BYTES), tensorsHold: 0 })).ok, false);
+ok("a file with a tensor that does not match is refused, minted or not (HK-49)");
+
 // Bytes of the right length that are not the right bytes.
 await writeFile(file, OTHER);
 assert.equal(OTHER.length, BYTES.length);
 assert.equal((await run({ entry: 1, blobId: gitBlob(BYTES) })).ok, false);
 assert.equal((await run({ entry: 2, address: sha256(BYTES) })).ok, false);
-ok("a file of the right length holding other bytes is refused either way");
+assert.equal((await run({ entry: 2, address: sha256(BYTES), blake3: blake3(BYTES) })).ok, false);
+ok("a file of the right length holding other bytes is refused every way");
 
 await rm(work, { recursive: true, force: true });
 console.log(`tests/runner/check: ${checks} checks passed`);
