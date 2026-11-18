@@ -12,7 +12,7 @@
 // start.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -178,6 +178,22 @@ assert.equal(response.headers.get("content-range"), `bytes 10-19/${WEIGHTS.lengt
 assert.deepEqual(Buffer.from(await response.arrayBuffer()), WEIGHTS.subarray(10, 20));
 ok("a range request is answered with exactly that range");
 
+// HK-36. The cache is a disk, and a disk can change after it was written. A
+// cached copy with one byte flipped is not served: the runner checks it as it
+// checks a fresh fetch, deletes it, and fetches the file again.
+{
+  const cachedFile = join(cacheDir, sha256(WEIGHTS).slice(0, 2), sha256(WEIGHTS));
+  const flipped = Buffer.from(await readFile(cachedFile));
+  flipped[100] ^= 1;
+  await writeFile(cachedFile, flipped);
+  response = await get(file("model.safetensors"), {}, true);
+  assert.equal(response.status, 200);
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), WEIGHTS, "a corrupted cached copy must never reach the client");
+  assert.notEqual(response.headers.get("x-hub-source"), "cache", "the file must have been fetched again, not served from the bad copy");
+  assert.equal(sha256(await readFile(cachedFile)), sha256(WEIGHTS), "the bad copy must be replaced by the file");
+  ok("a cached copy that no longer matches its address is deleted and fetched again, never served");
+}
+
 // A small file: no SHA-256 in the index, so its git blob identity is what is
 // checked, and the ETag is the git blob one (HK-08).
 response = await get(file("README.md"));
@@ -194,9 +210,18 @@ forget();
 await rm(cacheDir, { recursive: true, force: true });
 await mkdir(cacheDir, { recursive: true });
 response = await get(`/via/ipfs${file("model.safetensors")}`);
-assert.equal(response.status, 503);
-assert.equal(response.headers.get("x-error-code"), "NoSource");
-ok("a pinned source that sends other bytes is refused, not served");
+// HK-37. The only source this request may use sent bytes, and they were the
+// wrong ones, so the refusal says that rather than calling it an outage, and
+// names both addresses.
+assert.equal(response.status, 502);
+assert.equal(response.headers.get("x-error-code"), "Quarantined");
+{
+  const said = await response.json();
+  assert.equal(said.expected, `sha256:${sha256(WEIGHTS)}`);
+  assert.equal(said.found, `sha256:${sha256(OTHER)}`);
+  assert.ok(response.headers.get("x-error-message").includes(`expected sha256:${sha256(WEIGHTS)}, got sha256:${sha256(OTHER)}`));
+}
+ok("a pinned source that sends other bytes is refused as Quarantined, naming both addresses, not served");
 
 // Drained is a last resort, not a removal. With the good source drained the
 // kernel reaches for the healthy one first, the runner refuses its bytes, and
