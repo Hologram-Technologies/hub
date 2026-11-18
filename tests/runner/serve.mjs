@@ -180,9 +180,15 @@ ok("a range request is answered with exactly that range");
 
 // HK-36. The cache is a disk, and a disk can change after it was written. A
 // cached copy with one byte flipped is not served: the runner checks it as it
-// checks a fresh fetch, deletes it, and fetches the file again.
+// checks a fresh fetch, deletes it, and fetches the file again. The copy is
+// kept under the file's BLAKE3 address, minted on its first fetch (HK-47),
+// and from then on that address is what it is checked against (HK-46).
 {
-  const cachedFile = join(cacheDir, sha256(WEIGHTS).slice(0, 2), sha256(WEIGHTS));
+  const { Blake3 } = await import("../../try/vendor/prism-code/src/blake3.mjs");
+  const hash = new Blake3();
+  hash.update(WEIGHTS);
+  const address = Buffer.from(hash.digest()).toString("hex");
+  const cachedFile = join(cacheDir, address.slice(0, 2), address);
   const flipped = Buffer.from(await readFile(cachedFile));
   flipped[100] ^= 1;
   await writeFile(cachedFile, flipped);
@@ -216,10 +222,15 @@ response = await get(`/via/ipfs${file("model.safetensors")}`);
 assert.equal(response.status, 502);
 assert.equal(response.headers.get("x-error-code"), "Quarantined");
 {
+  // The file was minted on its first fetch above, so its BLAKE3 address is
+  // what the bytes are held to and what the refusal names (HK-46): deleting
+  // the cache deletes copies, not what the runner learned about the content.
+  const { Blake3 } = await import("../../try/vendor/prism-code/src/blake3.mjs");
+  const b3 = (b) => { const h = new Blake3(); h.update(b); return `blake3:${Buffer.from(h.digest()).toString("hex")}`; };
   const said = await response.json();
-  assert.equal(said.expected, `sha256:${sha256(WEIGHTS)}`);
-  assert.equal(said.found, `sha256:${sha256(OTHER)}`);
-  assert.ok(response.headers.get("x-error-message").includes(`expected sha256:${sha256(WEIGHTS)}, got sha256:${sha256(OTHER)}`));
+  assert.equal(said.expected, b3(WEIGHTS));
+  assert.equal(said.found, b3(OTHER));
+  assert.ok(response.headers.get("x-error-message").includes(`expected ${b3(WEIGHTS)}, got ${b3(OTHER)}`));
 }
 ok("a pinned source that sends other bytes is refused as Quarantined, naming both addresses, not served");
 

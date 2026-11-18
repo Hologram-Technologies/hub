@@ -34,7 +34,7 @@
 //
 // The ONNX graphs `manifests/onnx.txt` names are the exception, and they carry
 // no κ-label: `tools/onnx.mjs` reads each initializer's byte range from the
-// graph and publishes the BLAKE3 of exactly those bytes as its address (HK-46),
+// graph and publishes the BLAKE3 of exactly those bytes as its address (HK-52),
 // which is the leaf rule above without a canonical form around it.
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
@@ -217,7 +217,7 @@ for (const repo of wanted) {
   }
 }
 
-// ---- ONNX: every initializer of each listed graph, by BLAKE3 (HK-46).
+// ---- ONNX: every initializer of each listed graph, by BLAKE3 (HK-52).
 //
 // The rows a previous build left are read before anything is cleared, so a
 // graph whose files have not changed is not streamed again. A kept row is
@@ -371,7 +371,7 @@ const manifest = {
   // entry for its realization, never against a single number for the index.
   canonicalForms: Object.fromEntries([...new Set(rows.filter((r) => r.label).map((r) => r.realization))].sort().map((r) => [r, rows.find((x) => x.realization === r).canonicalForm])),
   // An ONNX row has no κ-label and no canonical form: each tensor's address is
-  // the BLAKE3 of the byte range it names, in the file it names (HK-46).
+  // the BLAKE3 of the byte range it names, in the file it names (HK-52).
   onnx: { axis: "blake3", over: "the bytes of an initializer's raw_data or external range", by: "tools/onnx.mjs", list: "manifests/onnx.txt" },
   shardBits: SHARD_BITS,
   counts: {

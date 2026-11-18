@@ -289,11 +289,47 @@ statement = "Every tensor longer than 1 MiB in the UOR address index has a piece
 [[id]]
 id = "HK-45"
 level = "build"
+suite = "kernel"
+statement = "A file is served only when its bytes match its BLAKE3 address, or, for a file never addressed before, the name Hugging Face gives it (the LFS SHA-256, or a small file's git blob), at the size and with every tensor matching"
+
+[[id]]
+id = "HK-46"
+level = "build"
+suite = "kernel"
+statement = "Once a file has a BLAKE3 address, bytes that do not match it are refused whatever Hugging Face's own name for the file says"
+
+[[id]]
+id = "HK-47"
+level = "build"
+suite = "kernel"
+statement = "A BLAKE3 address is minted only for a file that has none, never over an existing one"
+
+[[id]]
+id = "HK-48"
+level = "build"
+suite = "kernel"
+statement = "A file with an address is served only on the BLAKE3 axis"
+
+[[id]]
+id = "HK-49"
+level = "build"
+suite = "kernel"
+statement = "A file is served or minted only when every tensor it declares matches its address"
+
+[[id]]
+id = "HK-50"
+level = "build"
+suite = "runner"
+statement = "Every file the local runner serves or caches is decided by the kernel's identity rule: its bytes are held to its BLAKE3 address once it has one, and a file without one is minted once, from bytes matching the name Hugging Face gives it"
+
+[[id]]
+id = "HK-51"
+level = "build"
 suite = "index"
 statement = "Every file manifests/onnx.txt lists carries, in its release record, the BLAKE3 of the whole file's bytes, and the index root names every record and browse shard by BLAKE3 beside SHA-256, so a reader checks a record and a file without SHA-256"
 
 [[id]]
-id = "HK-46"
+id = "HK-52"
 level = "build"
 suite = "index"
 statement = "Every initializer of an ONNX graph manifests/onnx.txt lists is in the UOR address index with its name, data type and dims, the file its bytes lie in, their offset and length there, and an address that is the BLAKE3 of exactly those bytes, so a reader checks one tensor from a ranged read"

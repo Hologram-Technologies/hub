@@ -196,7 +196,7 @@ jobs:
           show-summary: false
       - name: Keep the index between runs
         # A record is reused while its model's revision is unchanged. The key
-        # also names what gives a listed file its BLAKE3 (HK-45): the list, the
+        # also names what gives a listed file its BLAKE3 (HK-51): the list, the
         # module that streams it and the hasher it runs, so a change to any of
         # them hashes the files again rather than reusing another rule's result.
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -233,7 +233,7 @@ jobs:
       # revision and why `manifests/uor.txt` is a list a reviewer can read
       # rather than the whole index.
       - name: Keep the minted addresses between runs
-        # The ONNX rows (HK-46) are read by tools/onnx.mjs and hashed by
+        # The ONNX rows (HK-52) are read by tools/onnx.mjs and hashed by
         # tools/blake3.mjs over web/piece-hash.wasm, so those and the list that
         # names the graphs are inputs too. A kept ONNX row is reused only while
         # its files are the BLAKE3 the signed record names.

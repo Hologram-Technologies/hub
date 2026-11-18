@@ -1,5 +1,5 @@
 // tools/onnx.mjs against graphs built here byte by byte, so every offset and
-// every refusal is known before the reader runs (HK-46).
+// every refusal is known before the reader runs (HK-52).
 //
 //   node tests/uor/onnx.mjs
 //

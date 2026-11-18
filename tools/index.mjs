@@ -319,7 +319,7 @@ for (const row of rows) {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, bytes);
   // Named by both: SHA-256 for the readers that already check it, BLAKE3 so a
-  // reader checks a record without SHA-256 (HK-45).
+  // reader checks a record without SHA-256 (HK-51).
   records.push({ repo: record.repo, revision: record.revision, sha256: sha256(bytes), blake3: blake3Hex(bytes) });
 }
 

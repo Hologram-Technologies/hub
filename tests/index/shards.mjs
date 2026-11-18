@@ -55,7 +55,7 @@ try {
 check("a changed shard is refused", Boolean(refused), "it was read");
 await rm(work, { recursive: true, force: true });
 
-// HK-45: a reader without SHA-256. Every record, browse shard and the catalog
+// HK-51: a reader without SHA-256. Every record, browse shard and the catalog
 // is the bytes whose BLAKE3 the root names, and every file manifests/onnx.txt
 // lists carries the BLAKE3 of its whole bytes in its record.
 async function byBlake3(base) {

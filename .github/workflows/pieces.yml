@@ -4,7 +4,7 @@ name: pieces
 # the kernel's piece rule says so (HK-39 to HK-42, HK-43). This checks that the
 # committed hasher is what its source builds, that the hasher folds to BLAKE3,
 # and that the fetcher keeps the rule against a host that lies, truncates and
-# fails. It also runs the ONNX reader (HK-46) over graphs built byte by byte,
+# fails. It also runs the ONNX reader (HK-52) over graphs built byte by byte,
 # because the reader hashes with this hasher and its addresses are only as
 # good as the ranges it reads.
 

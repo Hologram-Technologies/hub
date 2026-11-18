@@ -46,8 +46,8 @@ model does not sanction.
 | `HK-29` | `build` | The index learns which other sources hold a release only from the holders record this repository carries, and only for the revision that record names, so a build reads no other hub |
 | `HK-35` | `build` | Every safetensors file in the UOR address index is addressed by uor-addr's safetensors realization, and each of its tensors carries the BLAKE3 leaf the file's label binds, which is its address, and the byte range that leaf was taken over, so a reader checks one tensor from a ranged read |
 | `HK-44` | `build` | Every tensor longer than 1 MiB in the UOR address index has a piece table, published under the tensor's address, that folds to that address, so a reader checks each piece of the tensor as it arrives |
-| `HK-45` | `build` | Every file manifests/onnx.txt lists carries, in its release record, the BLAKE3 of the whole file's bytes, and the index root names every record and browse shard by BLAKE3 beside SHA-256, so a reader checks a record and a file without SHA-256 |
-| `HK-46` | `build` | Every initializer of an ONNX graph manifests/onnx.txt lists is in the UOR address index with its name, data type and dims, the file its bytes lie in, their offset and length there, and an address that is the BLAKE3 of exactly those bytes, so a reader checks one tensor from a ranged read |
+| `HK-51` | `build` | Every file manifests/onnx.txt lists carries, in its release record, the BLAKE3 of the whole file's bytes, and the index root names every record and browse shard by BLAKE3 beside SHA-256, so a reader checks a record and a file without SHA-256 |
+| `HK-52` | `build` | Every initializer of an ONNX graph manifests/onnx.txt lists is in the UOR address index with its name, data type and dims, the file its bytes lie in, their offset and length there, and an address that is the BLAKE3 of exactly those bytes, so a reader checks one tensor from a ranged read |
 
 ## kernel
 
@@ -76,6 +76,11 @@ model does not sanction.
 | `HK-40` | `build` | A piece the local store holds is reused only when its piece table folds to the requested address and the stored piece matches the table entry |
 | `HK-41` | `build` | A stored piece that matches a piece table of the requested address is always reused and never fetched again |
 | `HK-42` | `build` | A piece is refused only when no source is left, and retried only while a source remains |
+| `HK-45` | `build` | A file is served only when its bytes match its BLAKE3 address, or, for a file never addressed before, the name Hugging Face gives it (the LFS SHA-256, or a small file's git blob), at the size and with every tensor matching |
+| `HK-46` | `build` | Once a file has a BLAKE3 address, bytes that do not match it are refused whatever Hugging Face's own name for the file says |
+| `HK-47` | `build` | A BLAKE3 address is minted only for a file that has none, never over an existing one |
+| `HK-48` | `build` | A file with an address is served only on the BLAKE3 axis |
+| `HK-49` | `build` | A file is served or minted only when every tensor it declares matches its address |
 
 ## pieces
 
@@ -89,6 +94,7 @@ model does not sanction.
 | --- | --- | --- |
 | `HK-36` | `build` | The runner checks a file it serves from its cache against the file's address and every tensor's address on every read, as it checks a fresh fetch, and a cached file that fails is deleted and fetched again rather than served |
 | `HK-37` | `build` | When every source sends bytes that do not match the address, the runner refuses with Quarantined, naming the address it expected and the one it got, so a client can tell bad bytes from an outage |
+| `HK-50` | `build` | Every file the local runner serves or caches is decided by the kernel's identity rule: its bytes are held to its BLAKE3 address once it has one, and a file without one is minted once, from bytes matching the name Hugging Face gives it |
 
 ## spaces
 

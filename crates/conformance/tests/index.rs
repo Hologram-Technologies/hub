@@ -652,13 +652,13 @@ fn index_hk_44() {
     );
 }
 
-/// `HK-45`: Every file manifests/onnx.txt lists carries, in its release record, the BLAKE3 of the whole file's bytes, and the index root names every record and browse shard by BLAKE3 beside SHA-256, so a reader checks a record and a file without SHA-256
+/// `HK-51`: Every file manifests/onnx.txt lists carries, in its release record, the BLAKE3 of the whole file's bytes, and the index root names every record and browse shard by BLAKE3 beside SHA-256, so a reader checks a record and a file without SHA-256
 ///
 /// Hologram AI checks model bytes by BLAKE3 alone. This holds the source to
 /// the promise; `tests/index/shards.mjs` holds the built index to it, and the
 /// Pages workflow runs that on every build.
 #[test]
-fn index_hk_45() {
+fn index_hk_51() {
     let list = std::fs::read_to_string(repo_model::repo_root().join("manifests/onnx.txt"))
         .expect("manifests/onnx.txt names the files given a BLAKE3");
     for repo in [
@@ -749,14 +749,14 @@ fn index_hk_45() {
     }
 }
 
-/// `HK-46`: Every initializer of an ONNX graph manifests/onnx.txt lists is in the UOR address index with its name, data type and dims, the file its bytes lie in, their offset and length there, and an address that is the BLAKE3 of exactly those bytes, so a reader checks one tensor from a ranged read
+/// `HK-52`: Every initializer of an ONNX graph manifests/onnx.txt lists is in the UOR address index with its name, data type and dims, the file its bytes lie in, their offset and length there, and an address that is the BLAKE3 of exactly those bytes, so a reader checks one tensor from a ranged read
 ///
 /// uor-addr's ONNX realization addresses a tensor kept in an external file by
 /// its reference rather than its bytes, so these rows come from
 /// `tools/onnx.mjs`, which reads only what ONNX's schema says and refuses what
 /// it would have to guess.
 #[test]
-fn index_hk_46() {
+fn index_hk_52() {
     let reader = without_comments("tools/onnx.mjs");
     let builder = without_comments("tools/uor-index.mjs");
     let check = without_comments("tests/uor/index.mjs");

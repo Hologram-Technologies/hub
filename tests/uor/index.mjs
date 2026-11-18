@@ -56,7 +56,7 @@ if (!root.shards.length) {
   process.exit(0);
 }
 
-// HK-46: an ONNX row has no κ-label. It names every file its tensors lie in by
+// HK-52: an ONNX row has no κ-label. It names every file its tensors lie in by
 // the BLAKE3 its record names, and every tensor names one of those files and a
 // range inside it.
 const onnxRows = [];
