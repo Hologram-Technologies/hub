@@ -435,3 +435,78 @@ fn kernel_vectors_match_reference() {
         "the model carries a vector the reference did not compute"
     );
 }
+
+/// Every piece answer comes from `pieceDecision`, which checks the piece table
+/// against the requested address first, then the stored piece, then the
+/// received bytes, and falls back to another source only while one is left.
+/// The four theorems below are about this function, so its body is fixed here.
+fn piece_decision_is_fixed() {
+    let model = read("app/src/Pieces.lex.tex");
+    let decision = declaration(&model, "pieceDecision");
+    assert!(
+        decision.ends_with("  body: (if (tableHolds piece) then (if (cacheHolds piece) then (answerReuse) else (if (bytesHold piece) then (answerDeliver) else (fallback piece))) else (fallback piece))"),
+        "pieceDecision changed:
+{decision}"
+    );
+    let lexlean = read("app/lexlean.toml");
+    assert!(
+        lexlean.contains("\"src/Proofs/PieceVerified.lex.tex\""),
+        "the piece proofs must be build entrypoints"
+    );
+}
+
+/// `HK-39`: A piece of a file is delivered only when its piece table folds to the requested address and the piece matches the table entry in chaining value and length
+#[test]
+fn kernel_hk_39() {
+    pinned(
+        "PieceVerified",
+        "breaksPieceVerified",
+        "(((Pieces::pieceDecision piece) =? (Pieces::answerDeliver)) && (not ((Pieces::tableHolds piece) && (Pieces::bytesHold piece))))",
+        "pieceVerifiedHolds",
+        "piece",
+        "Classical.choice, Quot.sound, propext",
+    );
+    piece_decision_is_fixed();
+}
+
+/// `HK-40`: A piece the local store holds is reused only when its piece table folds to the requested address and the stored piece matches the table entry
+#[test]
+fn kernel_hk_40() {
+    pinned(
+        "PieceCached",
+        "breaksPieceCached",
+        "(((Pieces::pieceDecision piece) =? (Pieces::answerReuse)) && (not ((Pieces::tableHolds piece) && (Pieces::cacheHolds piece))))",
+        "pieceCachedHolds",
+        "piece",
+        "Classical.choice, Quot.sound, propext",
+    );
+    piece_decision_is_fixed();
+}
+
+/// `HK-41`: A stored piece that matches a piece table of the requested address is always reused and never fetched again
+#[test]
+fn kernel_hk_41() {
+    pinned(
+        "PieceReused",
+        "breaksPieceReused",
+        "(((Pieces::tableHolds piece) && (Pieces::cacheHolds piece)) && (not ((Pieces::pieceDecision piece) =? (Pieces::answerReuse))))",
+        "pieceReusedHolds",
+        "piece",
+        "Classical.choice, Quot.sound, propext",
+    );
+    piece_decision_is_fixed();
+}
+
+/// `HK-42`: A piece is refused only when no source is left, and retried only while a source remains
+#[test]
+fn kernel_hk_42() {
+    pinned(
+        "PiecePersists",
+        "breaksPiecePersists",
+        "((((Pieces::pieceDecision piece) =? (Pieces::answerRefuse)) && (0 <? (project piece sourcesLeft))) || (((Pieces::pieceDecision piece) =? (Pieces::answerRetry)) && ((project piece sourcesLeft) =? 0)))",
+        "piecePersistsHolds",
+        "piece",
+        "Quot.sound, propext",
+    );
+    piece_decision_is_fixed();
+}

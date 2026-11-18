@@ -68,6 +68,10 @@ model does not sanction.
 | `HK-17` | `build` | An address with two witnesses is used only when they agree; where one witness alone names it the page says so, and where they disagree the file has no address |
 | `HK-19` | `build` | A source that is not vetted is chosen only for a file whose address the record names, so bytes from an untrusted source are always checkable before they are served |
 | `HK-22` | `build` | A source nobody vetted is chosen only for a file the release itself addressed, so the party serving the bytes is never the only party that named them; what the ETag says and what the sources may serve are decided by different facts |
+| `HK-39` | `build` | A piece of a file is delivered only when its piece table folds to the requested address and the piece matches the table entry in chaining value and length |
+| `HK-40` | `build` | A piece the local store holds is reused only when its piece table folds to the requested address and the stored piece matches the table entry |
+| `HK-41` | `build` | A stored piece that matches a piece table of the requested address is always reused and never fetched again |
+| `HK-42` | `build` | A piece is refused only when no source is left, and retried only while a source remains |
 
 ## spaces
 

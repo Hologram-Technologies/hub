@@ -225,3 +225,27 @@ id = "HK-32"
 level = "build"
 suite = "surface"
 statement = "Every request the hub does not answer as a read is refused as Hugging Face refuses a client with no token: 401 with a Bearer challenge"
+
+[[id]]
+id = "HK-39"
+level = "build"
+suite = "kernel"
+statement = "A piece of a file is delivered only when its piece table folds to the requested address and the piece matches the table entry in chaining value and length"
+
+[[id]]
+id = "HK-40"
+level = "build"
+suite = "kernel"
+statement = "A piece the local store holds is reused only when its piece table folds to the requested address and the stored piece matches the table entry"
+
+[[id]]
+id = "HK-41"
+level = "build"
+suite = "kernel"
+statement = "A stored piece that matches a piece table of the requested address is always reused and never fetched again"
+
+[[id]]
+id = "HK-42"
+level = "build"
+suite = "kernel"
+statement = "A piece is refused only when no source is left, and retried only while a source remains"

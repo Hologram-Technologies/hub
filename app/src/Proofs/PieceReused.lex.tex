@@ -1,0 +1,38 @@
+\begin{lexlean}{Proofs.PieceReused}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\importmodule{Pieces}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksPieceReused,
+  parameters: [piece : Pieces::Piece],
+  result: Bool,
+  body: (((Pieces::tableHolds piece) && (Pieces::cacheHolds piece)) && (not ((Pieces::pieceDecision piece) =? (Pieces::answerReuse))))
+}
+
+theorem{
+  name: pieceReusedHolds,
+  parameters: [piece : Pieces::Piece],
+  statement: ((breaksPieceReused piece) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Kernel::sameDigest,
+      Pieces::answerDeliver,
+      Pieces::answerRefuse,
+      Pieces::answerRetry,
+      Pieces::answerReuse,
+      Pieces::bytesHold,
+      Pieces::cacheHolds,
+      Pieces::fallback,
+      Pieces::pieceDecision,
+      Pieces::tableHolds,
+      breaksPieceReused
+    ]
+  },
+  axioms: [Classical.choice, Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

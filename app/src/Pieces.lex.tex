@@ -1,0 +1,68 @@
+\begin{lexlean}{Pieces}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{name: answerReuse, parameters: [], result: Nat, body: 30}
+
+definition{name: answerDeliver, parameters: [], result: Nat, body: 31}
+
+definition{name: answerRetry, parameters: [], result: Nat, body: 32}
+
+definition{name: answerRefuse, parameters: [], result: Nat, body: 33}
+
+structure{
+  name: Piece,
+  type_parameters: [],
+  parameters: [],
+  fields: [
+    {name: kappa, type: Kernel::Digest},
+    {name: root, type: Kernel::Digest},
+    {name: entry, type: Kernel::Digest},
+    {name: observed, type: Kernel::Digest},
+    {name: cached, type: Kernel::Digest},
+    {name: held, type: Nat},
+    {name: expectedLength, type: Nat},
+    {name: observedLength, type: Nat},
+    {name: sourcesLeft, type: Nat}
+  ]
+}
+
+definition{
+  name: tableHolds,
+  parameters: [piece : Piece],
+  result: Bool,
+  body: (Kernel::sameDigest (project piece root) (project piece kappa))
+}
+
+definition{
+  name: cacheHolds,
+  parameters: [piece : Piece],
+  result: Bool,
+  body: (((project piece held) =? 1) && (Kernel::sameDigest (project piece cached) (project piece entry)))
+}
+
+definition{
+  name: bytesHold,
+  parameters: [piece : Piece],
+  result: Bool,
+  body: ((Kernel::sameDigest (project piece observed) (project piece entry)) && ((project piece expectedLength) =? (project piece observedLength)))
+}
+
+definition{
+  name: fallback,
+  parameters: [piece : Piece],
+  result: Nat,
+  body: (if (0 <? (project piece sourcesLeft)) then (answerRetry) else (answerRefuse))
+}
+
+definition{
+  name: pieceDecision,
+  parameters: [piece : Piece],
+  result: Nat,
+  body: (if (tableHolds piece) then (if (cacheHolds piece) then (answerReuse) else (if (bytesHold piece) then (answerDeliver) else (fallback piece))) else (fallback piece))
+}
+\end{semanticmodule}
+\end{lexlean}

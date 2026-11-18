@@ -1,0 +1,38 @@
+\begin{lexlean}{Proofs.PieceCached}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\importmodule{Pieces}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksPieceCached,
+  parameters: [piece : Pieces::Piece],
+  result: Bool,
+  body: (((Pieces::pieceDecision piece) =? (Pieces::answerReuse)) && (not ((Pieces::tableHolds piece) && (Pieces::cacheHolds piece))))
+}
+
+theorem{
+  name: pieceCachedHolds,
+  parameters: [piece : Pieces::Piece],
+  statement: ((breaksPieceCached piece) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Kernel::sameDigest,
+      Pieces::answerDeliver,
+      Pieces::answerRefuse,
+      Pieces::answerRetry,
+      Pieces::answerReuse,
+      Pieces::bytesHold,
+      Pieces::cacheHolds,
+      Pieces::fallback,
+      Pieces::pieceDecision,
+      Pieces::tableHolds,
+      breaksPieceCached
+    ]
+  },
+  axioms: [Classical.choice, Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

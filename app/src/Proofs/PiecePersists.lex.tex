@@ -1,0 +1,38 @@
+\begin{lexlean}{Proofs.PiecePersists}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\importmodule{Pieces}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksPiecePersists,
+  parameters: [piece : Pieces::Piece],
+  result: Bool,
+  body: ((((Pieces::pieceDecision piece) =? (Pieces::answerRefuse)) && (0 <? (project piece sourcesLeft))) || (((Pieces::pieceDecision piece) =? (Pieces::answerRetry)) && ((project piece sourcesLeft) =? 0)))
+}
+
+theorem{
+  name: piecePersistsHolds,
+  parameters: [piece : Pieces::Piece],
+  statement: ((breaksPiecePersists piece) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Kernel::sameDigest,
+      Pieces::answerDeliver,
+      Pieces::answerRefuse,
+      Pieces::answerRetry,
+      Pieces::answerReuse,
+      Pieces::bytesHold,
+      Pieces::cacheHolds,
+      Pieces::fallback,
+      Pieces::pieceDecision,
+      Pieces::tableHolds,
+      breaksPiecePersists
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

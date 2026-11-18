@@ -124,3 +124,27 @@ Feature: kernel
     Given the kernel model in app/src/Kernel.lex.tex
     When the Lean kernel checks acceptsDecides in app/src/Proofs/Accepts.lex.tex during prismpm verify
     Then accepts is true exactly when Accepts holds
+
+  @HK-39 @build
+  Scenario: A piece of a file is delivered only when its piece table folds to the requested address and the piece matches the table entry in chaining value and length
+    Given the piece model in app/src/Pieces.lex.tex
+    When the Lean kernel checks pieceVerifiedHolds in app/src/Proofs/PieceVerified.lex.tex during prismpm verify
+    Then no input meets breaksPieceVerified
+
+  @HK-40 @build
+  Scenario: A piece the local store holds is reused only when its piece table folds to the requested address and the stored piece matches the table entry
+    Given the piece model in app/src/Pieces.lex.tex
+    When the Lean kernel checks pieceCachedHolds in app/src/Proofs/PieceCached.lex.tex during prismpm verify
+    Then no input meets breaksPieceCached
+
+  @HK-41 @build
+  Scenario: A stored piece that matches a piece table of the requested address is always reused and never fetched again
+    Given the piece model in app/src/Pieces.lex.tex
+    When the Lean kernel checks pieceReusedHolds in app/src/Proofs/PieceReused.lex.tex during prismpm verify
+    Then no input meets breaksPieceReused
+
+  @HK-42 @build
+  Scenario: A piece is refused only when no source is left, and retried only while a source remains
+    Given the piece model in app/src/Pieces.lex.tex
+    When the Lean kernel checks piecePersistsHolds in app/src/Proofs/PiecePersists.lex.tex during prismpm verify
+    Then no input meets breaksPiecePersists
