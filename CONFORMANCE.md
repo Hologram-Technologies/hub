@@ -108,6 +108,7 @@ model does not sanction.
 | --- | --- | --- |
 | `HK-31` | `build` | Every read operation Hugging Face answers a client with no token, for models, datasets and Spaces, is one the hub answers at Hugging Face's own path and in its terms, and none of them is refused |
 | `HK-32` | `build` | Every request the hub does not answer as a read is refused as Hugging Face refuses a client with no token: 401 with a Bearer challenge |
+| `HK-53` | `build` | The edge reads the signed index root again when a record does not match the root it holds, so a deploy never leaves a model refused, and bytes no signed root names are still refused |
 
 ## verify
 
