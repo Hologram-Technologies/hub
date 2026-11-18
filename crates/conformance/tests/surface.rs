@@ -394,3 +394,40 @@ fn surface_hk_32() {
         "the edge must ask the kernel's route decision and refuse what it refuses"
     );
 }
+
+/// `HK-53`: The edge reads the signed index root again when a record does not match the root it holds, so a deploy never leaves a model refused, and bytes no signed root names are still refused
+#[test]
+fn surface_hk_53() {
+    // The root is read again, through the same signed open as at start, when a
+    // record does not match it; a failed load is forgotten.
+    let edge = read("edge/edge.mjs");
+    for needle in [
+        "reopenIndex = () => openIndex(indexUrl, policy);",
+        "await reopen();",
+        "const again = index.records.get(repo.toLowerCase());",
+        "if (at.loaded.get(entry.repo) === loading) at.loaded.delete(entry.repo);",
+        "if (index && Date.now() - index.opened > REOPEN) reopen()",
+    ] {
+        assert!(
+            edge.contains(needle),
+            "edge/edge.mjs must contain `{needle}`"
+        );
+    }
+    // The behaviour, not only the text: CI deploys over a running edge.
+    let workflow = read(".github/workflows/edge.yml");
+    assert!(
+        workflow.contains("node tests/edge/reopen.mjs"),
+        "the edge workflow must run tests/edge/reopen.mjs"
+    );
+    let test = read("tests/edge/reopen.mjs");
+    for needle in [
+        "a record a deploy changed is refused",
+        "a record no root names must be refused",
+        "a record refused once must answer when its bytes match again",
+    ] {
+        assert!(
+            test.contains(needle),
+            "tests/edge/reopen.mjs must check `{needle}`"
+        );
+    }
+}
