@@ -448,7 +448,9 @@ fn declared_of_safetensors(raw: &[u8]) -> Result<(Vec<Declared>, u64), String> {
 fn run_safetensors(path: &str, raw: &[u8]) -> Result<String, String> {
     let label = uor_addr::safetensors::address(raw)
         .map_err(|e| {
-            format!("{path} is neither a GGUF v3 nor a safetensors file uor-addr will address: {e:?}")
+            format!(
+                "{path} is neither a GGUF v3 nor a safetensors file uor-addr will address: {e:?}"
+            )
         })?
         .address
         .as_str()
@@ -642,13 +644,12 @@ fn run_gguf(path: &str, raw: &[u8]) -> Result<String, String> {
         // on: the leaf must be the BLAKE3 of exactly this byte range. If it
         // is not, the range published beside it would send a client to bytes
         // that cannot match, and the whole point of the row is lost.
-        let over_range = b3(
-            raw.get(
+        let over_range = b3(raw
+            .get(
                 usize::try_from(begin).map_err(|_| "offset too large")?
                     ..usize::try_from(end).map_err(|_| "offset too large")?,
             )
-            .ok_or("tensor range outside the file")?,
-        );
+            .ok_or("tensor range outside the file")?);
         if over_range.as_slice() != entry.leaf {
             return Err(format!(
                 "tensor {}: the canonical leaf is blake3:{}, but bytes {begin}..{end} hash to blake3:{}",
