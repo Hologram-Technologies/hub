@@ -504,7 +504,9 @@ jobs:
             const base = "https://hologram-technologies.github.io/hub/data/index/";
             const out = process.argv[1];
             const root = await (await fetch(base + "root.json")).json();
-            root.records = root.records.slice(0, 2);
+            // Enough records that one holds all ten fields: complete.mjs
+            // picks it by its fields, not by its place.
+            root.records = root.records.slice(0, 40);
             // The copy carries records, not the listing: the edge checks every
             // shard the root names against its hash, so a root that named a
             // shard this copy does not hold would refuse to open at all.
