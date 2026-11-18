@@ -92,14 +92,19 @@ fn runner_hk_37() {
         runner.contains("expected: mismatch.expected, found: mismatch.found"),
         "the refusal must name the address expected and the one found"
     );
-    // Both digests `check` compares say what they expected and what they got,
-    // so the refusal never has to guess.
+    // Every digest `check` compares says what it expected and what it got,
+    // so the refusal never has to guess: the BLAKE3 address a minted file is
+    // held to (HK-46), and Hugging Face's names before it is minted.
     assert!(
-        runner.contains("expected: `sha256:${address}`, found: `sha256:${observed}`"),
+        runner.contains("expected: blake3, found: address3"),
+        "a BLAKE3 mismatch must carry both addresses"
+    );
+    assert!(
+        runner.contains("expected: `sha256:${address}`, found: `sha256:${foundSha}`"),
         "a SHA-256 mismatch must carry both addresses"
     );
     assert!(
-        runner.contains("expected: `gitSha1:${blobId}`, found: `gitSha1:${found}`"),
+        runner.contains("expected: `gitSha1:${blobId}`, found: `gitSha1:${foundBlob}`"),
         "a git blob mismatch must carry both addresses"
     );
 
@@ -118,5 +123,74 @@ fn runner_hk_37() {
     assert!(
         test.contains("a file with no address of any kind is refused"),
         "tests/runner/serve.mjs must keep a file with no address an outage, not a mismatch"
+    );
+}
+
+/// `HK-50`: Every file the local runner serves or caches is decided by the kernel's identity rule: its bytes are held to its BLAKE3 address once it has one, and a file without one is minted once, from bytes matching the name Hugging Face gives it
+#[test]
+fn runner_hk_50() {
+    let runner = without_comments("runner/local.mjs");
+    let check = std::fs::read_to_string(repo_model::repo_root().join("tests/runner/check.mjs"))
+        .expect("reading tests/runner/check.mjs");
+    let workflow =
+        std::fs::read_to_string(repo_model::repo_root().join(".github/workflows/runner.yml"))
+            .expect("reading runner.yml");
+
+    // The kernel's identity rule is what decides: operation 9, the file's
+    // BLAKE3 address and the BLAKE3 of the bytes, Hugging Face's name only
+    // while the file has no address, and whether every tensor matched.
+    for line in [
+        "request[0] = 9;",
+        "request[1] = minted ? 1 : 0;",
+        "request.set(Buffer.from(observed, \"hex\"), 35);",
+        "request[148] = tensorsHold ? 1 : 0;",
+        "if (answer === 40) return { ok: true, by: \"blake3\", blake3: address3 };",
+    ] {
+        assert!(
+            runner.contains(line),
+            "the runner must ask the kernel's identity rule: missing `{line}`"
+        );
+    }
+    // A mint is remembered, so Hugging Face vouches for a file once, and the
+    // cache is keyed by the BLAKE3 address once the file has one.
+    assert!(
+        runner.contains(
+            "await remember(repo, info.sha, path, verdict.minted, address ?? sibling.blobId);"
+        ),
+        "a minted address must be kept"
+    );
+    assert!(
+        runner.contains("const key = known ? known.slice(7) : address ?? sibling.blobId;"),
+        "the cache must be keyed by the BLAKE3 address once the file has one"
+    );
+    // Tensors are checked before the rule is asked, so it can refuse on them.
+    assert!(
+        runner.contains("if (seen.witnessed && seen.mismatched.length) tensorsHold = 0;"),
+        "a tensor that does not match must reach the identity rule"
+    );
+    // The check exercises the guarantees against the published kernel, and
+    // the runner workflow runs it.
+    for (id, said) in [
+        (
+            "HK-45",
+            "is minted from bytes Hugging Face's name vouches for",
+        ),
+        (
+            "HK-46",
+            "are refused although Hugging Face's name matches them",
+        ),
+        (
+            "HK-49",
+            "a file with a tensor that does not match is refused",
+        ),
+    ] {
+        assert!(
+            check.contains(said),
+            "tests/runner/check.mjs must exercise {id}"
+        );
+    }
+    assert!(
+        workflow.contains("run: node tests/runner/check.mjs"),
+        "the runner workflow must run tests/runner/check.mjs"
     );
 }

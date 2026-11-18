@@ -315,3 +315,9 @@ id = "HK-49"
 level = "build"
 suite = "kernel"
 statement = "A file is served or minted only when every tensor it declares matches its address"
+
+[[id]]
+id = "HK-50"
+level = "build"
+suite = "runner"
+statement = "Every file the local runner serves or caches is decided by the kernel's identity rule: its bytes are held to its BLAKE3 address once it has one, and a file without one is minted once, from bytes matching the name Hugging Face gives it"
