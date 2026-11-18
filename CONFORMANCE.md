@@ -74,6 +74,12 @@ model does not sanction.
 | `HK-41` | `build` | A stored piece that matches a piece table of the requested address is always reused and never fetched again |
 | `HK-42` | `build` | A piece is refused only when no source is left, and retried only while a source remains |
 
+## pieces
+
+| ID | Level | Statement |
+| --- | --- | --- |
+| `HK-43` | `build` | A model's bytes are fetched in pieces from any host, and a piece is used only when the fetcher's decision, the kernel's piece rule, answers reuse or deliver; that decision keeps HK-39 to HK-42 on every input, and the committed hasher is what its source builds |
+
 ## runner
 
 | ID | Level | Statement |
