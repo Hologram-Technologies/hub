@@ -195,12 +195,15 @@ jobs:
           predicate: '{"witness":"https://huggingface.co","tool":"tools/manifest.mjs"}'
           show-summary: false
       - name: Keep the index between runs
-        # A record is reused while its model's revision is unchanged.
+        # A record is reused while its model's revision is unchanged. The key
+        # also names what gives a listed file its BLAKE3 (HK-45): the list, the
+        # module that streams it and the hasher it runs, so a change to any of
+        # them hashes the files again rather than reusing another rule's result.
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/index
-          key: index-${{ hashFiles('tools/index.mjs', 'manifests/models.txt', 'manifests/owners.txt') }}-${{ github.run_id }}
-          restore-keys: index-${{ hashFiles('tools/index.mjs', 'manifests/models.txt', 'manifests/owners.txt') }}-
+          key: index-${{ hashFiles('tools/index.mjs', 'manifests/models.txt', 'manifests/owners.txt', 'manifests/onnx.txt', 'tools/blake3.mjs', 'web/piece-hash.wasm', 'web/piece-hash.mjs', 'web/pieces.mjs') }}-${{ github.run_id }}
+          restore-keys: index-${{ hashFiles('tools/index.mjs', 'manifests/models.txt', 'manifests/owners.txt', 'manifests/onnx.txt', 'tools/blake3.mjs', 'web/piece-hash.wasm', 'web/piece-hash.mjs', 'web/pieces.mjs') }}-
       - name: Index the catalog's models
         shell: bash
         run: |
@@ -230,11 +233,15 @@ jobs:
       # revision and why `manifests/uor.txt` is a list a reviewer can read
       # rather than the whole index.
       - name: Keep the minted addresses between runs
+        # The ONNX rows (HK-46) are read by tools/onnx.mjs and hashed by
+        # tools/blake3.mjs over web/piece-hash.wasm, so those and the list that
+        # names the graphs are inputs too. A kept ONNX row is reused only while
+        # its files are the BLAKE3 the signed record names.
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/uor
-          key: uor-${{ hashFiles('manifests/uor.txt', 'tools/uor-index.mjs', 'crates/uor-label/src/main.rs', 'Cargo.lock') }}-${{ github.run_id }}
-          restore-keys: uor-${{ hashFiles('manifests/uor.txt', 'tools/uor-index.mjs', 'crates/uor-label/src/main.rs', 'Cargo.lock') }}-
+          key: uor-${{ hashFiles('manifests/uor.txt', 'tools/uor-index.mjs', 'crates/uor-label/src/main.rs', 'Cargo.lock', 'manifests/onnx.txt', 'tools/onnx.mjs', 'tools/blake3.mjs', 'web/piece-hash.wasm', 'web/piece-hash.mjs', 'web/pieces.mjs') }}-${{ github.run_id }}
+          restore-keys: uor-${{ hashFiles('manifests/uor.txt', 'tools/uor-index.mjs', 'crates/uor-label/src/main.rs', 'Cargo.lock', 'manifests/onnx.txt', 'tools/onnx.mjs', 'tools/blake3.mjs', 'web/piece-hash.wasm', 'web/piece-hash.mjs', 'web/pieces.mjs') }}-
       - name: Mint the canonical addresses
         shell: bash
         run: |
@@ -259,7 +266,7 @@ jobs:
           # The addresser is named because the label depends on it: a canonical
           # form is only canonical while the code and the form version are
           # fixed, and both are published in the root beside every label.
-          predicate: '{"tool":"tools/uor-index.mjs","addresser":"uor-addr 0.4.0","canonicalForms":{"gguf":3,"safetensors":2},"bytes":"https://huggingface.co"}'
+          predicate: '{"tool":"tools/uor-index.mjs","addresser":"uor-addr 0.4.0","canonicalForms":{"gguf":3,"safetensors":2},"onnx":"tools/onnx.mjs, the BLAKE3 of the bytes of each initializer","bytes":"https://huggingface.co"}'
           show-summary: false
 
       # ---- the roll: every model Hugging Face has ever listed

@@ -349,7 +349,7 @@ fn index_hk_25() {
     // whole point of publishing a range per tensor is that a reader need not
     // take it. The fetcher asks for that range in pieces.
     assert!(
-        page.contains("sources: [{ url: `${row.resolve}${row.path}`, offset: tensor.begin }]")
+        page.contains("sources: [{ url: `${row.resolve}${tensor.file ?? row.path}`, offset: tensor.offset ?? tensor.begin }]")
             && page.contains("length: tensor.length,"),
         "the page must fetch one tensor's byte range"
     );
@@ -650,4 +650,229 @@ fn index_hk_44() {
         workflow.contains("node tests/uor/index.mjs"),
         "the Pages workflow must run the artifact check, or it proves nothing"
     );
+}
+
+/// `HK-45`: Every file manifests/onnx.txt lists carries, in its release record, the BLAKE3 of the whole file's bytes, and the index root names every record and browse shard by BLAKE3 beside SHA-256, so a reader checks a record and a file without SHA-256
+///
+/// Hologram AI checks model bytes by BLAKE3 alone. This holds the source to
+/// the promise; `tests/index/shards.mjs` holds the built index to it, and the
+/// Pages workflow runs that on every build.
+#[test]
+fn index_hk_45() {
+    let list = std::fs::read_to_string(repo_model::repo_root().join("manifests/onnx.txt"))
+        .expect("manifests/onnx.txt names the files given a BLAKE3");
+    for repo in [
+        "onnx-community/Qwen2.5-1.5B-Instruct",
+        "onnx-community/Qwen3-0.6B-ONNX",
+        "onnx-community/Llama-3.2-1B-Instruct-ONNX",
+        "Xenova/all-MiniLM-L6-v2",
+        "Xenova/distilbert-base-uncased-finetuned-sst-2-english",
+    ] {
+        for path in [
+            "onnx/model_q4.onnx",
+            "onnx/model_q4f16.onnx",
+            "config.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+        ] {
+            assert!(
+                list.lines().any(|l| l.trim() == format!("{repo} {path}")),
+                "manifests/onnx.txt must list {repo} {path}"
+            );
+        }
+    }
+    let builder = without_comments("tools/index.mjs");
+    let hasher = without_comments("tools/blake3.mjs");
+    let check = without_comments("tests/index/shards.mjs");
+    let workflow =
+        std::fs::read_to_string(repo_model::repo_root().join(".github/workflows/pages.yml"))
+            .expect("reading pages.yml");
+
+    // A listed file is hashed from its bytes, and a listed path the release
+    // does not hold stops the build rather than going quiet.
+    for needle in [
+        "named(\"onnx.txt\")",
+        "file.blake3 = await blake3Of(record, file);",
+        "which ${record.revision} does not hold",
+        "if (length !== file.size)",
+    ] {
+        assert!(
+            builder.contains(needle),
+            "tools/index.mjs must contain `{needle}`"
+        );
+    }
+    // The root names records, browse shards and the catalog by BLAKE3 too.
+    assert_eq!(
+        builder
+            .matches("sha256: sha256(bytes), blake3: blake3Hex(bytes)")
+            .count(),
+        2,
+        "both the record entries and the browse entries must carry a BLAKE3"
+    );
+    assert!(
+        builder.contains("catalogBlake3: blake3Hex(catalog),"),
+        "the index root must name the catalog by BLAKE3"
+    );
+    // One BLAKE3: the hasher every reader runs, folded the way readers fold.
+    assert!(
+        hasher.contains("web/piece-hash.wasm") && hasher.contains("foldTable(cvs, hasher.parent)"),
+        "tools/blake3.mjs must hash with web/piece-hash.wasm and fold as web/pieces.mjs does"
+    );
+    // The artifact check reads by BLAKE3 alone, and refuses a changed record.
+    for needle in [
+        "is not the bytes whose BLAKE3 the root names",
+        "a changed record is refused by its BLAKE3",
+        "manifests/onnx.txt lists carries its BLAKE3",
+    ] {
+        assert!(
+            check.contains(needle),
+            "tests/index/shards.mjs must check `{needle}`"
+        );
+    }
+    assert!(
+        workflow.contains("node tests/index/shards.mjs"),
+        "the Pages workflow must run the index check on what it built"
+    );
+    let key = workflow
+        .lines()
+        .find(|l| l.trim_start().starts_with("key: index-"))
+        .expect("the index is cached under a key");
+    for input in [
+        "manifests/onnx.txt",
+        "tools/blake3.mjs",
+        "web/piece-hash.wasm",
+    ] {
+        assert!(
+            key.contains(input),
+            "the index cache key must name {input}, an input of every BLAKE3 it keeps"
+        );
+    }
+}
+
+/// `HK-46`: Every initializer of an ONNX graph manifests/onnx.txt lists is in the UOR address index with its name, data type and dims, the file its bytes lie in, their offset and length there, and an address that is the BLAKE3 of exactly those bytes, so a reader checks one tensor from a ranged read
+///
+/// uor-addr's ONNX realization addresses a tensor kept in an external file by
+/// its reference rather than its bytes, so these rows come from
+/// `tools/onnx.mjs`, which reads only what ONNX's schema says and refuses what
+/// it would have to guess.
+#[test]
+fn index_hk_46() {
+    let reader = without_comments("tools/onnx.mjs");
+    let builder = without_comments("tools/uor-index.mjs");
+    let check = without_comments("tests/uor/index.mjs");
+    let page = without_comments("web/hub.mjs");
+    let workflow =
+        std::fs::read_to_string(repo_model::repo_root().join(".github/workflows/pages.yml"))
+            .expect("reading pages.yml");
+
+    // ModelProto 7 is the graph, GraphProto 5 an initializer; in a
+    // TensorProto 9 is raw_data, 13 external_data, 14 data_location.
+    for needle in [
+        "tag >> 3 !== 7",
+        "field === 5 && (inner & 7) === 2",
+        "field === 9 && wire === 2",
+        "field === 13 && wire === 2",
+        "field === 14 && wire === 0",
+    ] {
+        assert!(
+            reader.contains(needle),
+            "tools/onnx.mjs must read `{needle}` as ONNX's schema defines it"
+        );
+    }
+    // What would need a guess is refused: typed data, whose stored bytes are
+    // not the tensor; a length the dims and type do not make; a location that
+    // leaves the repository.
+    for needle in [
+        "TYPED_DATA.has(field)",
+        "its dims and ${dtype} make ${expected}",
+        ".includes(\"..\")",
+    ] {
+        assert!(
+            reader.contains(needle),
+            "tools/onnx.mjs must refuse with `{needle}`"
+        );
+    }
+    // Each range is hashed as it streams past, by the one hasher.
+    assert!(
+        reader.contains("hash.update(part)") && reader.contains("blake3Stream()"),
+        "an initializer's address must be the BLAKE3 of the bytes read for it"
+    );
+    // Every file read must be the BLAKE3 its signed record names, and the row
+    // names content by BLAKE3 only.
+    for needle in [
+        "which is not the BLAKE3 its record names",
+        "realization: \"onnx\",",
+        "readGraph(await stream(record, path), path,",
+        "await addressRanges(await stream(record, file), ranges,",
+    ] {
+        assert!(
+            builder.contains(needle),
+            "tools/uor-index.mjs must contain `{needle}`"
+        );
+    }
+    let row = builder
+        .split("realization: \"onnx\",")
+        .nth(1)
+        .and_then(|rest| rest.split("});").next())
+        .expect("the ONNX row");
+    assert!(
+        !row.contains("sha256"),
+        "an ONNX row must name nothing by SHA-256: {row}"
+    );
+    // The artifact check holds the rows to it, and re-reads one tensor per
+    // file by range from where the row says its bytes came from.
+    for needle in [
+        "names content by SHA-256",
+        "which the row does not name",
+        "read by range, is not its address",
+        "is not the bytes the root names by BLAKE3",
+    ] {
+        assert!(
+            check.contains(needle),
+            "tests/uor/index.mjs must check `{needle}`"
+        );
+    }
+    // The reader's behaviour, not only its text: graphs built byte by byte,
+    // every address against a second BLAKE3, every refusal by name, run on
+    // each push and pull request that touches the reader or its hasher.
+    let unit = without_comments("tests/uor/onnx.mjs");
+    for needle in [
+        "the address is the BLAKE3 of its range",
+        "external address",
+        "\"typed field 4\"",
+        "\"its dims and FLOAT make 12\"",
+        "\"names external location\"",
+        "\"the file ends inside a field\"",
+    ] {
+        assert!(
+            unit.contains(needle),
+            "tests/uor/onnx.mjs must check `{needle}`"
+        );
+    }
+    let pieces =
+        std::fs::read_to_string(repo_model::repo_root().join(".github/workflows/pieces.yml"))
+            .expect("reading pieces.yml");
+    assert!(
+        pieces.contains("run: node tests/uor/onnx.mjs")
+            && pieces.matches("- \"tools/onnx.mjs\"").count() == 2
+            && pieces.matches("- \"tools/blake3.mjs\"").count() == 2
+            && pieces.matches("- \"tests/uor/onnx.mjs\"").count() == 2,
+        "pieces.yml must run tests/uor/onnx.mjs on every push and pull request that touches the reader or its hasher"
+    );
+    // The page fetches an ONNX tensor from the file it lies in.
+    assert!(
+        page.contains("${row.resolve}${tensor.file ?? row.path}")
+            && page.contains("offset: tensor.offset ?? tensor.begin"),
+        "the page must fetch an ONNX tensor from its own file at its own offset"
+    );
+    let key = workflow
+        .lines()
+        .find(|l| l.trim_start().starts_with("key: uor-"))
+        .expect("the address index is cached under a key");
+    for input in ["manifests/onnx.txt", "tools/onnx.mjs", "tools/blake3.mjs"] {
+        assert!(
+            key.contains(input),
+            "the address cache key must name {input}"
+        );
+    }
 }

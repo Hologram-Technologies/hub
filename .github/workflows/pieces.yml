@@ -4,7 +4,9 @@ name: pieces
 # the kernel's piece rule says so (HK-39 to HK-42, HK-43). This checks that the
 # committed hasher is what its source builds, that the hasher folds to BLAKE3,
 # and that the fetcher keeps the rule against a host that lies, truncates and
-# fails.
+# fails. It also runs the ONNX reader (HK-46) over graphs built byte by byte,
+# because the reader hashes with this hasher and its addresses are only as
+# good as the ranges it reads.
 
 on:
   push:
@@ -14,6 +16,9 @@ on:
       - "web/piece*"
       - "web/pieces.mjs"
       - "tests/pieces/**"
+      - "tests/uor/onnx.mjs"
+      - "tools/onnx.mjs"
+      - "tools/blake3.mjs"
       - "tools/build-piece-hash.sh"
       - "Cargo.lock"
       - ".github/workflows/pieces.yml"
@@ -23,6 +28,9 @@ on:
       - "web/piece*"
       - "web/pieces.mjs"
       - "tests/pieces/**"
+      - "tests/uor/onnx.mjs"
+      - "tools/onnx.mjs"
+      - "tools/blake3.mjs"
       - "tools/build-piece-hash.sh"
       - "Cargo.lock"
       - ".github/workflows/pieces.yml"
@@ -57,3 +65,6 @@ jobs:
       - name: The fetcher keeps the kernel's piece rule
         shell: bash
         run: node tests/pieces/fetch.mjs
+      - name: The ONNX reader addresses exactly the bytes ONNX says, and refuses a guess
+        shell: bash
+        run: node tests/uor/onnx.mjs

@@ -71,3 +71,19 @@ Feature: index
     Given uor-label, which checks each tensor's leaf through its piece tree, and tools/uor-index.mjs
     When the Pages workflow builds the UOR index and runs tests/uor/index.mjs on it
     Then every tensor over 1 MiB has a table under its address that folds to that address, and no other table is published
+
+  @HK-45 @build
+  Scenario: Every file manifests/onnx.txt lists carries, in its release record, the BLAKE3 of the whole file's bytes, and the index root names every record and browse shard by BLAKE3 beside SHA-256, so a reader checks a record and a file without SHA-256
+    Given manifests/onnx.txt, which names the q4 and q4f16 graphs, their external data and the four JSON files of the five exports Hologram AI loads
+    When tools/index.mjs builds the index and the Pages workflow runs tests/index/shards.mjs on it
+    Then every listed file carries in its record the BLAKE3 of its whole bytes, streamed from the release and refused unless they are the bytes the record already describes
+    And the root names every record, browse shard and the catalog by BLAKE3 beside SHA-256, and a record changed by one byte is refused by its BLAKE3
+    And a listed path the release does not hold stops the build
+
+  @HK-46 @build
+  Scenario: Every initializer of an ONNX graph manifests/onnx.txt lists is in the UOR address index with its name, data type and dims, the file its bytes lie in, their offset and length there, and an address that is the BLAKE3 of exactly those bytes, so a reader checks one tensor from a ranged read
+    Given the ONNX graphs manifests/onnx.txt lists, each with its record's BLAKE3 for every file it reads
+    When tools/uor-index.mjs reads each graph and its external data through tools/onnx.mjs and the Pages workflow runs tests/uor/index.mjs
+    Then every initializer is a row tensor with its name, data type, shape, file, offset, length and the BLAKE3 of exactly those bytes as its address
+    And a file whose bytes are not the BLAKE3 its record names, typed data, a length the dims do not make and a location outside the repository are each refused
+    And one tensor in every file, read by range from where the row says its bytes came from, hashes to its address, and no ONNX row names content by SHA-256

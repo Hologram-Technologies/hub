@@ -31,6 +31,11 @@
 // GGUF and safetensors. `uor-addr 0.4.0` also ships an ONNX realization, but its
 // skeleton is protobuf and the layout its leaves sit in has not been read here,
 // so an ONNX file is reported as unaddressed rather than addressed by guesswork.
+//
+// The ONNX graphs `manifests/onnx.txt` names are the exception, and they carry
+// no κ-label: `tools/onnx.mjs` reads each initializer's byte range from the
+// graph and publishes the BLAKE3 of exactly those bytes as its address (HK-46),
+// which is the leaf rule above without a canonical form around it.
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
@@ -41,7 +46,10 @@ import { dirname, join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 
+import { decodeTable, foldTable } from "../web/pieces.mjs";
 import { uorBucket, uorShardPath } from "../web/uorkey.mjs";
+import { blake3Hex, blake3Stream, hasher } from "./blake3.mjs";
+import { addressRanges, readGraph } from "./onnx.mjs";
 
 const run = promisify(execFile);
 const HF = "https://huggingface.co";
@@ -209,6 +217,111 @@ for (const repo of wanted) {
   }
 }
 
+// ---- ONNX: every initializer of each listed graph, by BLAKE3 (HK-46).
+//
+// The rows a previous build left are read before anything is cleared, so a
+// graph whose files have not changed is not streamed again. A kept row is
+// trusted only on a check made now: every file it was read from must still be
+// the BLAKE3 the signed record names, and every piece table it needs must
+// still fold to its tensor's address. A row that fails either is a miss and is
+// read again in full.
+const kept = new Map();
+try {
+  const before = JSON.parse(await readFile(join(out, "root.json"), "utf8"));
+  for (const shard of before.shards ?? []) {
+    for (const row of JSON.parse(await readFile(join(out, shard.path), "utf8"))) {
+      if (row.realization === "onnx") kept.set(`${row.repo} ${row.path}`, row);
+    }
+  }
+} catch {}
+async function keptTables(row) {
+  const found = new Map();
+  for (const t of row.tensors.filter((x) => x.length > 1 << 20)) {
+    const hex = t.address.slice(7);
+    const bytes = await readFile(join(out, "pieces", hex)).catch(() => null);
+    if (!bytes) return null;
+    const table = decodeTable(bytes);
+    if (table.length !== t.length || Buffer.from(foldTable(table.cvs, hasher.parent)).toString("hex") !== hex) return null;
+    found.set(hex, bytes.toString("hex"));
+  }
+  return found;
+}
+
+const onnxListed = new Map();
+for (const line of await named("onnx.txt")) {
+  const [repo, path] = line.split(/\s+/);
+  if (!onnxListed.has(repo)) onnxListed.set(repo, []);
+  onnxListed.get(repo).push(path);
+}
+const stream = async (record, path) => {
+  const response = await fetch(`${HF}/${record.repo}/resolve/${record.revision}/${path}`, { signal: AbortSignal.timeout(60 * 60000) });
+  if (!response.ok) throw new Error(`${record.repo}/${path}: ${response.status}`);
+  return response.body;
+};
+let onnxReused = 0;
+for (const [repo, paths] of onnxListed) {
+  const entry = held.get(repo.toLowerCase());
+  if (!entry) {
+    unaddressed.push({ repo, path: null, size: null, why: "named in manifests/onnx.txt, but the signed index does not hold it" });
+    continue;
+  }
+  const record = JSON.parse(await readFile(join(indexDir, "models", `${entry.repo}.json`), "utf8"));
+  // The record's BLAKE3 for a file is the one the signed root binds; every
+  // byte read here must hash to it, or nothing read from that file is used.
+  const inRecord = (path) => {
+    const file = record.files.find((f) => f.path === path);
+    if (!/^[0-9a-f]{64}$/.test(file?.blake3 ?? "")) throw new Error(`${repo}/${path}: the record names no BLAKE3 for it`);
+    return file;
+  };
+  const sameFile = (path, seen) => {
+    const file = inRecord(path);
+    if (seen.length !== file.size || seen.blake3 !== file.blake3) {
+      throw new Error(`${repo}/${path}: ${seen.length} bytes that hash to blake3:${seen.blake3}, which is not the BLAKE3 its record names`);
+    }
+    return { path, size: file.size, blake3: file.blake3 };
+  };
+  for (const path of paths.filter((p) => /\.onnx$/i.test(p))) {
+    const graph = inRecord(path);
+    const before = kept.get(`${record.repo} ${path}`);
+    if (before?.revision === record.revision
+        && before.files.every((f) => inRecord(f.path).blake3 === f.blake3 && inRecord(f.path).size === f.size)) {
+      const found = await keptTables(before);
+      if (found) {
+        for (const [hex, table] of found) tables.set(hex, table);
+        rows.push(before);
+        onnxReused += 1;
+        console.log(`  ${record.repo}/${path}: kept, its files unchanged`);
+        continue;
+      }
+    }
+    const started = Date.now();
+    const whole = blake3Stream();
+    const { initializers } = await readGraph(await stream(record, path), path, (c) => whole.update(c), tables);
+    const files = [sameFile(path, whole.finish())];
+    // External data, one pass per file, each range hashed as it passes.
+    const external = new Map();
+    for (const t of initializers.filter((x) => x.file !== path)) external.set(t.file, [...(external.get(t.file) ?? []), t]);
+    for (const [file, ranges] of external) {
+      if (!paths.includes(file)) throw new Error(`${repo}/${path} keeps weights in ${file}, which manifests/onnx.txt does not list`);
+      const data = blake3Stream();
+      await addressRanges(await stream(record, file), ranges, (c) => data.update(c), tables);
+      files.push(sameFile(file, data.finish()));
+    }
+    rows.push({
+      repo: record.repo,
+      revision: record.revision,
+      path,
+      size: graph.size,
+      realization: "onnx",
+      resolve: `${HF}/${record.repo}/resolve/${record.revision}/`,
+      // Every file a tensor below lies in, by the BLAKE3 the record names.
+      files,
+      tensors: initializers.map(({ name, dtype, shape, file, offset, length, address }) => ({ name, dtype, shape, file, offset, length, address })),
+    });
+    console.log(`  ${record.repo}/${path}: ${initializers.length} initializers across ${files.length} file${files.length === 1 ? "" : "s"} in ${((Date.now() - started) / 1000).toFixed(1)} s`);
+  }
+}
+
 // Filed by the one rule, which the page imports from the same module.
 const shards = new Map();
 for (const row of rows) {
@@ -238,7 +351,7 @@ for (const bucket of [...shards.keys()].sort((a, b) => a - b)) {
   const bytes = JSON.stringify(page);
   await mkdir(dirname(join(out, path)), { recursive: true });
   await writeFile(join(out, path), bytes);
-  written.push({ path, bucket, rows: page.length, sha256: sha256(bytes) });
+  written.push({ path, bucket, rows: page.length, sha256: sha256(bytes), blake3: blake3Hex(bytes) });
 }
 
 const manifest = {
@@ -256,7 +369,10 @@ const manifest = {
   // One form per realization, because each realization numbers its own: GGUF
   // is on form 3 and safetensors on form 2. A row's form is read against the
   // entry for its realization, never against a single number for the index.
-  canonicalForms: Object.fromEntries([...new Set(rows.map((r) => r.realization))].sort().map((r) => [r, rows.find((x) => x.realization === r).canonicalForm])),
+  canonicalForms: Object.fromEntries([...new Set(rows.filter((r) => r.label).map((r) => r.realization))].sort().map((r) => [r, rows.find((x) => x.realization === r).canonicalForm])),
+  // An ONNX row has no κ-label and no canonical form: each tensor's address is
+  // the BLAKE3 of the byte range it names, in the file it names (HK-46).
+  onnx: { axis: "blake3", over: "the bytes of an initializer's raw_data or external range", by: "tools/onnx.mjs", list: "manifests/onnx.txt" },
   shardBits: SHARD_BITS,
   counts: {
     models: new Set(rows.map((r) => r.repo)).size,
@@ -270,4 +386,4 @@ const manifest = {
   shards: written,
 };
 await writeFile(join(out, "root.json"), JSON.stringify(manifest));
-console.log(`uor-index: ${manifest.counts.files} files, ${manifest.counts.tensors} tensors, ${manifest.counts.models} models, ${written.length} shards, ${unaddressed.length} unaddressed`);
+console.log(`uor-index: ${manifest.counts.files} files, ${manifest.counts.tensors} tensors, ${manifest.counts.models} models, ${written.length} shards, ${unaddressed.length} unaddressed, ${onnxReused} ONNX graphs kept unread`);
