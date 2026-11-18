@@ -571,7 +571,7 @@ fn kernel_hk_47() {
         "(((Kernel::identityDecision pull) =? (Kernel::identityMint)) && ((project pull minted) =? 1))",
         "identityMintOnceHolds",
         "pull",
-        "Classical.choice, Quot.sound, propext",
+        "Quot.sound, propext",
     );
     identity_decision_is_fixed();
 }
@@ -585,7 +585,7 @@ fn kernel_hk_48() {
         "(((Kernel::identityDecision pull) =? (Kernel::identityServe)) && (not ((project pull axis) =? 1)))",
         "identityAxisHolds",
         "pull",
-        "Classical.choice, Quot.sound, propext",
+        "Quot.sound, propext",
     );
     identity_decision_is_fixed();
 }
@@ -599,7 +599,7 @@ fn kernel_hk_49() {
         "((((Kernel::identityDecision pull) =? (Kernel::identityServe)) || ((Kernel::identityDecision pull) =? (Kernel::identityMint))) && (not ((project pull tensorsHold) =? 1)))",
         "identityTensorsHolds",
         "pull",
-        "Classical.choice, Quot.sound, propext",
+        "Quot.sound, propext",
     );
     identity_decision_is_fixed();
 }

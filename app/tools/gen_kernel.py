@@ -958,7 +958,7 @@ INVARIANTS += [
 HAND_WRITTEN = ["PieceCached", "PiecePersists", "PieceReused", "PieceVerified"]
 
 CLASSICAL = {"Complete", "Concur", "Delivery", "Etag", "Healthy", "Servable", "Sound", "Trust",
-             "IdentityVerified", "IdentityDecides", "IdentityMintOnce", "IdentityAxis", "IdentityTensors"}
+             "IdentityVerified", "IdentityDecides"}
 
 
 def proof_modules():
