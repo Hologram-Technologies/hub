@@ -38,7 +38,9 @@ fn pieces_hk_43() {
         "the kernel's pieceDecision changed; the fetcher's transcription must change with it"
     );
     assert!(
-        kernel.contains("body: (if (0 <? (project piece sourcesLeft)) then (answerRetry) else (answerRefuse))"),
+        kernel.contains(
+            "body: (if (0 <? (project piece sourcesLeft)) then (answerRetry) else (answerRefuse))"
+        ),
         "the kernel's fallback changed"
     );
     // The transcription, in the same order and with the same answers.
@@ -49,30 +51,54 @@ fn pieces_hk_43() {
         "web/pieces.mjs's pieceDecision must be the kernel's, transcribed"
     );
     assert!(
-        fetcher.contains("ANSWER = Object.freeze({ reuse: 30, deliver: 31, retry: 32, refuse: 33 })"),
+        fetcher
+            .contains("ANSWER = Object.freeze({ reuse: 30, deliver: 31, retry: 32, refuse: 33 })"),
         "the fetcher's answers must be the kernel's numbers"
     );
 
     // Bytes reach the caller in exactly three places, each behind an answer
     // of reuse or deliver.
-    let uses: Vec<usize> = fetcher.match_indices("onPiece?.(").map(|(i, _)| i).collect();
-    assert_eq!(uses.len(), 3, "the fetcher hands bytes to its caller in exactly three places");
+    let uses: Vec<usize> = fetcher
+        .match_indices("onPiece?.(")
+        .map(|(i, _)| i)
+        .collect();
+    assert_eq!(
+        uses.len(),
+        3,
+        "the fetcher hands bytes to its caller in exactly three places"
+    );
     for at in uses {
         let before = &fetcher[at.saturating_sub(600)..at];
         assert!(
-            before.contains("if (d === ANSWER.reuse)") || before.contains("if (d === ANSWER.deliver)"),
+            before.contains("if (d === ANSWER.reuse)")
+                || before.contains("if (d === ANSWER.deliver)"),
             "every place the fetcher uses bytes must follow a reuse or deliver answer:\n{before}"
         );
     }
 
     // The check exercises each guarantee on every input, then end to end.
     for (id, line) in [
-        ("HK-39", "if (d === ANSWER.deliver) assert.ok(tableHolds && observedMatches && lengthMatches"),
-        ("HK-40", "if (d === ANSWER.reuse) assert.ok(tableHolds && held && cachedMatches"),
-        ("HK-41", "if (tableHolds && held && cachedMatches) assert.equal(d, ANSWER.reuse"),
-        ("HK-42", "if (d === ANSWER.refuse) assert.equal(sourcesLeft, 0"),
+        (
+            "HK-39",
+            "if (d === ANSWER.deliver) assert.ok(tableHolds && observedMatches && lengthMatches",
+        ),
+        (
+            "HK-40",
+            "if (d === ANSWER.reuse) assert.ok(tableHolds && held && cachedMatches",
+        ),
+        (
+            "HK-41",
+            "if (tableHolds && held && cachedMatches) assert.equal(d, ANSWER.reuse",
+        ),
+        (
+            "HK-42",
+            "if (d === ANSWER.refuse) assert.equal(sourcesLeft, 0",
+        ),
     ] {
-        assert!(check.contains(line), "tests/pieces/fetch.mjs must check {id} on every input");
+        assert!(
+            check.contains(line),
+            "tests/pieces/fetch.mjs must check {id} on every input"
+        );
     }
     assert!(
         check.contains("const liar") || check.contains("host(\"liar\""),
@@ -89,5 +115,9 @@ fn pieces_hk_43() {
         "the pieces workflow must run the fetcher's check, or it proves nothing"
     );
     let module = std::fs::read(root().join("web/piece-hash.wasm")).expect("web/piece-hash.wasm");
-    assert_eq!(&module[..4], b"\0asm", "web/piece-hash.wasm must be a WebAssembly module");
+    assert_eq!(
+        &module[..4],
+        b"\0asm",
+        "web/piece-hash.wasm must be a WebAssembly module"
+    );
 }

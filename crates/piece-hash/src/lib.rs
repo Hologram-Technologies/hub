@@ -159,7 +159,11 @@ mod tests {
             9 * PIECE_LEN - 1,
         ] {
             let data: Vec<u8> = (0..len).map(|i| (i % 251) as u8).collect();
-            assert_eq!(root_of(&data), *blake3::hash(&data).as_bytes(), "{len} bytes");
+            assert_eq!(
+                root_of(&data),
+                *blake3::hash(&data).as_bytes(),
+                "{len} bytes"
+            );
         }
     }
 
@@ -171,7 +175,10 @@ mod tests {
         let mut bad = data.clone();
         bad[PIECE_LEN + 5] ^= 1;
         let c = (PIECE_LEN / blake3::CHUNK_LEN) as u64;
-        assert_eq!(piece_cv(&data[..PIECE_LEN], 0, false), piece_cv(&bad[..PIECE_LEN], 0, false));
+        assert_eq!(
+            piece_cv(&data[..PIECE_LEN], 0, false),
+            piece_cv(&bad[..PIECE_LEN], 0, false)
+        );
         assert_ne!(
             piece_cv(&data[PIECE_LEN..2 * PIECE_LEN], c, false),
             piece_cv(&bad[PIECE_LEN..2 * PIECE_LEN], c, false)
