@@ -114,16 +114,18 @@ ok("a piece table survives HPTREE01 encoding and decoding");
 
 const files = new Map();
 let hits = 0;
+const hitsBy = new Map();
 const server = createServer((req, res) => {
   const [, name] = req.url.split("/");
   const file = files.get(name);
   hits += 1;
+  hitsBy.set(name, (hitsBy.get(name) ?? 0) + 1);
   if (!file || file.mode === "down") {
     res.writeHead(503).end();
     return;
   }
   const m = /bytes=(\d+)-(\d+)/.exec(req.headers.range ?? "");
-  if (!m) {
+  if (!m || file.mode === "norange") {
     res.writeHead(200, { "content-length": file.bytes.length }).end(Buffer.from(file.bytes));
     return;
   }
@@ -148,10 +150,16 @@ const pool = poolOf(4);
 
 {
   const stats = {};
+  hitsBy.clear();
   const got = await verifiedFetch({ kappa, length: sample.length, sources: [host("good", sample)], tables: [table], pool, stats });
   assert.equal(reference(got), kappa);
   assert.equal(stats.delivered, 4);
-  ok("with a table: every piece from a good host is delivered, and the bytes are the address's");
+  assert.equal(hitsBy.get("good"), 2, "four pieces, two requests: the first alone, the rest together");
+  ok("with a table: every piece from a good host is delivered, the first alone and the rest in one request");
+  hitsBy.clear();
+  await verifiedFetch({ kappa, length: sample.length, sources: [host("good", sample)], tables: [table], pool, span: 1 });
+  assert.equal(hitsBy.get("good"), 4, "span 1 asks once per piece");
+  ok("span bounds how many pieces one request covers");
 }
 {
   const stats = {};
@@ -175,11 +183,24 @@ const pool = poolOf(4);
   ok("HK-39: bytes one short of the piece are not delivered, even if their prefix matches");
 }
 {
-  const before = hits;
+  hitsBy.clear();
   const got = await verifiedFetch({ kappa, length: sample.length, sources: [host("down", sample, "down"), host("good", sample)], tables: [table], pool });
   assert.equal(reference(got), kappa);
-  assert.ok(hits - before >= 8, "the down host was asked and the good one answered");
+  assert.ok(hitsBy.get("down") >= 1 && hitsBy.get("good") === 4, "the down host was asked, and the good one sent each piece");
   ok("HK-42: an unreachable host is skipped while another remains");
+}
+{
+  const observed = [];
+  await verifiedFetch({ kappa, length: sample.length, sources: [host("good", sample)], tables: [table], pool, observed });
+  assert.equal(`blake3:${hex(foldTable(observed, local.parent))}`, kappa);
+  ok("the chaining values observed for the bytes used fold to the address, for a judge of the caller's own");
+}
+{
+  hitsBy.clear();
+  const got = await verifiedFetch({ kappa, length: sample.length, sources: [host("whole", sample, "norange"), host("good", sample)], tables: [table], pool });
+  assert.equal(reference(got), kappa);
+  await assert.rejects(verifiedFetch({ kappa, length: sample.length, sources: [host("whole", sample, "norange")], tables: [table], pool }), Refused);
+  ok("a host that ignores Range is no answer: its whole-file reply is never used, and the next host is");
 }
 {
   const forged = { length: table.length, cvs: table.cvs.map((cv, i) => (i === 2 ? new Uint8Array(32) : cv)) };
@@ -254,7 +275,7 @@ if (process.argv.includes("--bench")) {
   const got = await verifiedFetch({ kappa: k, length: big.length, sources: [host("big", big)], tables: [tableOf(big)], pool: p8, inflight: 16 });
   const s = (performance.now() - t) / 1000;
   assert.equal(got.length, big.length);
-  console.log(`  bench: verified fetch over loopback HTTP, 8 workers, 16 in flight: ${((256 * PIECE_LEN) / s / 1e9).toFixed(2)} GB/s`);
+  console.log(`  bench: verified fetch over loopback HTTP, 8 workers, 16 in flight, 8 MiB per request: ${((256 * PIECE_LEN) / s / 1e9).toFixed(2)} GB/s`);
   p8.terminate();
 }
 

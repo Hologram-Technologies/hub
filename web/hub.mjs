@@ -5,7 +5,8 @@
 // classes are gethologram.ai's, so the two sites look and behave alike.
 
 import { load } from "./app/vendor/prism-code/src/browser.mjs";
-import { blake3, blake3Hex } from "./app/vendor/prism-code/src/blake3.mjs";
+import { blake3Hex } from "./app/vendor/prism-code/src/blake3.mjs";
+import { PIECE_LEN, Refused, browserPool, decodeTable, foldTable, verifiedFetch } from "./pieces.mjs";
 import { verifyBundle } from "./sigstore.mjs";
 import { openBrowse } from "./browse.mjs";
 import { ICON, art } from "./icons.mjs";
@@ -158,12 +159,12 @@ async function swarmByName(query) {
 //
 // Every address the hub carried before this came from Hugging Face, which made
 // Hugging Face the only party able to say what a file's bytes should hash to.
-// `uor-addr` publishes a canonical form per format and mints `sha256:<64hex>`
+// `uor-addr` publishes a canonical form per format and mints `blake3:<64hex>`
 // from it, under which two files that decode to the same logical content --
 // modulo metadata-key order, tensor order and tensor-data layout -- address
-// alike. A tensor's address is the SHA-256 of that tensor's own data region,
-// which is why the table below can offer to check one: a ranged read of that
-// tensor is enough, and the verdict is the kernel's, not this page's.
+// alike. A tensor's address is the BLAKE3 of that tensor's own data region,
+// which is why the table below can offer to check one: ranged reads of that
+// tensor are enough, and the verdict is the kernel's, not this page's.
 const uorUrl = (path) => new URL(`data/uor/${path}`, root);
 let uorRootRequest;
 const uorShards = new Map();
@@ -202,30 +203,57 @@ async function uorFiles(repo, revision) {
 }
 
 // One tensor's bytes, from the place the row says they were addressed at, and
-// the kernel's answer about them. Nothing here compares digests itself: the
-// page hands the expected address and the observed bytes to the same accept
-// rule a download goes through.
+// the kernel's answer about them.
 //
-// A host that ignores `Range` answers 200 with the whole file, and a weight
-// file is gigabytes, so anything but 206 is treated as no answer rather than
-// downloaded. That is also why the byte range is published per tensor: without
-// it a reader would have to take the file.
-async function deriveTensor(row, tensor) {
+// The bytes come through web/pieces.mjs: in 1 MiB pieces, several requests at
+// once, hashed on Web Workers, each piece checked against the tensor's
+// published piece table as it arrives and refused if it does not match (the
+// kernel's piece rule, HK-39 to HK-42, transcribed). A tensor of one piece,
+// or one whose table is not published, is checked whole at the end instead.
+// Only partial answers are read: a host that ignores `Range` would send the
+// whole weight file, which is gigabytes.
+//
+// The verdict is still the kernel's accept rule, over the BLAKE3 of the bytes
+// this page received: the pieces' own chaining values, folded, which is the
+// one-shot hash by BLAKE3's construction. Nothing here compares an address.
+let piecePool;
+async function pieceTable(address) {
   try {
-    const response = await fetch(`${row.resolve}${row.path}`, {
-      headers: { Range: `bytes=${tensor.begin}-${tensor.begin + tensor.length - 1}` },
-    });
-    if (response.status !== 206) return { reached: false };
-    const body = new Uint8Array(await response.arrayBuffer());
-    if (body.length !== tensor.length) return { reached: false };
-    // BLAKE3, because that is the axis a tensor is addressed on, taken with
-    // the same implementation `runner/uor.mjs` uses so the page and the runner
-    // cannot disagree about what a tensor is called. The axis is read from the
-    // label's prefix: both axes are 71 bytes, so the length says nothing.
-    if (!isBlake3Label(tensor.address)) return { reached: false };
-    return { reached: true, accepted: await accepts(blake3(body), uorDigestHex(tensor.address), body.length) };
+    const response = await fetch(uorUrl(`pieces/${uorDigestHex(address)}`));
+    return response.ok ? [decodeTable(await response.arrayBuffer())] : [];
   } catch {
-    return { reached: false };
+    return [];
+  }
+}
+
+async function deriveTensor(row, tensor, onProgress) {
+  if (!isBlake3Label(tensor.address)) return { reached: false };
+  const stats = {};
+  try {
+    piecePool ??= browserPool({ max: 8 });
+    const pool = await piecePool;
+    const tables = tensor.length > PIECE_LEN ? await pieceTable(tensor.address) : [];
+    const observed = [];
+    let done = 0;
+    await verifiedFetch({
+      kappa: tensor.address,
+      length: tensor.length,
+      sources: [{ url: `${row.resolve}${row.path}`, offset: tensor.begin }],
+      tables,
+      pool,
+      observed,
+      stats,
+      onPiece: (_, bytes) => onProgress?.((done += bytes.length)),
+    });
+    const digest = observed.length === 1 ? observed[0] : foldTable(observed, pool.parent);
+    return { reached: true, accepted: await accepts(digest, uorDigestHex(tensor.address), tensor.length) };
+  } catch (error) {
+    // Bytes that arrived and did not match are a refusal: a piece the table
+    // refused, or a whole tensor whose pieces did not fold to its address. A
+    // host that never sent the bytes is no answer at all.
+    return error instanceof Refused && (error.piece !== null || (stats.fetched ?? 0) >= tensor.length)
+      ? { reached: true, accepted: false }
+      : { reached: false };
   }
 }
 
@@ -1585,7 +1613,9 @@ async function drawModel(main, id) {
     button.disabled = true;
     verdict.className = "checked dim";
     verdict.textContent = fill(s.uor.deriving, { size: bytes(tensor.length) });
-    const seen = await deriveTensor(row, tensor);
+    const seen = await deriveTensor(row, tensor, (got) => {
+      verdict.textContent = fill(s.uor.deriving, { size: `${bytes(got)} / ${bytes(tensor.length)}` });
+    });
     button.disabled = false;
     verdict.className = `checked ${!seen.reached ? "dim" : seen.accepted ? "ok" : "bad"}`;
     verdict.textContent = !seen.reached ? s.uor.unreachable : seen.accepted ? s.uor.accepted : s.uor.refused;

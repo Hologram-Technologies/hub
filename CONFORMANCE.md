@@ -45,6 +45,7 @@ model does not sanction.
 | `HK-26` | `build` | A filter the panel offers is one whatever is driving the list can act on, so a control is never drawn that cannot narrow anything |
 | `HK-29` | `build` | The index learns which other sources hold a release only from the holders record this repository carries, and only for the revision that record names, so a build reads no other hub |
 | `HK-35` | `build` | Every safetensors file in the UOR address index is addressed by uor-addr's safetensors realization, and each of its tensors carries the BLAKE3 leaf the file's label binds, which is its address, and the byte range that leaf was taken over, so a reader checks one tensor from a ranged read |
+| `HK-44` | `build` | Every tensor longer than 1 MiB in the UOR address index has a piece table, published under the tensor's address, that folds to that address, so a reader checks each piece of the tensor as it arrives |
 
 ## kernel
 

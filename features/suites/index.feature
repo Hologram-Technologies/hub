@@ -65,3 +65,9 @@ Feature: index
     When uor-label mints a safetensors file through uor-addr's safetensors entry points
     Then the row says it is the safetensors realization and the root names that realization's canonical form
     And every tensor carries its uor-addr leaf and the byte range of the file that leaf is the SHA-256 of
+
+  @HK-44 @build
+  Scenario: Every tensor longer than 1 MiB in the UOR address index has a piece table, published under the tensor's address, that folds to that address, so a reader checks each piece of the tensor as it arrives
+    Given uor-label, which checks each tensor's leaf through its piece tree, and tools/uor-index.mjs
+    When the Pages workflow builds the UOR index and runs tests/uor/index.mjs on it
+    Then every tensor over 1 MiB has a table under its address that folds to that address, and no other table is published
