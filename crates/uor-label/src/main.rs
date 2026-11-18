@@ -503,7 +503,7 @@ fn run_safetensors(path: &str, raw: &[u8]) -> Result<String, String> {
                     raw.len()
                 )
             })?;
-        let over_range = b3(range);
+        let (over_range, table) = piece_tree(range);
         if over_range.as_slice() != entry.leaf {
             return Err(format!(
                 "tensor {}: the canonical leaf is blake3:{}, but bytes {begin}..{end} hash to blake3:{}",
@@ -527,14 +527,15 @@ fn run_safetensors(path: &str, raw: &[u8]) -> Result<String, String> {
             .collect::<Vec<_>>()
             .join(",");
         rows.push(format!(
-            "{{\"name\":{},\"dtype\":{},\"shape\":[{}],\"begin\":{},\"length\":{},\"canonicalOffset\":{},\"address\":\"blake3:{}\"}}",
+            "{{\"name\":{},\"dtype\":{},\"shape\":[{}],\"begin\":{},\"length\":{},\"canonicalOffset\":{},\"address\":\"blake3:{}\"{}}}",
             json_string(&tensor.name),
             json_string(dtype.name()),
             dims,
             begin,
             tensor.length,
             entry.offset,
-            hex(&entry.leaf)
+            hex(&entry.leaf),
+            pieces_field(&table, tensor.length)
         ));
     }
     if !by_digest.is_empty() {
@@ -629,27 +630,19 @@ fn run_gguf(path: &str, raw: &[u8]) -> Result<String, String> {
         // differently laid-out files address alike and is no use for finding
         // bytes. Both are printed because confusing them would send a reader
         // to the wrong range.
-        rows.push(format!(
-            "{{\"name\":{},\"ggmlType\":{},\"shape\":[{}],\"begin\":{},\"length\":{},\"canonicalOffset\":{},\"address\":\"blake3:{}\"}}",
-            json_string(&tensor.name),
-            entry.ggml_type,
-            dims,
-            begin,
-            tensor.length,
-            entry.offset,
-            hex(&entry.leaf)
-        ));
-
         // The third check, and the one a reader of the index actually relies
         // on: the leaf must be the BLAKE3 of exactly this byte range. If it
         // is not, the range published beside it would send a client to bytes
-        // that cannot match, and the whole point of the row is lost.
-        let over_range = b3(raw
-            .get(
+        // that cannot match, and the whole point of the row is lost. It is
+        // taken as BLAKE3's own tree cut at 1 MiB, so the same pass yields
+        // the piece table a reader verifies any byte range against.
+        let (over_range, table) = piece_tree(
+            raw.get(
                 usize::try_from(begin).map_err(|_| "offset too large")?
                     ..usize::try_from(end).map_err(|_| "offset too large")?,
             )
-            .ok_or("tensor range outside the file")?);
+            .ok_or("tensor range outside the file")?,
+        );
         if over_range.as_slice() != entry.leaf {
             return Err(format!(
                 "tensor {}: the canonical leaf is blake3:{}, but bytes {begin}..{end} hash to blake3:{}",
@@ -658,6 +651,17 @@ fn run_gguf(path: &str, raw: &[u8]) -> Result<String, String> {
                 hex(&over_range)
             ));
         }
+        rows.push(format!(
+            "{{\"name\":{},\"ggmlType\":{},\"shape\":[{}],\"begin\":{},\"length\":{},\"canonicalOffset\":{},\"address\":\"blake3:{}\"{}}}",
+            json_string(&tensor.name),
+            entry.ggml_type,
+            dims,
+            begin,
+            tensor.length,
+            entry.offset,
+            hex(&entry.leaf),
+            pieces_field(&table, tensor.length)
+        ));
     }
     if !by_digest.is_empty() {
         return Err(format!(
@@ -682,6 +686,59 @@ fn run_gguf(path: &str, raw: &[u8]) -> Result<String, String> {
 /// skeleton through.
 fn b3(bytes: &[u8]) -> [u8; 32] {
     *blake3::hash(bytes).as_bytes()
+}
+
+/// The BLAKE3 of a tensor's bytes, taken as BLAKE3's own tree cut at 1 MiB,
+/// and that cut: one chaining value per piece, which folds back to the hash.
+/// The pieces are hashed in parallel; a one-piece tensor is its own root.
+fn piece_tree(bytes: &[u8]) -> ([u8; 32], Vec<[u8; 32]>) {
+    let chunks_per_piece = (piece_hash::PIECE_LEN / 1024) as u64;
+    if bytes.len() <= piece_hash::PIECE_LEN {
+        let root = piece_hash::piece_cv(bytes, 0, true);
+        return (root, vec![root]);
+    }
+    let pieces: Vec<&[u8]> = bytes.chunks(piece_hash::PIECE_LEN).collect();
+    let mut cvs = vec![[0u8; 32]; pieces.len()];
+    let threads = std::thread::available_parallelism().map_or(1, |n| n.get());
+    let per = pieces.len().div_ceil(threads);
+    std::thread::scope(|scope| {
+        for (lane, (cv_lane, piece_lane)) in cvs.chunks_mut(per).zip(pieces.chunks(per)).enumerate()
+        {
+            scope.spawn(move || {
+                for (k, (cv, piece)) in cv_lane.iter_mut().zip(piece_lane).enumerate() {
+                    let index = (lane * per + k) as u64;
+                    *cv = piece_hash::piece_cv(piece, index * chunks_per_piece, false);
+                }
+            });
+        }
+    });
+    (fold(&cvs, true), cvs)
+}
+
+/// BLAKE3's fold over pieces: split at the largest power of two below the
+/// count, as hologram-space's piece tree does.
+fn fold(cvs: &[[u8; 32]], root: bool) -> [u8; 32] {
+    if cvs.len() == 1 {
+        return cvs[0];
+    }
+    let left = 1usize << (usize::BITS - 1 - (cvs.len() - 1).leading_zeros());
+    piece_hash::parent(&fold(&cvs[..left], false), &fold(&cvs[left..], false), root)
+}
+
+/// A tensor's piece table, in hologram-space's `HPTREE01` encoding and as hex,
+/// for a tensor of more than one piece; nothing for one that is its own root.
+fn pieces_field(table: &[[u8; 32]], length: u64) -> String {
+    if table.len() <= 1 {
+        return String::new();
+    }
+    let mut bytes = Vec::with_capacity(24 + 32 * table.len());
+    bytes.extend_from_slice(b"HPTREE01");
+    bytes.extend_from_slice(&length.to_le_bytes());
+    bytes.extend_from_slice(&(piece_hash::PIECE_LEN as u64).to_le_bytes());
+    for cv in table {
+        bytes.extend_from_slice(cv);
+    }
+    format!(",\"pieces\":\"{}\"", hex(&bytes))
 }
 
 fn main() -> ExitCode {

@@ -70,7 +70,7 @@ fn pieces_hk_43() {
     for at in uses {
         let before = &fetcher[at.saturating_sub(600)..at];
         assert!(
-            before.contains("if (d === ANSWER.reuse)")
+            before.contains("if (d !== ANSWER.reuse) return false;")
                 || before.contains("if (d === ANSWER.deliver)"),
             "every place the fetcher uses bytes must follow a reuse or deliver answer:\n{before}"
         );

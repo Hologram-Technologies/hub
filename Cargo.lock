@@ -454,6 +454,7 @@ name = "uor-label"
 version = "0.1.0"
 dependencies = [
  "blake3",
+ "piece-hash",
  "serde_json",
  "uor-addr",
 ]

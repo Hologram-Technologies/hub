@@ -3395,3 +3395,50 @@ the same numbers as the UOR rows' tensor addresses, but the runner does not yet
 read the UOR rows. `node tests/uor/index.mjs` needs an index built from the
 live catalogue, which the Pages workflow builds; it was not run locally for the
 0.4.0 change. ONNX files remain unaddressed.
+## HK-43 and HK-44: a tensor fetched in verified pieces, and the tables that make it so
+
+Measured 2026-11-18, in Chrome on Windows (24 cores), against Hugging Face's
+CDN (`us.aws.cdn.hf.co`), on `embeddings.word_embeddings.weight` of
+`sentence-transformers/all-MiniLM-L6-v2` (46,881,792 bytes, 45 pieces):
+
+| How the tensor's bytes were taken | Time | Throughput | First verified bytes |
+| --- | --- | --- | --- |
+| one plain Range request, nothing checked | 16.6 s | 2.8 MB/s | |
+| six plain 8 MiB requests, nothing checked | 23.6 s | 2.0 MB/s | |
+| `verifiedFetch`, 8 MiB per request, 6 in flight, piece table, 8 workers | 12.6 s | 3.7 MB/s | 5.8 s |
+| the same, with piece 0 requested alone | 17.0 s | 2.8 MB/s | 0.48 s |
+
+The connection is the limit: checking every piece against the published table
+costs nothing measurable, and all 45 pieces matched with none retried. Asking
+for piece 0 alone took the first verified bytes from 5.8 s to 0.48 s. Hashing
+alone runs at 0.94 GB/s on one browser thread (BLAKE3 1.8.7, `wasm32_simd`).
+
+- `HK-43`: `web/pieces.mjs` uses a piece only when `pieceDecision`, the
+  kernel's rule transcribed, answers reuse or deliver. A range covers up to 8
+  pieces, and each piece is still decided on its own; a piece that fails is
+  requested again alone, from the next host. Only partial answers are read.
+  The model page's address tab fetches through it, and its verdict is still
+  the kernel's accept rule, over the fold of the chaining values the page
+  observed (`HK-25`).
+- `HK-44`: `uor-label` takes each tensor's leaf through BLAKE3's tree cut at
+  1 MiB, so the same pass checks the leaf and yields the piece table, which
+  the builder publishes at `data/uor/pieces/<address hex>`. Built locally from
+  the bytes of all-MiniLM: 104 tensors, 13 over 1 MiB, each with a table that
+  folds to its address (`node tests/uor/index.mjs`, 7 checks).
+
+### Planted defects, each rejected by name and restored
+
+    the fetcher drops the table check (HK-43):
+      pieces_hk_43, and tests/pieces/fetch.mjs names the input
+      {"tableHolds":false,...,"observedMatches":true,"lengthMatches":true,"sourcesLeft":0}
+    a stored piece reused without its answer (HK-43):
+      pieces_hk_43, and tests/pieces/fetch.mjs: the changed piece was reused
+    the builder stops publishing tables (HK-44):
+      index_hk_44: the builder must publish each tensor's table under the tensor's address
+
+### Not covered
+
+The address tab was not exercised in a browser against the live kernel: the
+fetcher was (above), and the tab's verdict path is the kernel accept rule
+`HK-25` already pins. The live index gains tables on the first Pages build
+after this merges.

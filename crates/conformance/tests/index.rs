@@ -343,25 +343,34 @@ fn index_hk_24() {
 #[test]
 fn index_hk_25() {
     let page = without_comments("web/hub.mjs");
+    let fetcher = without_comments("web/pieces.mjs");
 
     // One tensor's own range, not the file. A weight file is gigabytes; the
     // whole point of publishing a range per tensor is that a reader need not
-    // take it.
+    // take it. The fetcher asks for that range in pieces.
     assert!(
-        page.contains("bytes=${tensor.begin}-${tensor.begin + tensor.length - 1}"),
+        page.contains("sources: [{ url: `${row.resolve}${row.path}`, offset: tensor.begin }]")
+            && page.contains("length: tensor.length,"),
         "the page must fetch one tensor's byte range"
+    );
+    assert!(
+        fetcher.contains("bytes=${from}-${source.offset + end - 1}"),
+        "the fetcher must ask for the range it was given, by Range"
     );
     // A host that ignores `Range` answers 200 with the whole file, so anything
     // but a partial response is no answer rather than a download.
     assert!(
-        page.contains("response.status !== 206"),
-        "the page must treat a response that is not partial as no answer"
+        fetcher.contains("if (response.status !== 206) {")
+            && fetcher.contains("await response.body?.cancel()"),
+        "the fetcher must treat a response that is not partial as no answer, and not read it"
     );
-    // The verdict is the kernel's accept rule about the bytes the page got.
-    // `addressed` is that rule; a comparison written here would be the page's
-    // own opinion wearing the kernel's clothes.
+    // The verdict is the kernel's accept rule about the bytes the page got:
+    // the chaining values the page observed for them, folded into their
+    // BLAKE3. A comparison written here would be the page's own opinion
+    // wearing the kernel's clothes.
     assert!(
-        page.contains("accepts(blake3(body), uorDigestHex(tensor.address)"),
+        page.contains("const digest = observed.length === 1 ? observed[0] : foldTable(observed, pool.parent);")
+            && page.contains("accepts(digest, uorDigestHex(tensor.address), tensor.length)"),
         "the verdict must be the kernel's answer about the bytes the page fetched, on the tensor's own axis"
     );
     // Both axes are 71 bytes, so a label's axis is read from its prefix and
@@ -583,5 +592,62 @@ fn index_hk_35() {
     assert!(
         check.contains("root.canonicalForms[row.realization]"),
         "the artifact check must hold each row to its own realization's form"
+    );
+}
+
+/// `HK-44`: Every tensor longer than 1 MiB in the UOR address index has a piece table, published under the tensor's address, that folds to that address, so a reader checks each piece of the tensor as it arrives
+#[test]
+fn index_hk_44() {
+    let minter = without_comments("crates/uor-label/src/main.rs");
+    let builder = without_comments("tools/uor-index.mjs");
+    let check = without_comments("tests/uor/index.mjs");
+    let workflow =
+        std::fs::read_to_string(repo_model::repo_root().join(".github/workflows/pages.yml"))
+            .expect("reading pages.yml");
+
+    // The minter takes each tensor's range as BLAKE3's own tree cut at 1 MiB,
+    // for both realizations, and that same pass is the leaf check and the
+    // table: a table that did not fold to the leaf would fail the check
+    // before it was printed.
+    assert!(
+        minter
+            .matches("let (over_range, table) = piece_tree(")
+            .count()
+            >= 2,
+        "both realizations must take each tensor's leaf through its piece tree"
+    );
+    assert!(
+        minter
+            .matches("pieces_field(&table, tensor.length)")
+            .count()
+            >= 2,
+        "both realizations must publish the piece table they checked the leaf with"
+    );
+    assert!(
+        minter.contains("bytes.extend_from_slice(b\"HPTREE01\");"),
+        "a piece table is in hologram-space's HPTREE01 encoding"
+    );
+    // The builder publishes each table under its tensor's address and takes it
+    // out of the row, and the root says where tables are.
+    assert!(
+        builder
+            .contains("await writeFile(join(out, \"pieces\", hex), Buffer.from(table, \"hex\"));")
+            && builder.contains("if (pieces) tables.set(tensor.address.slice(7), pieces);"),
+        "the builder must publish each tensor's table under the tensor's address"
+    );
+    assert!(
+        builder.contains("pieceTables: { path: \"pieces/{address hex}\""),
+        "the root must say where piece tables are"
+    );
+    // The artifact check folds every published table and requires one for
+    // every tensor over a piece; the Pages workflow runs it on what it built.
+    assert!(
+        check.contains("does not fold to its address")
+            && check.contains("has no piece table at pieces/"),
+        "tests/uor/index.mjs must fold every table and require one for each tensor over 1 MiB"
+    );
+    assert!(
+        workflow.contains("node tests/uor/index.mjs"),
+        "the Pages workflow must run the artifact check, or it proves nothing"
     );
 }

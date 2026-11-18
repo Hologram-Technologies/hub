@@ -161,14 +161,14 @@ export async function fetchRange(source, begin, end, fetchImpl = fetch) {
   if (end === begin) return new Uint8Array(0);
   const from = source.offset + begin;
   const response = await fetchImpl(source.url, { headers: { Range: `bytes=${from}-${source.offset + end - 1}` } });
-  if (response.status !== 206 && !(response.status === 200 && from === 0)) {
+  // A host that ignores Range answers 200 with the whole file, and a weight
+  // file is gigabytes, so anything but a partial answer is no answer: its
+  // body is cancelled, never read.
+  if (response.status !== 206) {
+    await response.body?.cancel().catch(() => {});
     throw new Error(`${source.url}: ${response.status} for a range`);
   }
-  let bytes = new Uint8Array(await response.arrayBuffer());
-  // A host that ignores Range answers 200 with the whole file; only its start
-  // can be used, and only when the range starts at byte 0.
-  if (response.status === 200) bytes = bytes.subarray(0, end - begin).slice();
-  return bytes;
+  return new Uint8Array(await response.arrayBuffer());
 }
 
 export class Refused extends Error {
@@ -186,8 +186,12 @@ export class Refused extends Error {
 // Without one, the pieces' own chaining values are folded at the end.
 // `store`: optional { get(kappa, index), put(kappa, index, bytes) }.
 // `onPiece(index, bytes)`: called as each piece is delivered or reused.
-// `inflight`: how many ranges are requested at once.
-export async function verifiedFetch({ kappa, length, sources, tables = [], store, pool, inflight = 8, onPiece, fetchImpl = fetch, stats = {} }) {
+// `inflight`: how many ranges are requested at once; `span`: how many
+// pieces one range covers, at most (8 MiB by default).
+// `observed`: filled with each used piece's chaining value as hashed here, so
+// a caller can fold them into the BLAKE3 of the bytes it got and have its own
+// judge rule on that (the hub's page asks the kernel).
+export async function verifiedFetch({ kappa, length, sources, tables = [], store, pool, inflight = 8, span = 8, onPiece, fetchImpl = fetch, stats = {}, observed = [] }) {
   const digest = digestOf(kappa);
   const n = pieceCount(length);
   const root = n === 1;
@@ -209,44 +213,53 @@ export async function verifiedFetch({ kappa, length, sources, tables = [], store
   }
 
   if (table) {
-    let cursor = 0;
-    const one = async (index) => {
-      const want = pieceLength(length, index);
-      const entry = table.cvs[index];
+    // A stored copy, checked as fresh bytes are (HK-40) and used only on a
+    // reuse answer (HK-41).
+    const reused = async (index) => {
       const held = store ? await store.get(kappa, index) : null;
-      if (held) {
-        // The store owns its copy; the pool transfers what it hashes, so it
-        // gets one of its own.
-        const { cv, bytes } = await pool.hash(held.slice(), index, root);
-        const d = pieceDecision({ tableHolds: true, held: true, cachedMatches: equal(cv, entry), observedMatches: false, lengthMatches: false, sourcesLeft: sources.length });
-        if (d === ANSWER.reuse) {
-          out.set(bytes, index * PIECE_LEN);
-          stats.reused += 1;
-          onPiece?.(index, bytes);
-          return;
-        }
-      }
-      for (let s = 0; s < sources.length; s++) {
-        let received;
-        try {
-          received = await fetchRange(sources[s], index * PIECE_LEN, index * PIECE_LEN + want, fetchImpl);
-          stats.fetched += received.length;
-        } catch {
-          received = null;
+      if (!held) return false;
+      // The store owns its copy; the pool transfers what it hashes, so it
+      // gets one of its own.
+      const { cv, bytes } = await pool.hash(held.slice(), index, root);
+      const d = pieceDecision({ tableHolds: true, held: true, cachedMatches: equal(cv, table.cvs[index]), observedMatches: false, lengthMatches: false, sourcesLeft: sources.length });
+      if (d !== ANSWER.reuse) return false;
+      observed[index] = cv;
+      out.set(bytes, index * PIECE_LEN);
+      stats.reused += 1;
+      onPiece?.(index, bytes);
+      return true;
+    };
+    // One piece, from source `s0` on: `first` is what `s0` already sent for
+    // it (null when that request failed), so only a piece that fails is
+    // requested again, alone, from the next source.
+    const settle = async (index, s0, first) => {
+      const want = pieceLength(length, index);
+      for (let s = s0; s < sources.length; s++) {
+        let received = s === s0 ? first : undefined;
+        if (received === undefined) {
+          try {
+            received = await fetchRange(sources[s], index * PIECE_LEN, index * PIECE_LEN + want, fetchImpl);
+            stats.fetched += received.length;
+          } catch {
+            received = null;
+          }
         }
         let observedMatches = false;
         let lengthMatches = false;
         let bytes = received;
+        let cv = null;
         if (received) {
           lengthMatches = received.length === want;
           if (lengthMatches) {
             const hashed = await pool.hash(received, index, root);
-            observedMatches = equal(hashed.cv, entry);
+            cv = hashed.cv;
+            observedMatches = equal(cv, table.cvs[index]);
             bytes = hashed.bytes;
           }
         }
         const d = pieceDecision({ tableHolds: true, held: false, cachedMatches: false, observedMatches, lengthMatches, sourcesLeft: sources.length - s - 1 });
         if (d === ANSWER.deliver) {
+          observed[index] = cv;
           out.set(bytes, index * PIECE_LEN);
           stats.delivered += 1;
           await store?.put(kappa, index, bytes);
@@ -258,10 +271,48 @@ export async function verifiedFetch({ kappa, length, sources, tables = [], store
       }
       throw new Refused(`piece ${index} of ${kappa}: no source`, index);
     };
+    // Groups of `span` pieces: the ones not reused are requested from the
+    // first source as one range per contiguous run, then each piece is hashed
+    // and decided on its own. Fewer, larger requests are what keep the
+    // network busy; the rule is still applied piece by piece.
+    let cursor = 0;
     const lane = async () => {
-      while (cursor < n) await one(cursor++);
+      while (cursor < n) {
+        const first = cursor;
+        // Piece 0 goes alone, so the first verified bytes arrive after one
+        // piece rather than after a whole group; every later group is large.
+        const last = Math.min(n, first === 0 ? 1 : first + span);
+        cursor = last;
+        const need = [];
+        for (let i = first; i < last; i++) if (!(await reused(i))) need.push(i);
+        for (let r = 0; r < need.length; ) {
+          let e = r;
+          while (e + 1 < need.length && need[e + 1] === need[e] + 1) e += 1;
+          const from = need[r];
+          const to = need[e];
+          const end = to * PIECE_LEN + pieceLength(length, to);
+          let run = null;
+          if (sources.length) {
+            try {
+              run = await fetchRange(sources[0], from * PIECE_LEN, end, fetchImpl);
+              stats.fetched += run.length;
+            } catch {
+              run = null;
+            }
+          }
+          await Promise.all(
+            need.slice(r, e + 1).map((index) => {
+              const at = (index - from) * PIECE_LEN;
+              // Each piece gets its own buffer, since the pool transfers it.
+              const piece = run ? run.slice(at, Math.min(run.length, at + pieceLength(length, index))) : null;
+              return settle(index, 0, piece);
+            }),
+          );
+          r = e + 1;
+        }
+      }
     };
-    await Promise.all(Array.from({ length: Math.min(inflight, n) }, lane));
+    await Promise.all(Array.from({ length: Math.min(inflight, Math.ceil(n / span)) }, lane));
     return out;
   }
 
@@ -294,6 +345,7 @@ export async function verifiedFetch({ kappa, length, sources, tables = [], store
     const holds = !failed && equal(root ? cvs[0] : foldTable(cvs, pool.parent), digest);
     const d = pieceDecision({ tableHolds: holds, held: false, cachedMatches: false, observedMatches: holds, lengthMatches: holds, sourcesLeft: sources.length - s - 1 });
     if (d === ANSWER.deliver) {
+      cvs.forEach((cv, i) => (observed[i] = cv));
       for (let i = 0; i < n; i++) {
         const bytes = out.subarray(i * PIECE_LEN, i * PIECE_LEN + pieceLength(length, i));
         stats.delivered += 1;

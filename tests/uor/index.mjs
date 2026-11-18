@@ -15,9 +15,12 @@
 // can fetch one tensor and check it without the file.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
+import { instantiate } from "../../web/piece-hash.mjs";
+import { PIECE_LEN, decodeTable, foldTable } from "../../web/pieces.mjs";
 import { UOR_LABEL, uorAxis, uorShardOf } from "../../web/uorkey.mjs";
 
 const dir = process.argv[2];
@@ -27,6 +30,8 @@ if (!dir) {
 }
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 let checks = 0;
+// Every tensor of every row, for the piece-table check below.
+const longTensors = [];
 const ok = (what) => { checks += 1; console.log(`  ok  ${what}`); };
 
 const root = JSON.parse(await readFile(join(dir, "root.json"), "utf8"));
@@ -72,6 +77,7 @@ for (const shard of root.shards) {
     assert.ok(row.revision, `${row.repo}/${row.path} names no revision`);
     assert.ok(row.tensors.length, `${row.repo}/${row.path} has no tensors`);
     for (const t of row.tensors) {
+      longTensors.push(t);
       // One number per tensor: the BLAKE3 of its bytes, which is uor-addr's
       // canonical-form leaf and what the model label binds. A second number
       // beside it would be a second identity for the same bytes.
@@ -96,6 +102,32 @@ for (const shard of root.shards) {
 ok(`every shard is the bytes the root names, and every row is filed where the page looks`);
 ok(`every row carries an address, its canonical form and where its bytes came from`);
 ok(`every tensor carries the byte range its address was taken over`);
+
+// Every tensor longer than one piece has a piece table under its address that
+// decodes, is the tensor's length and folds to the tensor's address; no other
+// table is published. A table that did not fold would be refused by every
+// reader (HK-39), so publishing one would only cost them a request.
+const hasher = await instantiate(await readFile(fileURLToPath(new URL("../../web/piece-hash.wasm", import.meta.url))));
+assert.equal(root.pieceTables?.path, "pieces/{address hex}", "the root must say where piece tables are");
+assert.equal(root.pieceTables?.encoding, "HPTREE01");
+const published = new Set(await readdir(join(dir, "pieces")).catch(() => []));
+let tables = 0;
+for (const t of longTensors) {
+  const hex = t.address.slice(7);
+  if (t.length <= PIECE_LEN) {
+    assert.ok(!published.has(hex) || longTensors.some((u) => u.address === t.address && u.length > PIECE_LEN),
+              `${t.name} is one piece and needs no table`);
+    continue;
+  }
+  assert.ok(published.has(hex), `${t.name}, ${t.length} bytes, has no piece table at pieces/${hex}`);
+  const table = decodeTable(await readFile(join(dir, "pieces", hex)));
+  assert.equal(table.length, t.length, `the piece table of ${t.name} is for ${table.length} bytes, the tensor has ${t.length}`);
+  assert.equal(`blake3:${Buffer.from(foldTable(table.cvs, hasher.parent)).toString("hex")}`, t.address,
+               `the piece table of ${t.name} does not fold to its address`);
+  tables += 1;
+}
+assert.equal(published.size, root.pieceTables.count, `the root counts ${root.pieceTables.count} piece tables, ${published.size} are published`);
+ok(`${tables} tensors over 1 MiB each have a piece table that folds to their address`);
 
 assert.equal(files, root.counts.files, `the root counts ${root.counts.files} files, the shards hold ${files}`);
 assert.equal(tensors, root.counts.tensors, `the root counts ${root.counts.tensors} tensors, the shards hold ${tensors}`);

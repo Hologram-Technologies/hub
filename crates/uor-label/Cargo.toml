@@ -30,6 +30,10 @@ uor-addr = "=0.4.0"
 # tensor-info entry names the tensor the file calls it. Neither is a second
 # source for the address; both are ways of refusing a skeleton we misread.
 blake3 = "=1.8.7"
+# The tensor's piece table: BLAKE3's tree cut at 1 MiB, the same chaining
+# values and parent rule the browser's fetcher checks a byte range with
+# (`web/piece-hash.wasm` is built from this crate).
+piece-hash = { path = "../piece-hash" }
 # A safetensors header is JSON, read only for each tensor's name and byte range,
 # which the canonical skeleton does not carry. It is read after `uor-addr` has
 # admitted the file, so it is never the source of an address.

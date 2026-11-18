@@ -98,6 +98,13 @@ const listed = await named("uor.txt");
 // `unaddressed` with every other thing this build could not address, where a
 // reader sees it, rather than stopping the build that would have told them.
 const rows = [];
+// Each tensor longer than one piece has a piece table: BLAKE3's tree over its
+// bytes cut at 1 MiB, one 32-byte chaining value per piece, which folds back
+// to the tensor's address. With it a reader checks any byte range of the
+// tensor piece by piece as it arrives (web/pieces.mjs) instead of only at the
+// end. It certifies itself against the address, so it is published by that
+// address and any host may serve it.
+const tables = new Map();
 const unaddressed = [];
 const wanted = listed.filter((repo) => held.has(repo.toLowerCase()));
 for (const repo of listed.filter((r) => !held.has(r.toLowerCase()))) {
@@ -191,7 +198,10 @@ for (const repo of wanted) {
         // already carries. The κ-label is the content's identity; this is the
         // container's.
         sha256: file.sha256 ?? null,
-        tensors: minted.tensors,
+        tensors: minted.tensors.map(({ pieces, ...tensor }) => {
+          if (pieces) tables.set(tensor.address.slice(7), pieces);
+          return tensor;
+        }),
       });
     } finally {
       await rm(work, { recursive: true, force: true });
@@ -212,6 +222,14 @@ for (const name of await readdir(join(out, "shards")).catch(() => [])) {
   await rm(join(out, "shards", name), { force: true });
 }
 const written = [];
+
+await mkdir(join(out, "pieces"), { recursive: true });
+for (const name of await readdir(join(out, "pieces")).catch(() => [])) {
+  await rm(join(out, "pieces", name), { force: true });
+}
+for (const [hex, table] of [...tables].sort(([a], [b]) => a.localeCompare(b))) {
+  await writeFile(join(out, "pieces", hex), Buffer.from(table, "hex"));
+}
 for (const bucket of [...shards.keys()].sort((a, b) => a - b)) {
   // Sorted, so two builds of the same rows give the same bytes and the same
   // digest.
@@ -232,6 +250,9 @@ const manifest = {
   // A tensor's address is uor-addr's canonical-form leaf: BLAKE3 over the
   // tensor's raw bytes, which the model label binds and runner/uor.mjs emits.
   tensorAddress: { axis: "blake3", over: "the tensor's raw bytes", by: "uor-addr canonical-form leaf" },
+  // Where a tensor's piece table is: named by the tensor's address, in
+  // hologram-space's HPTREE01 encoding, for every tensor longer than 1 MiB.
+  pieceTables: { path: "pieces/{address hex}", encoding: "HPTREE01", pieceLength: 1048576, count: tables.size },
   // One form per realization, because each realization numbers its own: GGUF
   // is on form 3 and safetensors on form 2. A row's form is read against the
   // entry for its realization, never against a single number for the index.
