@@ -1,0 +1,35 @@
+\begin{lexlean}{Proofs.IdentityAxis}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksIdentityAxis,
+  parameters: [pull : Kernel::Pull],
+  result: Bool,
+  body: (((Kernel::identityDecision pull) =? (Kernel::identityServe)) && (not ((project pull axis) =? 1)))
+}
+
+theorem{
+  name: identityAxisHolds,
+  parameters: [pull : Kernel::Pull],
+  statement: ((breaksIdentityAxis pull) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Kernel::identityDecision,
+      Kernel::identityMint,
+      Kernel::identityRefuse,
+      Kernel::identityServe,
+      Kernel::pullBlake3Holds,
+      Kernel::pullNameHolds,
+      Kernel::pullSizeHolds,
+      Kernel::sameDigest,
+      breaksIdentityAxis
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

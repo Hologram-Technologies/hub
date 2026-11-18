@@ -285,3 +285,33 @@ id = "HK-44"
 level = "build"
 suite = "index"
 statement = "Every tensor longer than 1 MiB in the UOR address index has a piece table, published under the tensor's address, that folds to that address, so a reader checks each piece of the tensor as it arrives"
+
+[[id]]
+id = "HK-45"
+level = "build"
+suite = "kernel"
+statement = "A file is served only when its bytes match its BLAKE3 address, or, for a file never addressed before, the name Hugging Face gives it (the LFS SHA-256, or a small file's git blob), at the size and with every tensor matching"
+
+[[id]]
+id = "HK-46"
+level = "build"
+suite = "kernel"
+statement = "Once a file has a BLAKE3 address, bytes that do not match it are refused whatever Hugging Face's own name for the file says"
+
+[[id]]
+id = "HK-47"
+level = "build"
+suite = "kernel"
+statement = "A BLAKE3 address is minted only for a file that has none, never over an existing one"
+
+[[id]]
+id = "HK-48"
+level = "build"
+suite = "kernel"
+statement = "A file with an address is served only on the BLAKE3 axis"
+
+[[id]]
+id = "HK-49"
+level = "build"
+suite = "kernel"
+statement = "A file is served or minted only when every tensor it declares matches its address"

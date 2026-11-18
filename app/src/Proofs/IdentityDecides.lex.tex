@@ -1,0 +1,35 @@
+\begin{lexlean}{Proofs.IdentityDecides}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksIdentityDecides,
+  parameters: [pull : Kernel::Pull],
+  result: Bool,
+  body: ((((project pull minted) =? 1) && (not (Kernel::pullBlake3Holds pull))) && (not ((Kernel::identityDecision pull) =? (Kernel::identityRefuse))))
+}
+
+theorem{
+  name: identityDecidesHolds,
+  parameters: [pull : Kernel::Pull],
+  statement: ((breaksIdentityDecides pull) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Kernel::identityDecision,
+      Kernel::identityMint,
+      Kernel::identityRefuse,
+      Kernel::identityServe,
+      Kernel::pullBlake3Holds,
+      Kernel::pullNameHolds,
+      Kernel::pullSizeHolds,
+      Kernel::sameDigest,
+      breaksIdentityDecides
+    ]
+  },
+  axioms: [Classical.choice, Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

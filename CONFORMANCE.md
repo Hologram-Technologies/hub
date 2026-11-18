@@ -74,6 +74,11 @@ model does not sanction.
 | `HK-40` | `build` | A piece the local store holds is reused only when its piece table folds to the requested address and the stored piece matches the table entry |
 | `HK-41` | `build` | A stored piece that matches a piece table of the requested address is always reused and never fetched again |
 | `HK-42` | `build` | A piece is refused only when no source is left, and retried only while a source remains |
+| `HK-45` | `build` | A file is served only when its bytes match its BLAKE3 address, or, for a file never addressed before, the name Hugging Face gives it (the LFS SHA-256, or a small file's git blob), at the size and with every tensor matching |
+| `HK-46` | `build` | Once a file has a BLAKE3 address, bytes that do not match it are refused whatever Hugging Face's own name for the file says |
+| `HK-47` | `build` | A BLAKE3 address is minted only for a file that has none, never over an existing one |
+| `HK-48` | `build` | A file with an address is served only on the BLAKE3 axis |
+| `HK-49` | `build` | A file is served or minted only when every tensor it declares matches its address |
 
 ## pieces
 

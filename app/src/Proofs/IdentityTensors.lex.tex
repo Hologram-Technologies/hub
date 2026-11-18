@@ -1,0 +1,35 @@
+\begin{lexlean}{Proofs.IdentityTensors}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Kernel}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksIdentityTensors,
+  parameters: [pull : Kernel::Pull],
+  result: Bool,
+  body: ((((Kernel::identityDecision pull) =? (Kernel::identityServe)) || ((Kernel::identityDecision pull) =? (Kernel::identityMint))) && (not ((project pull tensorsHold) =? 1)))
+}
+
+theorem{
+  name: identityTensorsHolds,
+  parameters: [pull : Kernel::Pull],
+  statement: ((breaksIdentityTensors pull) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      Kernel::identityDecision,
+      Kernel::identityMint,
+      Kernel::identityRefuse,
+      Kernel::identityServe,
+      Kernel::pullBlake3Holds,
+      Kernel::pullNameHolds,
+      Kernel::pullSizeHolds,
+      Kernel::sameDigest,
+      breaksIdentityTensors
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

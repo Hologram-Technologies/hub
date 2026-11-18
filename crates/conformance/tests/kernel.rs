@@ -510,3 +510,96 @@ fn kernel_hk_42() {
     );
     piece_decision_is_fixed();
 }
+
+/// Every answer about whether a pulled file may be used comes from
+/// `identityDecision`: a file with a BLAKE3 address is held to it alone, and a
+/// file with none is minted only from bytes matching Hugging Face's SHA-256
+/// for it. The five theorems below are about this function, so its body is
+/// fixed here.
+fn identity_decision_is_fixed() {
+    let model = read("app/src/Kernel.lex.tex");
+    let decision = declaration(&model, "identityDecision");
+    assert!(
+        decision.ends_with("  body: (if ((project pull minted) =? 1) then (if ((pullBlake3Holds pull) && ((pullSizeHolds pull) && ((project pull tensorsHold) =? 1))) then (identityServe) else (identityRefuse)) else (if ((pullNameHolds pull) && ((pullSizeHolds pull) && ((project pull tensorsHold) =? 1))) then (identityMint) else (identityRefuse)))"),
+        "identityDecision changed:\n{decision}"
+    );
+    let axis = declaration(&model, "pullBlake3Holds");
+    assert!(
+        axis.ends_with("  body: (((project pull axis) =? 1) && (sameDigest (project pull observed) (project pull address)))"),
+        "pullBlake3Holds changed:\n{axis}"
+    );
+    assert!(
+        model.contains("(encodeIdentity (identityDecision (observePull value)))"),
+        "dispatch must answer an identity request with identityDecision"
+    );
+}
+
+/// `HK-45`: A file is served only when its bytes match its BLAKE3 address, or, for a file never addressed before, the name Hugging Face gives it (the LFS SHA-256, or a small file's git blob), at the size and with every tensor matching
+#[test]
+fn kernel_hk_45() {
+    pinned(
+        "IdentityVerified",
+        "breaksIdentityVerified",
+        "((((Kernel::identityDecision pull) =? (Kernel::identityServe)) || ((Kernel::identityDecision pull) =? (Kernel::identityMint))) && (not ((Kernel::pullSizeHolds pull) && (((project pull tensorsHold) =? 1) && ((((project pull minted) =? 1) && (Kernel::pullBlake3Holds pull)) || ((not ((project pull minted) =? 1)) && (Kernel::pullNameHolds pull)))))))",
+        "identityVerifiedHolds",
+        "pull",
+        "Classical.choice, Quot.sound, propext",
+    );
+    identity_decision_is_fixed();
+}
+
+/// `HK-46`: Once a file has a BLAKE3 address, bytes that do not match it are refused whatever Hugging Face's own name for the file says
+#[test]
+fn kernel_hk_46() {
+    pinned(
+        "IdentityDecides",
+        "breaksIdentityDecides",
+        "((((project pull minted) =? 1) && (not (Kernel::pullBlake3Holds pull))) && (not ((Kernel::identityDecision pull) =? (Kernel::identityRefuse))))",
+        "identityDecidesHolds",
+        "pull",
+        "Classical.choice, Quot.sound, propext",
+    );
+    identity_decision_is_fixed();
+}
+
+/// `HK-47`: A BLAKE3 address is minted only for a file that has none, never over an existing one
+#[test]
+fn kernel_hk_47() {
+    pinned(
+        "IdentityMintOnce",
+        "breaksIdentityMintOnce",
+        "(((Kernel::identityDecision pull) =? (Kernel::identityMint)) && ((project pull minted) =? 1))",
+        "identityMintOnceHolds",
+        "pull",
+        "Quot.sound, propext",
+    );
+    identity_decision_is_fixed();
+}
+
+/// `HK-48`: A file with an address is served only on the BLAKE3 axis
+#[test]
+fn kernel_hk_48() {
+    pinned(
+        "IdentityAxis",
+        "breaksIdentityAxis",
+        "(((Kernel::identityDecision pull) =? (Kernel::identityServe)) && (not ((project pull axis) =? 1)))",
+        "identityAxisHolds",
+        "pull",
+        "Quot.sound, propext",
+    );
+    identity_decision_is_fixed();
+}
+
+/// `HK-49`: A file is served or minted only when every tensor it declares matches its address
+#[test]
+fn kernel_hk_49() {
+    pinned(
+        "IdentityTensors",
+        "breaksIdentityTensors",
+        "((((Kernel::identityDecision pull) =? (Kernel::identityServe)) || ((Kernel::identityDecision pull) =? (Kernel::identityMint))) && (not ((project pull tensorsHold) =? 1)))",
+        "identityTensorsHolds",
+        "pull",
+        "Quot.sound, propext",
+    );
+    identity_decision_is_fixed();
+}
