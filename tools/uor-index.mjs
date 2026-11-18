@@ -301,29 +301,44 @@ for (const [repo, paths] of onnxListed) {
     // A piece table is kept only once its whole graph is addressed.
     const graphTables = new Map();
     let initializers;
-    const files = [];
-    try {
-      const whole = blake3Stream();
-      ({ initializers } = await readGraph(await stream(record, path), path, (c) => whole.update(c), graphTables));
-      files.push(sameFile(path, whole.finish()));
-      // External data, one pass per file, each range hashed as it passes.
-      const external = new Map();
-      for (const t of initializers.filter((x) => x.file !== path)) external.set(t.file, [...(external.get(t.file) ?? []), t]);
-      for (const [file, ranges] of external) {
-        if (!paths.includes(file)) throw new Error(`${repo}/${path} keeps weights in ${file}, which manifests/onnx.txt does not list`);
-        const data = blake3Stream();
-        await addressRanges(await stream(record, file), ranges, (c) => data.update(c), graphTables);
-        files.push(sameFile(file, data.finish()));
+    let files;
+    // A connection Hugging Face drops mid-stream is read again from the start,
+    // up to three times, with nothing kept from the broken read: measured
+    // 2026-11-18, one of 14 graphs streamed here was cut off this way.
+    for (let attempt = 1; ; attempt++) {
+      graphTables.clear();
+      files = [];
+      try {
+        const whole = blake3Stream();
+        ({ initializers } = await readGraph(await stream(record, path), path, (c) => whole.update(c), graphTables));
+        files.push(sameFile(path, whole.finish()));
+        // External data, one pass per file, each range hashed as it passes.
+        const external = new Map();
+        for (const t of initializers.filter((x) => x.file !== path)) external.set(t.file, [...(external.get(t.file) ?? []), t]);
+        for (const [file, ranges] of external) {
+          if (!paths.includes(file)) throw new Error(`${repo}/${path} keeps weights in ${file}, which manifests/onnx.txt does not list`);
+          const data = blake3Stream();
+          await addressRanges(await stream(record, file), ranges, (c) => data.update(c), graphTables);
+          files.push(sameFile(file, data.finish()));
+        }
+        break;
+      } catch (error) {
+        const dropped = error instanceof TypeError || error?.name === "AbortError" || error?.name === "TimeoutError";
+        if (dropped && attempt < 3) {
+          console.log(`  ${record.repo}/${path}: the connection dropped (${error.message}), reading it again`);
+          continue;
+        }
+        // What the reader refuses rather than guess is a fact about the graph,
+        // recorded as the GGUF refusals above are; bytes that are not the BLAKE3
+        // the signed record names, or a fetch that keeps failing, stop the build.
+        if (!String(error?.message).startsWith("onnx:")) throw error;
+        unaddressed.push({ repo: record.repo, path, size: graph.size, why: error.message });
+        console.log(`  ${record.repo}/${path}: left unaddressed (${error.message})`);
+        files = null;
+        break;
       }
-    } catch (error) {
-      // What the reader refuses rather than guess is a fact about the graph,
-      // recorded as the GGUF refusals above are; bytes that are not the BLAKE3
-      // the signed record names, or a failed fetch, stop the build.
-      if (!String(error?.message).startsWith("onnx:")) throw error;
-      unaddressed.push({ repo: record.repo, path, size: graph.size, why: error.message });
-      console.log(`  ${record.repo}/${path}: left unaddressed (${error.message})`);
-      continue;
     }
+    if (!files) continue;
     for (const [hex, table] of graphTables) tables.set(hex, table);
     rows.push({
       repo: record.repo,
