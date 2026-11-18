@@ -238,7 +238,8 @@ async function deriveTensor(row, tensor, onProgress) {
     await verifiedFetch({
       kappa: tensor.address,
       length: tensor.length,
-      sources: [{ url: `${row.resolve}${row.path}`, offset: tensor.begin }],
+      // An ONNX tensor names the file it lies in and its offset there (HK-52).
+      sources: [{ url: `${row.resolve}${tensor.file ?? row.path}`, offset: tensor.offset ?? tensor.begin }],
       tables,
       pool,
       observed,
@@ -1587,11 +1588,11 @@ async function drawModel(main, id) {
     if (!files.length) return `<p class="note">${esc(s.uor.none)}</p>`;
     drawn = files;
     const addresser = `${manifest.addresser.crate} ${manifest.addresser.version}`;
-    const form = [...new Set(files.map((f) => `${f.realization} ${f.canonicalForm}`))].join(", ");
+    const form = [...new Set(files.map((f) => (f.label ? `${f.realization} ${f.canonicalForm}` : f.realization)))].join(", ");
     return `<p class="note">${esc(fill(s.uor.note, { n: files.length, addresser, form }))}</p>
       ${files.map((f, fi) => `<section class="uor">
         <h3>${esc(f.path)}</h3>
-        <dl class="facts"><div><dt>${esc(s.uor.fileLabel)}</dt><dd class="addr">${esc(f.label)}</dd></div></dl>
+        <dl class="facts"><div><dt>${esc(s.uor.fileLabel)}</dt><dd class="addr">${esc(f.label ?? f.files?.map((x) => `${x.path} blake3:${x.blake3}`).join(" ") ?? "")}</dd></div></dl>
         <div class="scroll"><table><thead><tr>${s.uor.columns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>
         ${f.tensors.map((t, ti) => `<tr><td class="path">${esc(t.name)}</td><td>${esc(`[${t.shape.join(", ")}]`)}</td><td class="size">${esc(bytes(t.length))}</td><td class="addr">${esc(t.address.slice(0, 23))}...</td>
           <td><button type="button" data-file="${fi}" data-tensor="${ti}">${esc(s.uor.derive)}</button> <span class="checked dim">${esc(s.uor.unchecked)}</span></td></tr>`).join("")}

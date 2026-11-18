@@ -2,8 +2,8 @@
 // read surface for a model without asking Hugging Face. One record per model
 // (its release commit, every file with its size and hashes, which sources hold
 // it, and the ten fields the kernel calls a complete record), a catalog of the
-// models, and a root that names the catalog and every record by SHA-256. Only
-// the root is signed (pages.yml); a record is trusted because the signed root
+// models, and a root that names the catalog and every record by SHA-256 and
+// by BLAKE3. Only the root is signed (pages.yml); a record is trusted because the signed root
 // names its hash.
 //
 // A record holds two kinds of thing, and says which is which. Facts about the
@@ -34,6 +34,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { blake3Hex, blake3Stream } from "./blake3.mjs";
 import { browseRow, rulesVersion } from "./facets.mjs";
 
 const [out, limitArg] = process.argv.slice(2);
@@ -149,8 +150,17 @@ const rows = (await json(CATALOG, 60000)).filter(listable).slice(0, limit).map(a
 const from = new Map(rows.map((m) => [m.id, "the catalog"]));
 const add = (m, source) => { if (!from.has(m.id)) { rows.push(asRow(m)); from.set(m.id, source); } };
 
-// Witnessed models are always indexed, trending or not.
-const witnessed = await named("models.txt");
+// Witnessed models are always indexed, trending or not, and so is every model
+// `manifests/onnx.txt` names a file of: a file cannot be given its BLAKE3 in a
+// record the index does not hold.
+const blake3Listed = new Map();
+for (const line of await named("onnx.txt")) {
+  const [repo, path, extra] = line.split(/\s+/);
+  if (!repo || !path || extra) throw new Error(`index: manifests/onnx.txt wants "<repo> <path>", not ${JSON.stringify(line)}`);
+  if (!blake3Listed.has(repo)) blake3Listed.set(repo, new Set());
+  blake3Listed.get(repo).add(path);
+}
+const witnessed = [...new Set([...(await named("models.txt")), ...blake3Listed.keys()])];
 for (const repo of witnessed.filter((r) => !from.has(r))) {
   // Asked of Hugging Face by name. The live hub's search used to come first
   // and this was its fallback; the search did not reach every model anyway.
@@ -176,6 +186,44 @@ for (const owner of owners) {
   }
   if (!listed) throw new Error(`index: ${owner} lists no public model with a release; check the name in manifests/owners.txt`);
 }
+// The BLAKE3 of a listed file's whole bytes, streamed from the release's own
+// origin and not kept. The bytes must also be the ones the record already
+// describes, by size and by Hugging Face's name for them (the LFS SHA-256 or
+// the git blob SHA-1), so a record never names one file two ways that
+// disagree. That checks Hugging Face's claim with the bytes; the BLAKE3 is
+// the address a reader is given.
+async function blake3Of(record, file) {
+  const response = await fetch(`${record.origin.resolve}${file.path}`, { signal: AbortSignal.timeout(60 * 60000) });
+  if (!response.ok) throw new Error(`${record.repo}/${file.path}: ${response.status}`);
+  const address = blake3Stream();
+  const theirs = file.sha256 ? createHash("sha256") : createHash("sha1").update(`blob ${file.size}\0`);
+  for await (const chunk of response.body) {
+    address.update(chunk);
+    theirs.update(chunk);
+  }
+  const { blake3, length } = address.finish();
+  if (length !== file.size) throw new Error(`${record.repo}/${file.path}: ${length} bytes, the record says ${file.size}`);
+  const named = file.sha256 ?? file.gitSha1;
+  if (theirs.digest("hex") !== named) throw new Error(`${record.repo}/${file.path}: the bytes are not the ones the record names ${named}`);
+  return blake3;
+}
+
+// Gives every listed file of a record its BLAKE3, hashing only the ones that
+// lack it. A record reused for the same revision keeps what it has.
+let hashedFiles = 0;
+async function addressListed(record) {
+  const wanted = blake3Listed.get(record.repo);
+  if (!wanted) return;
+  for (const path of wanted) {
+    const file = record.files.find((f) => f.path === path);
+    if (!file) throw new Error(`index: manifests/onnx.txt names ${record.repo} ${path}, which ${record.revision} does not hold`);
+    if (/^[0-9a-f]{64}$/.test(file.blake3 ?? "")) continue;
+    file.blake3 = await blake3Of(record, file);
+    hashedFiles += 1;
+    console.log(`index: ${record.repo}/${path} blake3:${file.blake3}`);
+  }
+}
+
 const records = [];
 let fetched = 0;
 for (const row of rows) {
@@ -266,10 +314,13 @@ for (const row of rows) {
       continue;
     }
   }
+  await addressListed(record);
   const bytes = JSON.stringify(record);
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, bytes);
-  records.push({ repo: record.repo, revision: record.revision, sha256: sha256(bytes) });
+  // Named by both: SHA-256 for the readers that already check it, BLAKE3 so a
+  // reader checks a record without SHA-256 (HK-51).
+  records.push({ repo: record.repo, revision: record.revision, sha256: sha256(bytes), blake3: blake3Hex(bytes) });
 }
 
 const catalog = JSON.stringify(rows.filter((r) => records.some((x) => x.repo === r.id)));
@@ -294,12 +345,13 @@ for (let i = 0; i * SHARD_ROWS < ordered.length; i++) {
   const page = ordered.slice(i * SHARD_ROWS, (i + 1) * SHARD_ROWS);
   const bytes = JSON.stringify(page);
   await writeFile(join(out, "browse", `${i}.json`), bytes);
-  browse.push({ path: `browse/${i}.json`, rows: page.length, sha256: sha256(bytes) });
+  browse.push({ path: `browse/${i}.json`, rows: page.length, sha256: sha256(bytes), blake3: blake3Hex(bytes) });
 }
 
 const root = {
   format: "hologram.hub.index/v2",
   catalog: sha256(catalog),
+  catalogBlake3: blake3Hex(catalog),
   // The rule that produced the browse rows, published with them.
   rules: rulesVersion,
   browse,
@@ -339,5 +391,5 @@ const where = ["the catalog", "witnessed", ...owners]
   .map((s) => (s === "witnessed" ? `${counted(s)} witnessed` : `${counted(s)} from ${s}`)).join(", ");
 console.log(`index: ${records.length} records (${where}; ${fetched} fetched, ${records.length - fetched} reused), ${complete} complete, `
   + `${secondWitnessed} with a Pirate Face witness filling ${filled} addresses (${conflicts} disagreements), `
-  + `${browse.length} browse shards holding ${ordered.length} rows`);
+  + `${browse.length} browse shards holding ${ordered.length} rows, ${hashedFiles} listed files given their BLAKE3`);
 

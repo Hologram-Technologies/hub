@@ -22,6 +22,7 @@ import { fileURLToPath } from "node:url";
 import { instantiate } from "../../web/piece-hash.mjs";
 import { PIECE_LEN, decodeTable, foldTable } from "../../web/pieces.mjs";
 import { UOR_LABEL, uorAxis, uorShardOf } from "../../web/uorkey.mjs";
+import { blake3Hex } from "../../tools/blake3.mjs";
 
 const dir = process.argv[2];
 if (!dir) {
@@ -55,17 +56,49 @@ if (!root.shards.length) {
   process.exit(0);
 }
 
+// HK-52: an ONNX row has no κ-label. It names every file its tensors lie in by
+// the BLAKE3 its record names, and every tensor names one of those files and a
+// range inside it.
+const onnxRows = [];
+function checkOnnx(row) {
+  assert.equal(row.label, undefined, `${row.repo}/${row.path} is ONNX and carries a κ-label it was not minted with`);
+  assert.equal(row.sha256, undefined, `${row.repo}/${row.path} names content by SHA-256`);
+  assert.equal(root.onnx?.axis, "blake3", "the root must say ONNX tensors are addressed on the blake3 axis");
+  assert.ok(row.resolve?.startsWith("https://") && row.revision, `${row.repo}/${row.path} does not say where its bytes came from`);
+  const sizes = new Map(row.files.map((f) => [f.path, f.size]));
+  assert.equal(row.files[0]?.path, row.path, `${row.repo}/${row.path} does not name its own graph first`);
+  for (const f of row.files) assert.match(f.blake3 ?? "", /^[0-9a-f]{64}$/, `${row.repo}/${f.path} carries no BLAKE3`);
+  assert.ok(row.tensors.length, `${row.repo}/${row.path} has no tensors`);
+  for (const t of row.tensors) {
+    longTensors.push(t);
+    assert.ok(t.name && t.dtype && Array.isArray(t.shape), `${row.repo}/${row.path}: a tensor without a name, type or shape`);
+    assert.equal(uorAxis(t.address), "blake3", `${row.repo}/${row.path}:${t.name} is not addressed on the blake3 axis`);
+    assert.match(t.address, UOR_LABEL, `${row.repo}/${row.path}:${t.name} has no address`);
+    assert.ok(sizes.has(t.file), `${row.repo}/${row.path}:${t.name} lies in ${t.file}, which the row does not name`);
+    assert.ok(Number.isInteger(t.offset) && t.offset >= 0 && Number.isInteger(t.length) && t.offset + t.length <= sizes.get(t.file),
+              `${row.repo}/${row.path}:${t.name} runs past the end of ${t.file}`);
+  }
+  onnxRows.push(row);
+}
+
 let files = 0;
 let tensors = 0;
 for (const shard of root.shards) {
   const bytes = await readFile(join(dir, shard.path));
   assert.equal(sha256(bytes), shard.sha256, `${shard.path} is not the bytes the root names`);
+  assert.equal(blake3Hex(bytes), shard.blake3, `${shard.path} is not the bytes the root names by BLAKE3`);
   const rows = JSON.parse(bytes.toString("utf8"));
   assert.equal(rows.length, shard.rows, `${shard.path} holds ${rows.length} rows, the root says ${shard.rows}`);
   for (const row of rows) {
     // Filed where the page will look, by the page's own rule.
     assert.equal(await uorShardOf(row.repo, root.shardBits), shard.path,
                  `${row.repo} is filed in ${shard.path}, which is not where the page looks`);
+    if (row.realization === "onnx") {
+      checkOnnx(row);
+      files += 1;
+      tensors += row.tensors.length;
+      continue;
+    }
     // An address, and the form that minted it. Either alone is ambiguous.
     assert.match(row.label, UOR_LABEL, `${row.repo}/${row.path} has no canonical address`);
     assert.equal(typeof row.canonicalForm, "number", `${row.repo}/${row.path} does not say which canonical form minted it`);
@@ -132,6 +165,35 @@ ok(`${tables} tensors over 1 MiB each have a piece table that folds to their add
 assert.equal(files, root.counts.files, `the root counts ${root.counts.files} files, the shards hold ${files}`);
 assert.equal(tensors, root.counts.tensors, `the root counts ${root.counts.tensors} tensors, the shards hold ${tensors}`);
 ok("the root's counts are the shards' own");
+
+// The check a reader makes, made here once per ONNX file: one tensor's bytes,
+// fetched by a ranged read from where the row says they came from, hash to the
+// tensor's address. The tensor is the last small one in each file, so the
+// read is short and lies far from the start of the file.
+for (const row of onnxRows) {
+  for (const { path } of row.files) {
+    const t = row.tensors.filter((x) => x.file === path && x.length > 0 && x.length <= PIECE_LEN).at(-1);
+    if (!t) continue;
+    const response = await fetch(`${row.resolve}${t.file}`, { headers: { range: `bytes=${t.offset}-${t.offset + t.length - 1}` } });
+    assert.equal(response.status, 206, `${row.repo}/${t.file}: a ranged read answered ${response.status}`);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    assert.equal(`blake3:${blake3Hex(bytes)}`, t.address, `${row.repo}/${t.file}:${t.name}, read by range, is not its address`);
+  }
+}
+if (onnxRows.length) ok(`${onnxRows.length} ONNX graphs: in every file, one tensor read by range hashes to its address`);
+
+// Every graph manifests/onnx.txt lists is a row, or is unaddressed with the
+// reader's own refusal: none is dropped, and none is left to the old "no
+// canonical form" reason.
+const listedGraphs = (await readFile(fileURLToPath(new URL("../../manifests/onnx.txt", import.meta.url)), "utf8"))
+  .split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#") && /\.onnx$/i.test(l));
+for (const line of listedGraphs) {
+  const [repo, path] = line.split(/\s+/);
+  const row = onnxRows.some((r) => r.repo === repo && r.path === path);
+  const refused = root.unaddressed.find((u) => u.repo === repo && u.path === path);
+  assert.ok(row || refused?.why?.startsWith("onnx:"), `${repo}/${path} is listed in manifests/onnx.txt and is neither addressed nor refused by the reader`);
+}
+if (listedGraphs.length) ok(`${listedGraphs.length} listed ONNX graphs are each addressed or refused by name`);
 
 // What was not addressed is named, file by file, with a reason. A coverage
 // figure without this is a claim about the part nobody listed.

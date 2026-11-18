@@ -8,6 +8,8 @@ import { createHash } from "node:crypto";
 import { cp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { blake3Hex } from "../../tools/blake3.mjs";
+
 const [dir] = process.argv.slice(2);
 if (!dir) {
   console.error("usage: node tests/index/shards.mjs <index dir>");
@@ -51,6 +53,49 @@ try {
   refused = error.message;
 }
 check("a changed shard is refused", Boolean(refused), "it was read");
+await rm(work, { recursive: true, force: true });
+
+// HK-51: a reader without SHA-256. Every record, browse shard and the catalog
+// is the bytes whose BLAKE3 the root names, and every file manifests/onnx.txt
+// lists carries the BLAKE3 of its whole bytes in its record.
+async function byBlake3(base) {
+  const root = JSON.parse(await readFile(join(base, "root.json"), "utf8"));
+  const named = [
+    ...root.records.map((r) => [join("models", `${r.repo}.json`), r.blake3]),
+    ...root.browse.map((b) => [b.path, b.blake3]),
+    ["catalog.json", root.catalogBlake3],
+  ];
+  for (const [path, blake3] of named) {
+    if (!/^[0-9a-f]{64}$/.test(blake3 ?? "")) throw new Error(`the root names ${path} by no BLAKE3`);
+    if (blake3Hex(await readFile(join(base, path))) !== blake3) throw new Error(`${path} is not the bytes whose BLAKE3 the root names`);
+  }
+  return { root, named: named.length };
+}
+const byB3 = await byBlake3(dir);
+check("every record, browse shard and the catalog is the bytes the root names by BLAKE3", byB3.named === root.records.length + root.browse.length + 1, String(byB3.named));
+const listed = (await readFile(new URL("../../manifests/onnx.txt", import.meta.url), "utf8"))
+  .split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#")).map((l) => l.split(/\s+/));
+const missing = [];
+for (const [repo, path] of listed) {
+  const entry = root.records.find((r) => r.repo.toLowerCase() === repo.toLowerCase());
+  const record = entry && JSON.parse(await readFile(join(dir, "models", `${entry.repo}.json`), "utf8"));
+  const file = record?.files.find((f) => f.path === path);
+  if (!/^[0-9a-f]{64}$/.test(file?.blake3 ?? "")) missing.push(`${repo} ${path}`);
+}
+check(`every one of the ${listed.length} files manifests/onnx.txt lists carries its BLAKE3`, listed.length > 0 && !missing.length, missing.join(", "));
+// A record changed by one byte, with the root left as it was, is refused.
+await cp(dir, work, { recursive: true });
+const victim = join(work, "models", `${root.records[0].repo}.json`);
+const bytes = await readFile(victim);
+bytes[bytes.length - 2] ^= 1;
+await writeFile(victim, bytes);
+let refusedRecord = null;
+try {
+  await byBlake3(work);
+} catch (error) {
+  refusedRecord = error.message;
+}
+check("a changed record is refused by its BLAKE3", Boolean(refusedRecord), "it was read");
 await rm(work, { recursive: true, force: true });
 
 console.log(failures.length ? `\n${failures.map((f) => `FAIL ${f}`).join("\n")}` : "\nall checks passed");
