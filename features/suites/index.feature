@@ -87,3 +87,10 @@ Feature: index
     Then every initializer is a row tensor with its name, data type, shape, file, offset, length and the BLAKE3 of exactly those bytes as its address
     And a file whose bytes are not the BLAKE3 its record names, typed data, a length the dims do not make and a location outside the repository are each refused
     And one tensor in every file, read by range from where the row says its bytes came from, hashes to its address, and no ONNX row names content by SHA-256
+
+  @HK-54 @build
+  Scenario: A page with no server checks the index root against its Sigstore signature and the trust roots the model pins, a record against the root by BLAKE3, and a file against its record by BLAKE3, with web/hub-client.mjs, and every refusal carries a stable code
+    Given the published index, its Sigstore bundle, and the trust policy the hub's model pins
+    When a page opens the index with web/hub-client.mjs and reads a record and a file
+    Then the root is accepted only if all seven signature checks hold, the record only if its BLAKE3 is the root's, and the file only if its BLAKE3 and length are the record's
+    And a changed root, record or file, an unknown repository and an unaddressed file are each refused with their own code

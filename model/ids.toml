@@ -339,3 +339,9 @@ id = "HK-53"
 level = "build"
 suite = "surface"
 statement = "The edge reads the signed index root again when a record does not match the root it holds, so a deploy never leaves a model refused, and bytes no signed root names are still refused"
+
+[[id]]
+id = "HK-54"
+level = "build"
+suite = "index"
+statement = "A page with no server checks the index root against its Sigstore signature and the trust roots the model pins, a record against the root by BLAKE3, and a file against its record by BLAKE3, with web/hub-client.mjs, and every refusal carries a stable code"
