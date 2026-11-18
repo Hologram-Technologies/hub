@@ -2,16 +2,16 @@
 //! per-tensor leaf each address binds.
 //!
 //! The address is not this repository's. `uor-addr` publishes a canonical form
-//! per format and mints a 71-byte κ-label `sha256:<64hex>` from it, with the
+//! per format and mints a 71-byte κ-label `blake3:<64hex>` from it, with the
 //! property that two files decoding to the same logical content --- modulo
 //! metadata-key order, tensor order and tensor-data layout --- canonicalize to
 //! byte-identical skeletons and so to the same label. This binary calls that
 //! entry point. It reproduces the label; it does not establish it.
 //!
 //! What it adds is the part a reader can check without it. The canonical form
-//! represents every variable-length leaf by the streamed SHA-256 of its own
-//! bytes, so a tensor's leaf is the SHA-256 of that tensor's data region and
-//! nothing else. That is the number a client can re-derive from a ranged read
+//! represents every variable-length leaf by the BLAKE3 of its own bytes, so a
+//! tensor's leaf is the BLAKE3 of that tensor's data region and nothing else:
+//! the same 32 bytes as the tensor's own `blake3:` address. That is the number a client can re-derive from a ranged read
 //! of one tensor, with neither the whole file nor this hub's word for it.
 //! Printing the leaves is therefore not extra metadata: it is what makes a
 //! model-level label falsifiable one tensor at a time.
@@ -22,16 +22,15 @@
 //! failing is this binary's bug, and it then exits non-zero rather than
 //! printing an address.
 //!
-//!     uor-label <file.gguf>
+//!     uor-label <file.gguf | file.safetensors>
 
 use std::fmt::Write as _;
 use std::process::ExitCode;
 
-use sha2::{Digest, Sha256};
 use uor_addr::gguf::GgmlType;
 
 /// GGUF's own header is read for the tensor names, because the canonical form
-/// carries `sha256(name)` rather than the name: a skeleton alone cannot say
+/// carries `blake3(name)` rather than the name: a skeleton alone cannot say
 /// which tensor a leaf belongs to.
 const GGUF_MAGIC: u32 = 0x4655_4747;
 
@@ -76,8 +75,8 @@ impl<'a> Cursor<'a> {
 
 /// The bytes a GGUF metadata value of this type occupies in the canonical
 /// skeleton. `None` for the two whose canonical form is not a fixed width: a
-/// string (`LE_u64(len) || sha256`) and an array
-/// (`LE_u32(elem) || LE_u64(len) || sha256`).
+/// string (`LE_u64(len) || blake3`) and an array
+/// (`LE_u32(elem) || LE_u64(len) || blake3`).
 fn scalar_width(tag: u32) -> Option<usize> {
     match tag {
         0 | 1 | 7 => Some(1),
@@ -90,7 +89,7 @@ fn scalar_width(tag: u32) -> Option<usize> {
 
 /// One tensor as the canonical skeleton records it.
 struct Entry {
-    name_sha256: [u8; 32],
+    name_digest: [u8; 32],
     dims: Vec<u64>,
     ggml_type: u32,
     offset: u64,
@@ -137,8 +136,8 @@ fn tensors_of_skeleton(skeleton: &[u8]) -> Result<Vec<Entry>, String> {
 
     let mut out = Vec::with_capacity(usize::try_from(tensor_count).unwrap_or_default());
     for i in 0..tensor_count {
-        let mut name_sha256 = [0u8; 32];
-        name_sha256.copy_from_slice(c.take(32).map_err(|e| format!("tensor {i} name: {e}"))?);
+        let mut name_digest = [0u8; 32];
+        name_digest.copy_from_slice(c.take(32).map_err(|e| format!("tensor {i} name: {e}"))?);
         let n_dims = c.u32().map_err(|e| format!("tensor {i} rank: {e}"))?;
         let mut dims = Vec::with_capacity(usize::try_from(n_dims).unwrap_or_default());
         for d in 0..n_dims {
@@ -149,7 +148,7 @@ fn tensors_of_skeleton(skeleton: &[u8]) -> Result<Vec<Entry>, String> {
         let mut leaf = [0u8; 32];
         leaf.copy_from_slice(c.take(32).map_err(|e| format!("tensor {i} leaf: {e}"))?);
         out.push(Entry {
-            name_sha256,
+            name_digest,
             dims,
             ggml_type,
             offset,
@@ -321,64 +320,287 @@ fn json_string(value: &str) -> String {
 }
 
 /// The label and its leaves for one file, as JSON, or why neither can be given.
+///
+/// The file's own first bytes choose the realization, never its name: a GGUF
+/// file begins with the GGUF magic, and anything else is offered to the
+/// safetensors realization, which refuses what is not one.
 fn run(path: &str) -> Result<String, String> {
     let raw = std::fs::read(path).map_err(|e| format!("{path}: {e}"))?;
+    if raw.get(..4) == Some(&GGUF_MAGIC.to_le_bytes()[..]) {
+        run_gguf(path, &raw)
+    } else {
+        run_safetensors(path, &raw)
+    }
+}
 
-    // Both labels come from `uor-addr` and from nowhere else. Everything below
-    // only explains them.
-    //
-    // The axis is a choice; the canonical form is not. `address_blake3` and
-    // `address` fold the same skeleton through different hashes, so the two
-    // labels name the same bytes by different names. The blake3 one is
-    // published, because it is the axis this family addresses tensors on. The
-    // sha256 one is kept to check the skeleton with, below.
-    let blake3 = uor_addr::gguf::address_blake3(&raw)
-        .map_err(|e| format!("{path} is not a GGUF v3 file uor-addr will address: {e:?}"))?;
-    let label = blake3.address.as_str().to_owned();
-    let sha256_label = uor_addr::gguf::address(&raw)
-        .map_err(|e| format!("{path} did not address on the sha256 axis: {e:?}"))?
+/// The skeleton's first bytes under the safetensors realization, which differ
+/// from GGUF's so the two can never mint one label from two files.
+const SAFETENSORS_TAG: &[u8; 4] = b"SAFE";
+
+/// One tensor as the safetensors skeleton records it.
+struct SafeEntry {
+    name_digest: [u8; 32],
+    dtype_id: u32,
+    dims: Vec<u64>,
+    offset: u64,
+    leaf: [u8; 32],
+}
+
+/// Walks the safetensors canonical skeleton, whose layout is `uor-addr`'s and
+/// is documented in `uor_addr::safetensors::value`. As for GGUF, it is walked
+/// rather than assumed, and must be consumed exactly.
+fn tensors_of_safetensors_skeleton(skeleton: &[u8]) -> Result<Vec<SafeEntry>, String> {
+    let mut c = Cursor::new(skeleton);
+    let tag = c.take(4)?;
+    if tag != SAFETENSORS_TAG {
+        return Err(format!(
+            "skeleton starts {tag:02x?}, not the safetensors tag"
+        ));
+    }
+    let version = c.u32()?;
+    if version != uor_addr::safetensors::CANONICAL_FORM_VERSION {
+        return Err(format!(
+            "skeleton is canonical form {version}, this binary reads {}",
+            uor_addr::safetensors::CANONICAL_FORM_VERSION
+        ));
+    }
+    let tensor_count = c.u64()?;
+    let metadata_count = c.u64()?;
+    for i in 0..metadata_count {
+        c.take(32 + 8 + 32)
+            .map_err(|e| format!("metadata {i}: {e}"))?;
+    }
+    let mut out = Vec::with_capacity(usize::try_from(tensor_count).unwrap_or_default());
+    for i in 0..tensor_count {
+        let mut name_digest = [0u8; 32];
+        name_digest.copy_from_slice(c.take(32).map_err(|e| format!("tensor {i} name: {e}"))?);
+        let dtype_id = c.u32().map_err(|e| format!("tensor {i} dtype: {e}"))?;
+        let rank = c.u32().map_err(|e| format!("tensor {i} rank: {e}"))?;
+        let mut dims = Vec::with_capacity(usize::try_from(rank).unwrap_or_default());
+        for d in 0..rank {
+            dims.push(c.u64().map_err(|e| format!("tensor {i} dim {d}: {e}"))?);
+        }
+        let offset = c.u64().map_err(|e| format!("tensor {i} offset: {e}"))?;
+        let mut leaf = [0u8; 32];
+        leaf.copy_from_slice(c.take(32).map_err(|e| format!("tensor {i} leaf: {e}"))?);
+        out.push(SafeEntry {
+            name_digest,
+            dtype_id,
+            dims,
+            offset,
+            leaf,
+        });
+    }
+    if !c.done() {
+        return Err(format!(
+            "the skeleton has {} bytes left over, so the layout walked here is not the one it was given",
+            skeleton.len() - c.at
+        ));
+    }
+    Ok(out)
+}
+
+/// What the safetensors file itself declares about each tensor: its name and
+/// where its bytes are, which the skeleton deliberately does not say. Read
+/// only after `uor-addr` has admitted the file, so the header is already known
+/// to be one JSON object with exactly the fields the format allows.
+fn declared_of_safetensors(raw: &[u8]) -> Result<(Vec<Declared>, u64), String> {
+    let len_bytes: [u8; 8] = raw
+        .get(..8)
+        .and_then(|b| b.try_into().ok())
+        .ok_or("shorter than the 8-byte header length")?;
+    let header_len = u64::from_le_bytes(len_bytes);
+    let data_start = header_len.checked_add(8).ok_or("header length overflow")?;
+    let header = raw
+        .get(8..usize::try_from(data_start).map_err(|_| "header too long")?)
+        .ok_or("the header runs past the file")?;
+    let object: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_slice(header).map_err(|e| format!("header: {e}"))?;
+    let mut declared = Vec::with_capacity(object.len());
+    for (name, entry) in object {
+        if name == "__metadata__" {
+            continue;
+        }
+        let offsets = entry
+            .get("data_offsets")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| format!("tensor {name} has no data_offsets"))?;
+        let [begin, end] = offsets.as_slice() else {
+            return Err(format!("tensor {name} has {} data offsets", offsets.len()));
+        };
+        let (Some(begin), Some(end)) = (begin.as_u64(), end.as_u64()) else {
+            return Err(format!("tensor {name} has a data offset that is not a u64"));
+        };
+        let length = end
+            .checked_sub(begin)
+            .ok_or_else(|| format!("tensor {name} ends before it begins"))?;
+        declared.push(Declared {
+            name,
+            offset: begin,
+            length,
+        });
+    }
+    Ok((declared, data_start))
+}
+
+/// The safetensors counterpart of [`run_gguf`]: the same three checks, over
+/// the same promise that a leaf is the BLAKE3 of exactly the published range.
+fn run_safetensors(path: &str, raw: &[u8]) -> Result<String, String> {
+    let label = uor_addr::safetensors::address(raw)
+        .map_err(|e| {
+            format!(
+                "{path} is neither a GGUF v3 nor a safetensors file uor-addr will address: {e:?}"
+            )
+        })?
         .address
         .as_str()
         .to_owned();
-
-    let skeleton = uor_addr::gguf::canonicalize(&raw)
+    let skeleton = uor_addr::safetensors::canonicalize(raw)
         .map_err(|e| format!("{path} did not canonicalize: {e:?}"))?;
 
-    // The first check: κ is the σ-axis applied to the canonical form, so
-    // hashing the skeleton must give a label back. It is made on the sha256
-    // axis because that is the hash this binary carries; it holds the skeleton
-    // to the label just the same, since both axes are folded over these exact
-    // bytes. Without it, the leaves walked below might not be the ones either
-    // label was taken over, and no leaf read out of them would mean anything.
-    let restated = format!("sha256:{}", hex(&Sha256::digest(&skeleton)));
-    if restated != sha256_label {
+    let restated = format!("blake3:{}", hex(&b3(&skeleton)));
+    if restated != label {
         return Err(format!(
-            "hashing the canonical skeleton gives {restated}, but uor-addr's sha256 label is {sha256_label}"
+            "hashing the canonical skeleton gives {restated}, but uor-addr's label is {label}"
         ));
     }
 
-    let entries = tensors_of_skeleton(&skeleton)?;
-    let (declared, data_start) = declared_of_gguf(&raw)?;
-
-    // The second check: the skeleton carries `sha256(name)`, so a leaf is tied
-    // to a tensor only by matching that digest. A digest no tensor matches, or
-    // a tensor with no entry, is refused rather than guessed at.
+    let entries = tensors_of_safetensors_skeleton(&skeleton)?;
+    let (declared, data_start) = declared_of_safetensors(raw)?;
     let mut by_digest: Vec<([u8; 32], &Declared)> = declared
         .iter()
         .map(|d| {
             let mut digest = [0u8; 32];
-            digest.copy_from_slice(&Sha256::digest(d.name.as_bytes()));
+            digest.copy_from_slice(&b3(d.name.as_bytes()));
             (digest, d)
         })
         .collect();
 
     let mut rows = Vec::with_capacity(entries.len());
     for entry in &entries {
-        let found = by_digest.iter().position(|(d, _)| *d == entry.name_sha256);
+        let Some(index) = by_digest.iter().position(|(d, _)| *d == entry.name_digest) else {
+            return Err(format!(
+                "a tensor entry names blake3:{}, which no tensor in the file is called",
+                hex(&entry.name_digest)
+            ));
+        };
+        let (_, tensor) = by_digest.remove(index);
+        let begin = data_start
+            .checked_add(tensor.offset)
+            .ok_or("tensor offset overflow")?;
+        let end = begin
+            .checked_add(tensor.length)
+            .ok_or("tensor length overflow")?;
+        let range = raw
+            .get(
+                usize::try_from(begin).map_err(|_| "offset too large")?
+                    ..usize::try_from(end).map_err(|_| "offset too large")?,
+            )
+            .ok_or_else(|| {
+                format!(
+                    "tensor {} runs past the {} bytes of the file",
+                    tensor.name,
+                    raw.len()
+                )
+            })?;
+        let over_range = b3(range);
+        if over_range.as_slice() != entry.leaf {
+            return Err(format!(
+                "tensor {}: the canonical leaf is blake3:{}, but bytes {begin}..{end} hash to blake3:{}",
+                tensor.name,
+                hex(&entry.leaf),
+                hex(&over_range)
+            ));
+        }
+        let dtype = uor_addr::safetensors::SafetensorsDtype::all()
+            .find(|d| d.id() == entry.dtype_id)
+            .ok_or_else(|| {
+                format!(
+                    "tensor {} has dtype id {}, which uor-addr does not name",
+                    tensor.name, entry.dtype_id
+                )
+            })?;
+        let dims = entry
+            .dims
+            .iter()
+            .map(u64::to_string)
+            .collect::<Vec<_>>()
+            .join(",");
+        rows.push(format!(
+            "{{\"name\":{},\"dtype\":{},\"shape\":[{}],\"begin\":{},\"length\":{},\"canonicalOffset\":{},\"address\":\"blake3:{}\"}}",
+            json_string(&tensor.name),
+            json_string(dtype.name()),
+            dims,
+            begin,
+            tensor.length,
+            entry.offset,
+            hex(&entry.leaf)
+        ));
+    }
+    if !by_digest.is_empty() {
+        return Err(format!(
+            "{} tensors the file declares have no entry in the canonical skeleton",
+            by_digest.len()
+        ));
+    }
+
+    Ok(format!(
+        "{{\"format\":\"hologram.hub.uorlabel/v3\",\"file\":{},\"bytes\":{},\"realization\":\"safetensors\",\"canonicalForm\":{},\"label\":{},\"skeletonBytes\":{},\"dataStart\":{},\"tensors\":[{}]}}",
+        json_string(path),
+        raw.len(),
+        uor_addr::safetensors::CANONICAL_FORM_VERSION,
+        json_string(&label),
+        skeleton.len(),
+        data_start,
+        rows.join(",")
+    ))
+}
+
+/// The GGUF realization's label and leaves.
+fn run_gguf(path: &str, raw: &[u8]) -> Result<String, String> {
+    // The label comes from `uor-addr` and from nowhere else. Everything below
+    // only explains it.
+    let label = uor_addr::gguf::address(raw)
+        .map_err(|e| format!("{path} is not a GGUF v3 file uor-addr will address: {e:?}"))?
+        .address
+        .as_str()
+        .to_owned();
+
+    let skeleton = uor_addr::gguf::canonicalize(raw)
+        .map_err(|e| format!("{path} did not canonicalize: {e:?}"))?;
+
+    // The first check: κ is the σ-axis applied to the canonical form, so
+    // hashing the skeleton must give the label back. Without it, the leaves
+    // walked below might not be the ones the label was taken over, and no leaf read out of them would mean anything.
+    let restated = format!("blake3:{}", hex(&b3(&skeleton)));
+    if restated != label {
+        return Err(format!(
+            "hashing the canonical skeleton gives {restated}, but uor-addr's label is {label}"
+        ));
+    }
+
+    let entries = tensors_of_skeleton(&skeleton)?;
+    let (declared, data_start) = declared_of_gguf(raw)?;
+
+    // The second check: the skeleton carries `blake3(name)`, so a leaf is tied
+    // to a tensor only by matching that digest. A digest no tensor matches, or
+    // a tensor with no entry, is refused rather than guessed at.
+    let mut by_digest: Vec<([u8; 32], &Declared)> = declared
+        .iter()
+        .map(|d| {
+            let mut digest = [0u8; 32];
+            digest.copy_from_slice(&b3(d.name.as_bytes()));
+            (digest, d)
+        })
+        .collect();
+
+    let mut rows = Vec::with_capacity(entries.len());
+    for entry in &entries {
+        let found = by_digest.iter().position(|(d, _)| *d == entry.name_digest);
         let Some(index) = found else {
             return Err(format!(
-                "a tensor-info entry names sha256:{}, which no tensor in the file is called",
-                hex(&entry.name_sha256)
+                "a tensor-info entry names blake3:{}, which no tensor in the file is called",
+                hex(&entry.name_digest)
             ));
         };
         let (_, tensor) = by_digest.remove(index);
@@ -408,7 +630,7 @@ fn run(path: &str) -> Result<String, String> {
         // bytes. Both are printed because confusing them would send a reader
         // to the wrong range.
         rows.push(format!(
-            "{{\"name\":{},\"ggmlType\":{},\"shape\":[{}],\"begin\":{},\"length\":{},\"canonicalOffset\":{},\"uorLeaf\":\"sha256:{}\"}}",
+            "{{\"name\":{},\"ggmlType\":{},\"shape\":[{}],\"begin\":{},\"length\":{},\"canonicalOffset\":{},\"address\":\"blake3:{}\"}}",
             json_string(&tensor.name),
             entry.ggml_type,
             dims,
@@ -419,19 +641,18 @@ fn run(path: &str) -> Result<String, String> {
         ));
 
         // The third check, and the one a reader of the index actually relies
-        // on: the leaf must be the SHA-256 of exactly this byte range. If it
+        // on: the leaf must be the BLAKE3 of exactly this byte range. If it
         // is not, the range published beside it would send a client to bytes
         // that cannot match, and the whole point of the row is lost.
-        let over_range = Sha256::digest(
-            raw.get(
+        let over_range = b3(raw
+            .get(
                 usize::try_from(begin).map_err(|_| "offset too large")?
                     ..usize::try_from(end).map_err(|_| "offset too large")?,
             )
-            .ok_or("tensor range outside the file")?,
-        );
+            .ok_or("tensor range outside the file")?);
         if over_range.as_slice() != entry.leaf {
             return Err(format!(
-                "tensor {}: the canonical leaf is sha256:{}, but bytes {begin}..{end} hash to sha256:{}",
+                "tensor {}: the canonical leaf is blake3:{}, but bytes {begin}..{end} hash to blake3:{}",
                 tensor.name,
                 hex(&entry.leaf),
                 hex(&over_range)
@@ -446,22 +667,27 @@ fn run(path: &str) -> Result<String, String> {
     }
 
     Ok(format!(
-        "{{\"format\":\"hologram.hub.uorlabel/v2\",\"file\":{},\"bytes\":{},\"realization\":\"gguf\",\"canonicalForm\":{},\"label\":{},\"sha256Label\":{},\"skeletonBytes\":{},\"dataStart\":{},\"tensors\":[{}]}}",
+        "{{\"format\":\"hologram.hub.uorlabel/v3\",\"file\":{},\"bytes\":{},\"realization\":\"gguf\",\"canonicalForm\":{},\"label\":{},\"skeletonBytes\":{},\"dataStart\":{},\"tensors\":[{}]}}",
         json_string(path),
         raw.len(),
         uor_addr::gguf::CANONICAL_FORM_VERSION,
         json_string(&label),
-        json_string(&sha256_label),
         skeleton.len(),
         data_start,
         rows.join(",")
     ))
 }
 
+/// The BLAKE3 of `bytes`: the hash `uor-addr` folds every leaf, name and
+/// skeleton through.
+fn b3(bytes: &[u8]) -> [u8; 32] {
+    *blake3::hash(bytes).as_bytes()
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let [path] = args.as_slice() else {
-        eprintln!("usage: uor-label <file.gguf>");
+        eprintln!("usage: uor-label <file.gguf | file.safetensors>");
         return ExitCode::from(64);
     };
     match run(path) {

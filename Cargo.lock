@@ -417,9 +417,9 @@ checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
 
 [[package]]
 name = "uor-addr"
-version = "0.2.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b6e2d88d6ef066384c4eccbadc6dca625657493096b0776081dc106cd552eb6"
+checksum = "194f12cd97fe7e31152df00bb337a2a8fd102dc99837052d5466220ab64f8ba9"
 dependencies = [
  "ryu",
  "uor-foundation",
@@ -452,7 +452,8 @@ dependencies = [
 name = "uor-label"
 version = "0.1.0"
 dependencies = [
- "sha2 0.10.9",
+ "blake3",
+ "serde_json",
  "uor-addr",
 ]
 

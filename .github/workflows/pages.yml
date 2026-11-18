@@ -244,6 +244,12 @@ jobs:
       - name: Every address shard is the bytes its root names
         shell: bash
         run: node tests/uor/index.mjs "$RUNNER_TEMP/uor"
+      # The verifier a client runs (web/uor-verify.py, published at the site
+      # root) must accept files whose rows this minter wrote and refuse each
+      # planted change, naming what changed (HK-38).
+      - name: The standalone verifier accepts minted files and refuses changed ones
+        shell: bash
+        run: python3 -I tests/uor/verify.py "$PWD/target/release/uor-label"
       - name: Sign the address root as this repository's workflow
         id: uorsig
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
@@ -253,7 +259,7 @@ jobs:
           # The addresser is named because the label depends on it: a canonical
           # form is only canonical while the code and the form version are
           # fixed, and both are published in the root beside every label.
-          predicate: '{"tool":"tools/uor-index.mjs","addresser":"uor-addr 0.2.0","canonicalForm":2,"bytes":"https://huggingface.co"}'
+          predicate: '{"tool":"tools/uor-index.mjs","addresser":"uor-addr 0.4.0","canonicalForms":{"gguf":3,"safetensors":2},"bytes":"https://huggingface.co"}'
           show-summary: false
 
       # ---- the roll: every model Hugging Face has ever listed

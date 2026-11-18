@@ -19,14 +19,18 @@ workspace = true
 
 [dependencies]
 # The canonical form and the κ-label are this crate's, not ours. `uor-addr`
-# publishes a canonical form per format and mints `sha256:<64hex>` from it; this
+# publishes a canonical form per format and mints `blake3:<64hex>` from it; this
 # binary calls that entry point and reads the skeleton it canonicalizes. Pinned
 # to an exact released version because an address that moves is not an address:
 # `CANONICAL_FORM_VERSION` is reported beside every label so a reader can tell
 # which form produced it.
-uor-addr = "=0.2.0"
+uor-addr = "=0.4.0"
 # For the two checks this binary makes against the skeleton it is given: that
 # hashing the skeleton reproduces the label `uor-addr` returned, and that each
 # tensor-info entry names the tensor the file calls it. Neither is a second
 # source for the address; both are ways of refusing a skeleton we misread.
-sha2 = "=0.10.9"
+blake3 = "=1.5.5"
+# A safetensors header is JSON, read only for each tensor's name and byte range,
+# which the canonical skeleton does not carry. It is read after `uor-addr` has
+# admitted the file, so it is never the source of an address.
+serde_json = "=1.0.154"

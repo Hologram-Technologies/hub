@@ -17,45 +17,34 @@ proved in a run here, and nothing below is proved.
 
 ## What the address is, and whose it is
 
-`uor-addr 0.2.0` (crates.io, 2026-05-24, Apache-2.0) publishes a canonical form
-per format and mints a 71-byte κ-label `sha256:<64hex>` from it. For GGUF v3 the
-canonical form is canonical form 2 under ADR-060: a flat Merkle skeleton of the
-header, the metadata keys sorted by key bytes and the tensor info sorted by name
-bytes with recomputed offsets, in which **every variable-length leaf is
-represented by the streamed SHA-256 of its own bytes**.
+`uor-addr 0.4.0` (crates.io, 2026-11-17, Apache-2.0) publishes a canonical form
+per format and mints a 71-byte κ-label `blake3:<64hex>` from it. For GGUF v3 the
+canonical form is canonical form 3: a flat Merkle skeleton of the header, the
+metadata keys sorted by key bytes and the tensor info sorted by name bytes with
+recomputed offsets, in which **every variable-length leaf is represented by the
+BLAKE3 of its own bytes**. Safetensors is canonical form 2, with the same leaf
+rule.
 
 Two consequences, both upstream's and neither established here. They are cited
-in `model/authorities.toml` as `UOR-ADDR-0-2-0`.
+in `model/authorities.toml` as `UOR-ADDR-0-4-0`.
 
 - Two files that decode to the same logical content — modulo metadata-key order,
   tensor order and tensor-data layout — canonicalize to byte-identical skeletons
   and so to the same label. The same tensors have the same address wherever they
   come from.
-- A tensor's leaf is the SHA-256 of that tensor's own data region and nothing
+- A tensor's leaf is the BLAKE3 of that tensor's own data region and nothing
   else. It is not a hash of a hash, and it does not depend on the file around it.
 
-The axis is a separate matter from the canonical form, and the distinction cost
-this repository a decision to get right. `uor-addr` exposes `address_blake3`
-beside `address`, but the canonical form fixes its **leaves** to SHA-256 by
-definition: the axis is applied to the finished skeleton, so `address_blake3`
-yields `blake3(skeleton-with-sha256-leaves)`. Read from the 0.2.0 crate source,
-`crates/uor-addr/src/gguf/mod.rs`, and the ONNX realization says the same. So
-choosing an axis changes a model's label and cannot change a tensor's leaf.
+So a tensor has one number, and every party computes the same one: it is
+`uor-addr`'s canonical-form leaf, the number the model label binds, what
+`runner/uor.mjs` emits, hologram's `substrate.rs` leaf identity and the Q
+engine's block name. A row carries it as `address`. Until 0.4.0 the canonical
+form fixed its leaves to SHA-256, so this index carried a second number beside
+it; that number is gone, and `tests/uor/index.mjs` refuses a row that brings it
+back.
 
-That leaves two numbers per tensor, and this repository publishes both, each
-labelled as whose it is:
-
-| In a row | What it is | Whose |
-| --- | --- | --- |
-| `address` | BLAKE3 over the tensor's own raw bytes | this hub's, the same number `runner/uor.mjs` emits, matching hologram's `substrate.rs` leaf identity and the Q engine's block names |
-| `uorLeaf` | SHA-256 of the same bytes | `uor-addr`'s canonical-form leaf, and what the model label binds |
-
-Both are 71 bytes, because both prefixes are seven characters. A reader decides
-the axis from the prefix and never from the length; `web/uorkey.mjs` does, and
-`HK-25` is partly there to keep it that way.
-
-The second is the one that pays. It means a reader can check one tensor from a
-ranged read, and the skeleton stays small whatever the model weighs.
+That is the property that pays. A reader can check one tensor from a ranged
+read, and the skeleton stays small whatever the model weighs.
 
 ## Measured, on a real file
 
@@ -65,9 +54,8 @@ ranged read, and the skeleton stays small whatever the model weighs.
 
 | | |
 | --- | --- |
-| κ-label, blake3 axis (published) | `blake3:0df83c209a7db6f42c40975dfb63cdaa2aa0c58bc7d272c0b8b72f7b851878c9` |
-| the same skeleton, sha256 axis | `sha256:cef511af809a72bd9a826959c1e91757618dae8903d9aabf5d87258ff947f7a3` |
-| canonical form | 2 |
+| κ-label (canonical form 3, re-minted 2026-11-17) | `blake3:37b0e3e9be2f76ef5c7f88a1365ac5c6cc3deb5124ea73cadc9976a8c309a813` |
+| canonical form | 3 |
 | skeleton | 4,360 bytes |
 | data section starts at | byte 2,240 |
 
@@ -81,15 +69,15 @@ is bytes 2,240 to 12,479 of the file:
 
 | How the 10,240 bytes were got | Result |
 | --- | --- |
-| read from the local file | `sha256:e1786cdbca6a909eb764566a745ecb21aaa30b7f39f956b7f31b003baff87e1e` |
-| `curl` with `Range: bytes=2240-12479` | 206, 10,240 bytes, 0.537 s, same digest |
-| a browser's `fetch`, cross-origin from an unrelated site | 206, `type: "cors"`, 763 ms, same digest |
+| `curl` with `Range: bytes=2240-12479` (2026-11-16) | 206, 10,240 bytes, 0.537 s |
+| a browser's `fetch`, cross-origin from an unrelated site (2026-11-16) | 206, `type: "cors"`, 763 ms |
 
-All three equal the leaf the canonical form publishes. The same range taken with
-BLAKE3 gives the tensor's published address,
-`blake3:f26f2448d865fe3e8466f479b08117e1998a923b0f4941be23d02373d737935e`, and
-the builder's number and the vendored implementation's agree on it — which is
-the check that the builder, `runner/uor.mjs` and the page cannot drift apart. So a visitor's own browser
+The BLAKE3 of that range is
+`blake3:f26f2448d865fe3e8466f479b08117e1998a923b0f4941be23d02373d737935e`. It was
+the tensor's published address on 2026-11-16, and on 2026-11-17 `uor-label`
+under `uor-addr 0.4.0` printed exactly that number as the tensor's canonical-form
+leaf: one identity, re-derived by the builder, `runner/uor.mjs` and the page
+alike. So a visitor's own browser
 can check a tensor's canonical address against the source, over one ranged read,
 without the file and without this hub's word for anything. That is what the
 model page's address tab offers, and the verdict it shows is the kernel's accept
@@ -130,14 +118,11 @@ the index" so that what a build will spend is readable before it spends it.
 The root names every file it did not address, with a reason, because a coverage
 count means nothing without it. Three reasons occur:
 
-- **Not a format read here.** Safetensors is 196 of the 440 addressed records and
-  `uor-addr 0.2.0` has no safetensors realization. Inventing one locally would
-  mint labels that a later upstream realization would contradict, so none is
-  minted. Those records keep the per-tensor BLAKE3 address `runner/uor.mjs`
-  defines, which is this repository's own and is labelled as such. ONNX has an
-  upstream realization, but its skeleton is protobuf and the layout its leaves
-  sit in has not been read here, so its 5 records are left alone rather than
-  addressed by guesswork.
+- **Not a format read here.** ONNX has an upstream realization, but its
+  skeleton is protobuf and the layout its leaves sit in has not been read here,
+  so ONNX files are left alone rather than addressed by guesswork. Safetensors
+  is no longer in this group: `uor-addr` addresses it, canonical form 2 since
+  0.4.0, with the same leaf rule as GGUF (`HK-35`).
 - **Larger than the build reads whole.** A file past the limit is named with its
   size.
 - **Refused by the addresser.** `uor-addr` addresses GGUF v3 and refuses anything

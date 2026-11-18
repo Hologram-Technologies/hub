@@ -30,7 +30,7 @@ let checks = 0;
 const ok = (what) => { checks += 1; console.log(`  ok  ${what}`); };
 
 const root = JSON.parse(await readFile(join(dir, "root.json"), "utf8"));
-assert.equal(root.format, "hologram.hub.uor/v2");
+assert.equal(root.format, "hologram.hub.uor/v3");
 assert.equal(typeof root.shardBits, "number");
 assert.ok(root.shardBits >= 1 && root.shardBits <= 16, "shardBits is 1 to 16");
 assert.equal(root.addresser?.crate, "uor-addr");
@@ -64,26 +64,27 @@ for (const shard of root.shards) {
     // An address, and the form that minted it. Either alone is ambiguous.
     assert.match(row.label, UOR_LABEL, `${row.repo}/${row.path} has no canonical address`);
     assert.equal(typeof row.canonicalForm, "number", `${row.repo}/${row.path} does not say which canonical form minted it`);
-    assert.equal(row.canonicalForm, root.canonicalForm, `${row.repo}/${row.path} was minted under a different form than the root names`);
+    assert.ok(root.addresser.realizations.includes(row.realization), `${row.repo}/${row.path} is a ${row.realization} row, which the root's addresser does not name`);
+    assert.equal(row.canonicalForm, root.canonicalForms[row.realization], `${row.repo}/${row.path} was minted under a different form than the root names for ${row.realization}`);
     // Where the bytes came from, so a reader checks at the place the label was
     // taken over rather than at a host name the page carries.
     assert.ok(row.resolve?.startsWith("https://"), `${row.repo}/${row.path} does not say where its bytes came from`);
     assert.ok(row.revision, `${row.repo}/${row.path} names no revision`);
     assert.ok(row.tensors.length, `${row.repo}/${row.path} has no tensors`);
     for (const t of row.tensors) {
-      // Two numbers for the same bytes, each saying whose it is: the hub's
-      // blake3 address and uor-addr's sha256 canonical-form leaf. A row that
-      // carried only one of them, or the same number twice, would have lost
-      // the distinction the whole arrangement rests on.
+      // One number per tensor: the BLAKE3 of its bytes, which is uor-addr's
+      // canonical-form leaf and what the model label binds. A second number
+      // beside it would be a second identity for the same bytes.
       assert.equal(uorAxis(t.address), "blake3", `${row.repo}/${row.path}:${t.name} is not addressed on the blake3 axis`);
-      assert.equal(uorAxis(t.uorLeaf), "sha256", `${row.repo}/${row.path}:${t.name} has no uor-addr leaf`);
-      assert.notEqual(t.address.slice(7), t.uorLeaf.slice(7), `${row.repo}/${row.path}:${t.name} gives one digest two axes`);
-      assert.match(t.uorLeaf, UOR_LABEL, `${row.repo}/${row.path}:${t.name} has no address`);
+      assert.match(t.address, UOR_LABEL, `${row.repo}/${row.path}:${t.name} has no address`);
+      assert.equal(t.uorLeaf, undefined, `${row.repo}/${row.path}:${t.name} carries a second tensor address`);
       // The range a reader needs. Without it the only way to check a tensor is
       // to take the whole file, which is the cost this index exists to avoid.
       assert.ok(Number.isInteger(t.begin) && t.begin >= row.dataStart,
                 `${row.repo}/${row.path}:${t.name} begins before the data section`);
-      assert.ok(Number.isInteger(t.length) && t.length > 0,
+      // safetensors admits a tensor with a zero dimension, whose range is
+      // empty and whose leaf is the BLAKE3 of no bytes; GGUF has none.
+      assert.ok(Number.isInteger(t.length) && (t.length > 0 || row.realization === "safetensors"),
                 `${row.repo}/${row.path}:${t.name} has no length`);
       assert.ok(t.begin + t.length <= row.size,
                 `${row.repo}/${row.path}:${t.name} runs past the end of the file`);
